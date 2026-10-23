@@ -1,0 +1,13 @@
+{
+  "schema_version": 1,
+  "pack_version": "0.1.0",
+  "profile_id": "alfa.giulia.qv.2017.2_9t",
+  "manufacturer": "Alfa Romeo",
+  "model": "Giulia Quadrifoglio",
+  "model_year": 2017,
+  "engine": "2.9L twin-turbo V6",
+  "transmission": "ZF 8-speed",
+  "network_scope": "primary_drivetrain_only",
+  "status": "bootstrap_placeholder",
+  "validated_signals": false
+}

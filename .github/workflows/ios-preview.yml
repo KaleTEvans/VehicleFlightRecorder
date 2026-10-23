@@ -1,0 +1,137 @@
+name: iOS Simulator Preview
+
+on:
+  workflow_dispatch:
+    inputs:
+      upload_to_appetize:
+        description: "Upload mock-only build to Appetize using account access defaults (requires secret)"
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ios-preview
+  cancel-in-progress: false
+
+jobs:
+  simulator:
+    runs-on: macos-15
+    timeout-minutes: 30
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Report Apple toolchain
+        run: |
+          xcode-select -p
+          xcodebuild -version
+          xcodebuild -showsdks
+          uname -m
+
+      - name: Generate existing XcodeGen project
+        run: |
+          if ! command -v xcodegen >/dev/null; then
+            brew install xcodegen
+          fi
+          xcodegen --version
+          ./scripts/generate_xcode_project.sh
+
+      - name: Build real SwiftUI app for ARM iOS Simulator
+        run: |
+          xcodebuild \
+            -project ios/VehicleFlightRecorder.xcodeproj \
+            -scheme VehicleFlightRecorder \
+            -configuration Debug \
+            -sdk iphonesimulator \
+            -destination 'generic/platform=iOS Simulator' \
+            -derivedDataPath build/ios-preview/DerivedData \
+            ARCHS=arm64 ONLY_ACTIVE_ARCH=NO CODE_SIGNING_ALLOWED=NO build
+
+      - name: Verify and package simulator app
+        run: |
+          python3 scripts/package_ios_preview.py \
+            build/ios-preview/DerivedData/Build/Products/Debug-iphonesimulator \
+            build/ios-preview/VehicleFlightRecorder-simulator.zip
+
+      # Keep the ZIP even if the optional external upload fails later.
+      - name: Publish simulator ZIP
+        id: artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: VehicleFlightRecorder-ios-simulator
+          path: build/ios-preview/VehicleFlightRecorder-simulator.zip
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Report downloadable build
+        env:
+          ARTIFACT_URL: ${{ steps.artifact.outputs.artifact-url }}
+        run: |
+          {
+            echo '## iOS Simulator build'
+            echo 'Unsigned native SwiftUI shell; MOCK / SIMULATOR, disconnected.'
+            echo 'No Go recorder is linked. No vehicle connection or commands.'
+            printf '\n[Download build artifact](%s)\n' "$ARTIFACT_URL"
+            echo 'Artifact: VehicleFlightRecorder-ios-simulator (14-day retention).'
+            echo 'Extract the GitHub artifact once, then upload VehicleFlightRecorder-simulator.zip to Appetize.'
+            echo 'The inner ZIP contains VehicleFlightRecorder.app at its root.'
+            echo 'Browser launch remains unverified until someone opens the preview and observes the screen.'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Check optional Appetize configuration
+        id: appetize_config
+        env:
+          APPETIZE_API_TOKEN: ${{ secrets.APPETIZE_API_TOKEN }}
+          UPLOAD_REQUESTED: ${{ inputs.upload_to_appetize }}
+        run: |
+          if [[ "$UPLOAD_REQUESTED" == true && -n "$APPETIZE_API_TOKEN" ]]; then
+            echo 'enabled=true' >> "$GITHUB_OUTPUT"
+          else
+            echo 'enabled=false' >> "$GITHUB_OUTPUT"
+            {
+              echo '### Appetize upload skipped'
+              echo 'Upload was disabled or APPETIZE_API_TOKEN is not configured.'
+              echo 'Download the artifact above, extract it once, and upload the inner simulator ZIP at https://appetize.io/upload.'
+              echo 'For automatic upload, add repository secret APPETIZE_API_TOKEN and rerun with upload enabled.'
+              echo 'Optional repository secret APPETIZE_PUBLIC_KEY updates an existing preview.'
+            } >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - name: Upload mock-only build to Appetize
+        id: appetize
+        if: steps.appetize_config.outputs.enabled == 'true'
+        uses: appetizeio/github-action-appetize@v1.1.0
+        with:
+          apiToken: ${{ secrets.APPETIZE_API_TOKEN }}
+          publicKey: ${{ secrets.APPETIZE_PUBLIC_KEY }}
+          platform: ios
+          appFile: build/ios-preview/VehicleFlightRecorder-simulator.zip
+          fileType: zip
+          note: Vehicle Flight Recorder - Milestone 0.5 mock-only simulator shell
+          timeout: '120'
+
+      - name: Report Appetize upload result
+        if: ${{ always() && steps.appetize_config.outputs.enabled == 'true' }}
+        env:
+          UPLOAD_OUTCOME: ${{ steps.appetize.outcome }}
+          PREVIEW_KEY: ${{ steps.appetize.outputs.publicKey }}
+        run: |
+          if [[ "$UPLOAD_OUTCOME" == success && -n "$PREVIEW_KEY" ]]; then
+            {
+              echo '### Appetize upload succeeded'
+              printf '\n[Open browser preview](https://appetize.io/app/%s)\n' "$PREVIEW_KEY"
+              echo 'If a reused key is masked, open the corresponding build in your Appetize dashboard.'
+              echo 'Only mock/disconnected state is available. Launch and UI observation are still manual checks.'
+              echo 'Build links may be accessible to anyone holding the link; review Appetize App Permissions before sharing.'
+            } >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo '### Appetize upload failed or returned no preview key; use the saved GitHub artifact for manual upload.' >> "$GITHUB_STEP_SUMMARY"
+            exit 1
+          fi

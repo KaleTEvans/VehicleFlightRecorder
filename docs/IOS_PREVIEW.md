@@ -6,8 +6,13 @@ The pipeline targets the existing SwiftUI shell. The
 [remote macOS build and simulator artifact publication passed](https://github.com/KaleTEvans/VehicleFlightRecorder/actions/runs/40019569605)
 for source commit `1c443b2bd429efa25b7a42e3118f5745ab3bb465` on October 23, 2026.
 The [Linux CI run passed](https://github.com/KaleTEvans/VehicleFlightRecorder/actions/runs/40019569099)
-for the same source. **Appetize upload and observed browser launch: PENDING USER
-VERIFICATION.** A successful upload is not an observed application launch.
+for the same source. A subsequent
+[build and automated Appetize upload passed](https://github.com/KaleTEvans/VehicleFlightRecorder/actions/runs/40019983986)
+for commit `2c4a3e96c9af8305f0b7541dafb7100a00b33759`.
+The [actual Appetize preview](https://appetize.io/app/nrnzclustneju2ltjppkozdkta) and
+[latest build artifact](https://github.com/KaleTEvans/VehicleFlightRecorder/actions/runs/40019983986/artifacts/12530681097)
+are available. **Observed browser launch: PENDING USER VERIFICATION.** A successful
+upload is not an observed application launch.
 Milestone 1 has not started.
 
 The actual downloaded ZIP passed local integrity and root-layout verification.
@@ -147,7 +152,10 @@ The workflow uses the official `appetizeio/github-action-appetize@v1.1.0`, verif
 against its tagged inputs and the upstream documented release. It passes `apiToken`,
 optional `publicKey`, `platform: ios`, and the local ZIP as `appFile`. A successful
 response returns `publicKey`; only then does the summary create the browser link.
-If a reused secret key is masked, retrieve the build link from the Appetize dashboard.
+The repository now has both secret names configured. The public key returned by
+the first successful upload was saved as `APPETIZE_PUBLIC_KEY`, so later uploads
+update that preview. If a reused secret key is masked, retrieve the build link
+from the Appetize dashboard.
 A failed upload leaves the earlier artifact available; fix the token/key/quota or
 use manual upload. Never print the API token to troubleshoot authentication.
 
@@ -176,6 +184,11 @@ device/OS selection, and observed result. Upload success alone proves neither
 launch nor correct rendering. Record failure/plan limits separately if no launch
 can be observed. Do not mark Milestone 0.5 complete until the remote build and
 browser launch are actually verified.
+
+The computer-use connector was attempted from this WSL task and failed before
+browser inspection with `sandboxCwd is not a local file URI`, including after a
+kernel reset. Therefore the browser smoke test requires the user's direct
+observation in this environment; no automated screenshot/launch is claimed.
 
 | Simulator preview now | Device testing later |
 | --- | --- |

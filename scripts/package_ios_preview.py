@@ -56,7 +56,7 @@ def main() -> None:
     app = discover_app(args.products.resolve())
     with (app / "Info.plist").open("rb") as source:
         executable = plistlib.load(source)["CFBundleExecutable"]
-    subprocess.run(["xcrun", "lipo", "-verify_arch", "arm64", str(app / executable)], check=True)
+    subprocess.run(["xcrun", "lipo", str(app / executable), "-verify_arch", "arm64"], check=True)
     output = args.output.resolve()
     output.parent.mkdir(parents=True, exist_ok=True)
     if output.exists():

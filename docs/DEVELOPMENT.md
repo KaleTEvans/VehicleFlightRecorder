@@ -209,8 +209,9 @@ in Milestone 4. Building an XCFramework does not build or launch an iOS app.
 
 WSL can run Go/Python and packaging checks and workflow linting. Mac scripts exit
 nonzero with clear platform messages on Linux. GitHub's macOS workflow performs
-project generation, unsigned simulator compilation, and packaging remotely; a
-successful run and observed Appetize launch remain pending until evidenced.
+project generation, unsigned simulator compilation, and packaging remotely. The
+first corrected remote build passed; the actual ZIP was downloaded and verified.
+Appetize upload/observed launch remain pending; see IOS_PREVIEW.md for run evidence.
 Signing, device compilation/distribution, capability/entitlement validation, future
 framework binding, and ExternalAccessory behavior require later work. A simulator
 preview cannot prove background hardware behavior or live MX+ connectivity.

@@ -2,10 +2,21 @@
 
 ## Current acceptance status
 
-The local pipeline implementation targets the existing SwiftUI shell. **Remote
-build ZIP and observed Appetize launch: PENDING USER VERIFICATION** until a real
-run provides evidence. A workflow file, packaging fixture, or upload success is
-not an observed application launch. Milestone 1 has not started.
+The pipeline targets the existing SwiftUI shell. The
+[remote macOS build and simulator artifact publication passed](https://github.com/KaleTEvans/VehicleFlightRecorder/actions/runs/40019569605)
+for source commit `1c443b2bd429efa25b7a42e3118f5745ab3bb465` on October 23, 2026.
+The [Linux CI run passed](https://github.com/KaleTEvans/VehicleFlightRecorder/actions/runs/40019569099)
+for the same source. **Appetize upload and observed browser launch: PENDING USER
+VERIFICATION.** A successful upload is not an observed application launch.
+Milestone 1 has not started.
+
+The actual downloaded ZIP passed local integrity and root-layout verification.
+Its metadata identifies the approved app/version, `iPhoneSimulator`, Xcode 16.4,
+and Simulator SDK 18.5. The artifact is
+[VehicleFlightRecorder-ios-simulator](https://github.com/KaleTEvans/VehicleFlightRecorder/actions/runs/40019569605/artifacts/12529323361).
+Its inner ZIP SHA256 is
+`63eb3a62ba9ae5d3a8c01c955849470d461b87aeab82dece2ce7e3fccde0b98d`.
+Artifacts expire after 14 days; rerun the workflow if needed.
 
 ## What runs where
 
@@ -106,6 +117,8 @@ gh run list --workflow ios-preview.yml --repo KaleTEvans/VehicleFlightRecorder
 Workflow file: `.github/workflows/ios-preview.yml`. It is manual-only and uses
 `contents: read`, a 30-minute timeout, and serialized runs to avoid racing updates
 to a reused preview. Existing Linux CI continues to run on pushes/pull requests.
+The first remote attempt compiled successfully but failed the packager's `lipo`
+argument ordering; the corrected run above passed all build/packaging steps.
 
 ## Artifact download and manual Appetize upload
 

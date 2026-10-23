@@ -4,7 +4,9 @@
 
 Work at `~/dev/VehicleFlightRecorder`; this directory is the monorepo. Milestone 0
 established the foundation; Milestone 0.5 prepares remote simulator builds and
-browser previews. Read the MVP and enterprise plans in `planning/` and the active
+browser previews. Milestone 1 adds the local Go recorder/healthy generator and
+Python validation/summary commands. Follow [MILESTONE_1.md](MILESTONE_1.md) to
+generate and inspect a real synthetic session. Read the plans in `planning/` and the active
 milestone assignment before implementation. Explicit task instructions take
 precedence, followed by the MVP plan and then the enterprise roadmap.
 
@@ -78,6 +80,10 @@ The root script runs Go tests/vet, Python tests, and simulator packaging validat
 tests and returns nonzero if any fails. Packaging tests use synthetic metadata and
 ZIP layouts; they do not compile or launch iOS. Run them individually with
 `analytics/.venv/bin/python -m unittest discover -s scripts/tests -v`.
+Python tests additionally build/run the Go mock-session command and consume its
+actual files. Therefore standalone `pytest` requires Go on PATH as well as the
+installed editable Python package. The integration check uses no heavy analytics
+libraries or runtime dependencies. It compares two generated sessions byte for byte.
 The Linux GitHub Actions workflow bootstraps and runs the same checks, plus Go
 formatting validation. CI execution itself requires pushing to a GitHub repository.
 
@@ -88,16 +94,19 @@ formatting validation. CI execution itself requires pushing to a GitHub reposito
   Transport contains a generic raw-byte contract and two inert implementations.
 - `core/`: local module `vehicleflightrecorder.local/core`; no hosting ownership
   implied. `mobile.Version()` is the only initial exported facade function.
-  Telemetry, recorder, incidents, vehicle, mock, and storage are documented packages.
-- `analytics/`: Python src-layout package and installation/import test.
-- `vehicle-packs/`: manufacturer-specific metadata/definitions, initially empty.
-- `testdata/`: reserved fixture directories; no synthetic recordings generated yet.
+  Telemetry/session models, recorder/buffer, healthy mock, profile loader and JSONL
+  storage now run through `cmd/mock-session`. Incidents remain reserved for Milestone 2.
+- `analytics/`: src-layout package with strict streaming validation and JSON summary CLI.
+- `vehicle-packs/`: manufacturer metadata and six mock-only synthetic signal definitions.
+- `testdata/`: reserved scenario directories; integration fixtures are generated
+  at test time and bulk sessions stay in ignored `build/` output.
 - `docs/`, `scripts/`, `.github/workflows/`: workflow and verification foundation.
 
 Swift owns native lifecycle/UI/transport, Go owns future domain behavior and protocol
 parsing, Python owns offline analysis. No vehicle-specific meaning belongs in
 transport or generic Go code. Future boundaries favor scalar values, bytes, and JSON.
-No cloud, AI, enterprise services, recorder, analyzer, or diagnostic commands exist.
+The local recorder and summary CLI exist; there are no incident detectors, native
+recorder bridge, cloud, AI, enterprise services, or diagnostic commands.
 Both transports remain disconnected; connect throws a bootstrap-unavailable error,
 write throws not-connected, and inbound streams finish without yielding data.
 The dashboard defaults to MockVehicleTransport and never initiates a connection.
@@ -225,11 +234,11 @@ limitation, not an application dependency. All project artifacts stay in this ro
 
 ## Scope decisions relative to the plans
 
-The active Milestone 0.5 task preserves the completed bootstrap and supersedes any
-earlier combined Milestones 0–1 suggestion, early analyzer APIs, and live session
-scaffolding. Generic names use
+The Milestone 1 implementation follows its dedicated handoff and preserves the
+completed bootstrap/preview. Generic names use
 VehicleFlightRecorder/vehicle_flight_recorder; original planning filenames stay.
 XcodeGen replaces the planned checked-in Xcode project, and launch acceptance is
-split into completed source scaffold and pending Mac validation. Empty pack arrays
-avoid claiming unsupported diagnostic definitions. No enterprise implementation
-or unrequested milestone work is included.
+validated through the remote build and user-observed browser launch. The new pack
+signals are explicitly mock-only; real polling/threshold arrays remain empty.
+The JSONL finalization and schema choices are documented in DATA_SCHEMA.md. No
+enterprise implementation or Milestone 2 work is included.

@@ -8,6 +8,6 @@
   "engine": "2.9L twin-turbo V6",
   "transmission": "ZF 8-speed",
   "network_scope": "primary_drivetrain_only",
-  "status": "bootstrap_placeholder",
+  "status": "mock_only",
   "validated_signals": false
 }

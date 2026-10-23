@@ -1,3 +1,3 @@
-// Package mock reserves deterministic vehicle scenarios for offline development.
-// Scenario generation begins in Milestone 1.
+// Package mock generates deterministic healthy vehicle observations and events.
+// All waveforms are synthetic; no adapter protocol or vehicle I/O is involved.
 package mock

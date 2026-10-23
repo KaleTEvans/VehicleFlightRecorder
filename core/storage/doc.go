@@ -1,3 +1,3 @@
-// Package storage reserves append-only session storage and raw evidence retention.
-// Persistence begins in Milestone 1.
+// Package storage writes append-only JSONL sessions and atomic completion metadata.
+// Unfinalized data is preserved for explicit, read-only inspection.
 package storage

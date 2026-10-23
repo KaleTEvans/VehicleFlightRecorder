@@ -15,7 +15,9 @@ are available. **Browser launch: VERIFIED BY USER on October 23, 2026.** The use
 opened the preview and confirmed all four expected labels: Vehicle Flight
 Recorder, MOCK / SIMULATOR, Transport: Mock / Not Connected, and Recorder: Not
 Started. This is user-observed browser evidence, not an automated screenshot.
-**Milestone 0.5 is complete. Milestone 1 has not started.**
+**Milestone 0.5 is complete.** The deployed preview still represents its static
+SwiftUI shell. See [MILESTONE_1.md](MILESTONE_1.md) for the later local Go/Python
+recorder acceptance; that work has not yet been integrated into this native preview.
 
 The actual downloaded ZIP passed local integrity and root-layout verification.
 Its metadata identifies the approved app/version, `iPhoneSimulator`, Xcode 16.4,

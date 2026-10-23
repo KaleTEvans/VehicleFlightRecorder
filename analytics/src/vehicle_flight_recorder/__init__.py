@@ -1,3 +1,3 @@
-"""Offline analytics boundary; session analysis begins in Milestone 1."""
+"""Offline validation and deterministic summaries of vehicle session exports."""
 
 __version__ = "0.1.0"

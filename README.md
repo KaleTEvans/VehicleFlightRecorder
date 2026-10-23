@@ -11,16 +11,19 @@ macOS build and optional Appetize browser preview of the existing SwiftUI shell.
 The [remote simulator build, artifact publication, and Appetize upload have passed](https://github.com/KaleTEvans/VehicleFlightRecorder/actions/runs/40019983986).
 The [browser preview](https://appetize.io/app/nrnzclustneju2ltjppkozdkta) launched
 successfully and the user confirmed all four expected status labels on October 23,
-2026. **Milestone 0.5 is complete.** There is no
-recorder, telemetry generation, analysis CLI, or live vehicle communication yet.
+2026. Milestone 1 now provides a Go recorder, deterministic healthy mock drive,
+JSONL session storage, rolling buffer, and Python validation/summary CLI. These
+run locally from the command line; **Milestone 1 is complete** under its Go/Python
+acceptance criteria. The native app remains the static shell.
+Incident detection and live vehicle communication are future work.
 
 ## Architecture and layout
 
 - `ios/`: SwiftUI, native lifecycle, raw-byte transport seam, future Go bridge/export UI.
-- `core/`: Go module for the future generic telemetry, recorder, incidents, vehicle
-  profiles, mock scenarios, and storage; `mobile` is the native entry point.
-- `analytics/`: installable Python package for future offline analytics.
-- `vehicle-packs/`: vehicle-specific data; the first pack has metadata and empty definitions.
+- `core/`: generic telemetry/session models, recorder/buffer, healthy mock generator,
+  pack validation, storage, and the `mock-session` command; `mobile` remains a version-only facade.
+- `analytics/`: installable Python validator and deterministic summary CLI.
+- `vehicle-packs/`: vehicle-specific data; the first pack contains six explicitly synthetic signals.
 - `docs/`: development workflow and concise data/profile/incident design notes.
 - `scripts/`: bootstrap, tests, macOS project generation and future XCFramework build.
 - `testdata/`: reserved fixture directories; `.github/workflows/`: Linux checks.
@@ -54,6 +57,25 @@ Individual checks:
 (cd analytics && .venv/bin/python -m pytest)
 ```
 
+## Record and inspect a healthy mock drive
+
+With Go on PATH and bootstrap complete, run from the repository root:
+
+```bash
+(cd core && go run ./cmd/mock-session \
+  --pack ../vehicle-packs/alfa-giulia-qv-2017 \
+  --output ../build/healthy-demo)
+analytics/.venv/bin/python -m vehicle_flight_recorder validate build/healthy-demo
+analytics/.venv/bin/python -m vehicle_flight_recorder summarize build/healthy-demo
+```
+
+The output directory must be new. The default seed, start time and session ID are
+fixed: the 12-minute logical drive writes 30,966 observations, nine events and no
+incidents without waiting 12 real minutes. Raw transport and incident files exist
+but remain empty. See [the Milestone 1 walkthrough](docs/MILESTONE_1.md) for
+explicit flags, reproduction, incomplete-session inspection and storage limits.
+Python integration tests also require Go on PATH because they inspect real Go output.
+
 ## iOS browser preview from Windows/WSL
 
 Push to [the GitHub repository](https://github.com/KaleTEvans/VehicleFlightRecorder),
@@ -86,16 +108,16 @@ Future vehicle access remains read-only: no automatic DTC clearing, ECU coding,
 configuration, calibration, actuation, undocumented commands, or arbitrary CAN
 writes. Active reads must be isolated, logged, rate-limited, and fail closed.
 
-After Milestone 0.5 remote verification, **Milestone 1** requires a separate instruction:
-canonical observations/events,
-session lifecycle, JSONL persistence, rolling buffer, deterministic healthy mock
-drive, and a Python session summary CLI. None is implemented here.
+Next is **Milestone 2**, under a separate instruction: incident detectors, capture
+windows and deterministic fault scenarios. It has not been started. The native
+dashboard and working Go bridge belong to Milestone 3.
 
 Authoritative plans (kept under their original names):
 
 - [MVP implementation plan](planning/alfa_flight_recorder_mvp_plan.md)
 - [Enterprise architecture](planning/vehicle_health_enterprise_architecture.md)
 - [Milestone 0.5 assignment](planning/milestone_0.5.md)
+- [Milestone 1 assignment](planning/milestone_1.md)
 
 The active milestone assignment takes priority over broader implementation suggestions
 in the plans. Enterprise services and expanded vehicle coverage remain future work.

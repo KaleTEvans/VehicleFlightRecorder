@@ -2,5 +2,54 @@
   "schema_version": 1,
   "pack_version": "0.1.0",
   "profile_id": "alfa.giulia.qv.2017.2_9t",
-  "signals": []
+  "signals": [
+    {
+      "signal_id": "powertrain.engine.rpm",
+      "unit": "rpm",
+      "availability": "mock_only",
+      "interval_ms": 100,
+      "mock_range": [0, 8000],
+      "provenance": "Synthetic healthy-drive waveform; not validated against a vehicle"
+    },
+    {
+      "signal_id": "powertrain.vehicle.speed",
+      "unit": "km/h",
+      "availability": "mock_only",
+      "interval_ms": 100,
+      "mock_range": [0, 300],
+      "provenance": "Synthetic healthy-drive waveform; not validated against a vehicle"
+    },
+    {
+      "signal_id": "powertrain.throttle.position",
+      "unit": "%",
+      "availability": "mock_only",
+      "interval_ms": 100,
+      "mock_range": [0, 100],
+      "provenance": "Synthetic healthy-drive waveform; not validated against a vehicle"
+    },
+    {
+      "signal_id": "electrical.adapter_voltage",
+      "unit": "V",
+      "availability": "mock_only",
+      "interval_ms": 100,
+      "mock_range": [10, 16],
+      "provenance": "Synthetic healthy-drive waveform; not validated against a vehicle"
+    },
+    {
+      "signal_id": "powertrain.engine.calculated_load",
+      "unit": "%",
+      "availability": "mock_only",
+      "interval_ms": 500,
+      "mock_range": [0, 100],
+      "provenance": "Synthetic healthy-drive waveform; not validated against a vehicle"
+    },
+    {
+      "signal_id": "powertrain.coolant.temperature",
+      "unit": "degC",
+      "availability": "mock_only",
+      "interval_ms": 1000,
+      "mock_range": [-40, 130],
+      "provenance": "Synthetic healthy-drive waveform; not validated against a vehicle"
+    }
+  ]
 }

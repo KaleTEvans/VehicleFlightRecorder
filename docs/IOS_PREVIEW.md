@@ -11,9 +11,11 @@ for the same source. A subsequent
 for commit `2c4a3e96c9af8305f0b7541dafb7100a00b33759`.
 The [actual Appetize preview](https://appetize.io/app/nrnzclustneju2ltjppkozdkta) and
 [latest build artifact](https://github.com/KaleTEvans/VehicleFlightRecorder/actions/runs/40019983986/artifacts/12530681097)
-are available. **Observed browser launch: PENDING USER VERIFICATION.** A successful
-upload is not an observed application launch.
-Milestone 1 has not started.
+are available. **Browser launch: VERIFIED BY USER on October 23, 2026.** The user
+opened the preview and confirmed all four expected labels: Vehicle Flight
+Recorder, MOCK / SIMULATOR, Transport: Mock / Not Connected, and Recorder: Not
+Started. This is user-observed browser evidence, not an automated screenshot.
+**Milestone 0.5 is complete. Milestone 1 has not started.**
 
 The actual downloaded ZIP passed local integrity and root-layout verification.
 Its metadata identifies the approved app/version, `iPhoneSimulator`, Xcode 16.4,
@@ -187,8 +189,8 @@ browser launch are actually verified.
 
 The computer-use connector was attempted from this WSL task and failed before
 browser inspection with `sandboxCwd is not a local file URI`, including after a
-kernel reset. Therefore the browser smoke test requires the user's direct
-observation in this environment; no automated screenshot/launch is claimed.
+kernel reset. The user performed and confirmed the browser smoke test directly;
+no automated screenshot/launch is claimed.
 
 | Simulator preview now | Device testing later |
 | --- | --- |

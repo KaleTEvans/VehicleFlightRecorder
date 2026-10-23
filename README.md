@@ -9,8 +9,9 @@ Quadrifoglio, 2.9L twin-turbo V6 with ZF 8-speed transmission.
 Milestone 0 bootstrap is complete. Milestone 0.5 adds a manually triggered GitHub
 macOS build and optional Appetize browser preview of the existing SwiftUI shell.
 The [remote simulator build, artifact publication, and Appetize upload have passed](https://github.com/KaleTEvans/VehicleFlightRecorder/actions/runs/40019983986).
-The [browser preview is available](https://appetize.io/app/nrnzclustneju2ltjppkozdkta);
-observed browser launch is **pending user verification**. There is no
+The [browser preview](https://appetize.io/app/nrnzclustneju2ltjppkozdkta) launched
+successfully and the user confirmed all four expected status labels on October 23,
+2026. **Milestone 0.5 is complete.** There is no
 recorder, telemetry generation, analysis CLI, or live vehicle communication yet.
 
 ## Architecture and layout

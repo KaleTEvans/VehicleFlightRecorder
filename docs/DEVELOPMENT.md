@@ -211,8 +211,9 @@ WSL can run Go/Python and packaging checks and workflow linting. Mac scripts exi
 nonzero with clear platform messages on Linux. GitHub's macOS workflow performs
 project generation, unsigned simulator compilation, and packaging remotely. The
 first corrected remote build passed; the actual ZIP was downloaded and verified.
-Automated Appetize upload has also passed; observed browser launch remains pending
-user verification. See IOS_PREVIEW.md for run evidence and the real preview link.
+Automated Appetize upload passed, and the user confirmed the browser launch and
+all expected mock/disconnected status labels on October 23, 2026. Milestone 0.5
+is complete. See IOS_PREVIEW.md for run evidence and the real preview link.
 Signing, device compilation/distribution, capability/entitlement validation, future
 framework binding, and ExternalAccessory behavior require later work. A simulator
 preview cannot prove background hardware behavior or live MX+ connectivity.

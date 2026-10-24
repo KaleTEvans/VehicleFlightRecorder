@@ -278,7 +278,7 @@ func (c *Controller) Snapshot() (string, error) {
 	signals := []telemetry.Observation{}
 	for _, original := range c.signals {
 		o := original
-		if c.clock-o.TimestampUnixMS > c.rules.MaxSilenceMS && o.Quality == "valid" {
+		if (c.disconnected || c.clock-o.TimestampUnixMS > c.rules.MaxSilenceMS) && o.Quality == "valid" {
 			o.Quality = "stale"
 		}
 		signals = append(signals, o)

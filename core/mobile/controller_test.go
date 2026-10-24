@@ -53,6 +53,17 @@ func TestMobileScenarioLifecycle(t *testing.T) {
 				if err := c.Advance(10000); err != nil {
 					t.Fatal(err)
 				}
+				if name == "adapter_disconnect" && n == 35 {
+					lost := snapshot(t, c)
+					if lost["mock_transport_state"] != "disconnected" {
+						t.Fatal("transport loss not visible")
+					}
+					for _, value := range lost["signals"].([]any) {
+						if value.(map[string]any)["quality"] != "stale" {
+							t.Fatal("disconnected signal shown as fresh")
+						}
+					}
+				}
 			}
 			s = snapshot(t, c)
 			if s["state"] != "complete" {

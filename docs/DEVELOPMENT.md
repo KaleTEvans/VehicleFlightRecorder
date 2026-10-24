@@ -190,7 +190,7 @@ and physical-device validation. Configuration alone does not prove live access.
 
 ## Go simulator XCFramework workflow
 
-On macOS with full Xcode and Go 1.24.0:
+On macOS with full Xcode and the pinned native Go 1.26.10 compiler:
 
 ```bash
 ./scripts/build_go_ios.sh

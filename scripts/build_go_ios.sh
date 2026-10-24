@@ -15,6 +15,10 @@ xcrun --sdk iphonesimulator --show-sdk-path
 rm -rf "$ROOT/build/ios/VehiclePack"
 cp -R "$ROOT/vehicle-packs/alfa-giulia-qv-2017" "$ROOT/build/ios/VehiclePack"
 cd "$ROOT/core"
+[[ "$(go env GOVERSION)" == "$MOBILE_GO_VERSION" ]] || {
+  echo "Native binding requires $MOBILE_GO_VERSION (iOS cgo alignment fix); found $(go env GOVERSION)." >&2
+  exit 1
+}
 go install "golang.org/x/mobile/cmd/gomobile@$MOBILE_VERSION"
 go install "golang.org/x/mobile/cmd/gobind@$MOBILE_VERSION"
 go version -m "$GOBIN/gomobile"

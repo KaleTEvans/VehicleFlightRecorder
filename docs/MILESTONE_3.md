@@ -1,7 +1,7 @@
 # Milestone 3 — native dashboard and working mock bridge
 
 Status: **PARTIALLY COMPLETE**. Native implementation, local checks, and the
-first clean macOS simulator build/native export validation pass. Interactive
+fixed-compiler macOS simulator build/native export validation pass. Interactive
 Appetize healthy/manual/fault flows and browser share observation remain pending;
 they are separate from automated native acceptance.
 Milestone 4 not started. A UX review follows this functional milestone.
@@ -107,33 +107,36 @@ on the final facade. Both workflows pass actionlint; shell syntax and Go formatt
 checks pass. Linux CI for implementation commit `1a95b03` also
 [passed](https://github.com/KaleTEvans/VehicleFlightRecorder/actions/runs/40049868589).
 
-The first complete native run for source `d36983c`
-[passed](https://github.com/KaleTEvans/VehicleFlightRecorder/actions/runs/40049771320).
+The final fixed-compiler native run for implementation source `8a6f5c4`
+[passed](https://github.com/KaleTEvans/VehicleFlightRecorder/actions/runs/40051022426).
 Actual destination: **iPhone 16 Pro, iOS 18.5, ARM64**, UUID
-`DC4CD8B3-4457-4153-9087-A0D7A2F9BFD9`, Xcode **16.4** and Go **1.24.0**.
-All three hosted XCTest cases passed with zero failures (3.38 s test execution,
+`DC4CD8B3-4457-4153-9087-A0D7A2F9BFD9`, Xcode **16.4** and Go **1.26.10**.
+All three hosted XCTest cases passed with zero failures (2.414 s test execution,
 separate from toolchain build and simulator boot). Native ZIP extraction and
-Python reconstruction passed, then simulator packaging and Appetize upload passed.
-The initial native compile exposed explicit NSError handling for string-returning
+Python reconstruction passed, then packaging and Appetize upload passed. The
+corresponding [Linux CI passed](https://github.com/KaleTEvans/VehicleFlightRecorder/actions/runs/40051022333).
+The initial compile exposed explicit NSError handling for string-returning
 bindings; the wrapper was corrected before these successful tests.
 
 | Actual iOS export | Observations | Events | Incidents / triggers | Capture |
 | --- | ---: | ---: | ---: | --- |
-| healthy + manual, `mock-1792805634477235000` | 30,966 | 12 | 1 / 1 | captured, 180 s |
-| voltage/TCM, `mock-1792805635975573000` | 38,167 | 17 | 1 / 2 | captured, 182.9 s |
+| healthy_drive, `mock-1792806439360090000` | 30,966 | 12 | 1 / 1 | captured |
+| voltage_tcm_dropout, `mock-1792806440545480000` | 38,167 | 17 | 1 / 2 | captured |
 
-The voltage export preserves `voltage_excursion` before `module_timeout`.
-Healthy/manual ZIP SHA256:
-`7132cc5cd153b2f0a1dbb7469156bd1f2205578208acf52b9e6f8ab0f1cb69b7`.
-Voltage/TCM ZIP SHA256:
-`4958634bef7cd2ff1983d7e95af714b1ff2d1a0ae3a640fb6655d4f9f8eb301b`.
+The voltage export preserves `voltage_excursion` before `module_timeout` in one
+incident; the manual capture spans 180 s and the merged voltage/TCM capture spans
+182.9 s. These are actual app-container exports from the native XCTest, not Linux
+substitutes. All three Python CLI commands also passed locally on these exact
+native exports and actual incident IDs.
 
-[Native test/export artifact](https://github.com/KaleTEvans/VehicleFlightRecorder/actions/runs/40049771320/artifacts/12543535138),
-[simulator ZIP](https://github.com/KaleTEvans/VehicleFlightRecorder/actions/runs/40049771320/artifacts/12543515194).
-These expire after 14 days. Copies were downloaded under ignored
-`build/milestone-3-native-evidence-d36983c`; all three Python CLI commands also
-passed locally on each actual native export/incident ID. The artifact's screenshot
-is the simulator home screen after XCTest exits; it is not UI interaction evidence.
+healthy_drive ZIP SHA256: `08e8802b0f001bea974b699b0ce95483f5abddb82f2398c6da5011ea5981046a`.
+voltage_tcm_dropout ZIP SHA256: `be7f5e65399880692b53fad8954505bb95f69323a038048235f5d39309d1da96`.
+
+[Native test/export artifact](https://github.com/KaleTEvans/VehicleFlightRecorder/actions/runs/40051022426/artifacts/12543781312),
+[simulator ZIP](https://github.com/KaleTEvans/VehicleFlightRecorder/actions/runs/40051022426/artifacts/12543706411).
+These expire after 14 days. Copies and local CLI results are retained under ignored
+`build/milestone-3-native-evidence-8a6f5c4`. The artifact screenshot is the simulator
+home screen after XCTest exits; it is not UI interaction evidence.
 
 The [Appetize preview](https://appetize.io/app/nrnzclustneju2ltjppkozdkta) was updated
 successfully. User observation has been requested for the interactive flows above.
@@ -159,7 +162,6 @@ The [canonical upstream issue](https://github.com/golang/go/issues/46893) and
 [related report](https://github.com/golang/go/issues/75889) identify the compiler
 alignment fix delivered in Go 1.26. Native builds now require Go 1.26.10 rather
 than suppressing garbage collection, patching generated wrappers, or retrying away
-the failure. New native validation is required before calling this correction
-verified. Earlier native artifacts remain evidence of that run, not a claim that
-the old compiler was reliable. The current Appetize build is subject to this
-older-toolchain limitation until the corrected upload succeeds.
+the failure. The corrected run above passes native tests and actual-export reconstruction
+with Go 1.26.10 and uploads that build to Appetize. Earlier native artifacts are
+historical evidence, not a claim that the old compiler was reliable.

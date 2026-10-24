@@ -10,13 +10,19 @@ from .session import IncompleteSessionError, ValidationError, load_session
 def main(argv=None):
     parser = argparse.ArgumentParser(prog="python -m vehicle_flight_recorder")
     commands = parser.add_subparsers(dest="command", required=True)
-    for name in ("validate", "summarize"):
+    for name in ("validate", "summarize", "incident"):
         command = commands.add_parser(name)
         command.add_argument("session_directory")
+        if name == "incident":
+            command.add_argument("incident_id")
         command.add_argument("--allow-incomplete", action="store_true", help="inspect well-formed unfinalized logs without repairing them")
     args = parser.parse_args(argv)
     try:
-        summary = load_session(args.session_directory, allow_incomplete=args.allow_incomplete)
+        if args.command == "incident":
+            from .incidents import reconstruct
+            summary = reconstruct(args.session_directory, args.incident_id, allow_incomplete=args.allow_incomplete)
+        else:
+            summary = load_session(args.session_directory, allow_incomplete=args.allow_incomplete)
         if args.command == "validate":
             summary = {key: summary[key] for key in ("status", "session_id", "state", "observation_count", "event_count", "incident_count")}
         print(json.dumps(summary, sort_keys=True, indent=2, allow_nan=False))

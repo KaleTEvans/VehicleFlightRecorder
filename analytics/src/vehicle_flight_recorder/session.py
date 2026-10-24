@@ -64,8 +64,16 @@ def _metadata(metadata):
     start = _integer(metadata.get("start_time_unix_ms"), "session start", 1)
     for key in ("observation_count", "event_count", "incident_count"):
         _integer(metadata.get(key), f"session.json {key}")
-    if metadata["incident_count"] != 0:
-        _fail("incident records are not supported in Milestone 1")
+    capture = metadata.get("incident_capture")
+    if capture is not None:
+        if not isinstance(capture, dict):
+            _fail("incident_capture must be an object")
+        for key in ("pre_window_ms", "post_window_ms", "max_silence_ms"):
+            value = _integer(capture.get(key), key, 1 if key == "max_silence_ms" else 0)
+            if value > 86400000:
+                _fail("capture window exceeds 24 hours")
+    if metadata["incident_count"] and capture is None:
+        _fail("incident count requires capture configuration")
     if "end_time_unix_ms" not in metadata:
         _fail("session.json end_time_unix_ms is required (null while recording)")
     state = metadata.get("state")
@@ -80,7 +88,7 @@ def _metadata(metadata):
     if metadata["source"] == "mock" and not isinstance(config, dict):
         _fail("mock source requires reproducibility metadata")
     if config is not None:
-        if not isinstance(config, dict) or config.get("scenario") != "healthy_drive" or config.get("generator_version") != "1":
+        if not isinstance(config, dict) or config.get("scenario") not in ("healthy_drive", "voltage_tcm_dropout", "tcm_dropout", "mechanical_fault", "adapter_disconnect", "manual_mark") or config.get("generator_version") not in ("1", "2") or (config.get("scenario") != "healthy_drive" and config.get("generator_version") != "2"):
             _fail("unsupported mock scenario/generator_version")
         seed = config.get("seed")
         if type(seed) is not int or not -(2**63) <= seed < 2**63:
@@ -136,9 +144,9 @@ def load_session(directory, *, allow_incomplete=False):
                 _fail(f"missing required file {name}; possible incomplete initialization")
         metadata = _decode((directory / "session.json").read_bytes(), "session.json")
         _metadata(metadata)
-        for name in ("incidents.jsonl", "raw/transport.jsonl"):
+        for name in ("raw/transport.jsonl",):
             if (directory / name).stat().st_size:
-                _fail(f"{name}: nonempty records are unsupported in Milestone 1; refusing to ignore evidence")
+                _fail(f"{name}: nonempty records are unsupported; refusing to ignore evidence")
         coverage = {}
         observations = 0
         last_observation = last_event = metadata["start_time_unix_ms"]
@@ -173,6 +181,8 @@ def load_session(directory, *, allow_incomplete=False):
                 _fail(f"{location}: attributes must be a JSON object")
             events[kind] += 1
         event_count = sum(events.values())
+        from .incidents import inspect_incidents
+        incidents = inspect_incidents(directory, metadata)
         if metadata["state"] == "complete":
             if metadata["observation_count"] != observations or metadata["event_count"] != event_count:
                 _fail("finalized metadata counts do not match actual JSONL records")
@@ -192,7 +202,9 @@ def load_session(directory, *, allow_incomplete=False):
             "observed_duration_seconds": (max(last_observation, last_event) - metadata["start_time_unix_ms"]) / 1000,
             "observation_count": observations,
             "event_count": event_count,
-            "incident_count": 0,
+            "incident_count": len(incidents),
+            "trigger_count": sum(len(i["triggers"]) for i in incidents),
+            "incidents": incidents,
             "signal_coverage": dict(sorted(coverage.items())),
             "events_by_type": dict(sorted(events.items())),
         }

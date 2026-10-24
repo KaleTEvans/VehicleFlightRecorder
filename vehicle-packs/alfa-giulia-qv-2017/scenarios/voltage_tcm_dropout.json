@@ -1,0 +1,74 @@
+{
+  "schema_version": 1,
+  "pack_version": "0.2.0",
+  "profile_id": "alfa.giulia.qv.2017.2_9t",
+  "scenario_id": "voltage_tcm_dropout",
+  "availability": "mock_only",
+  "provenance": "Synthetic acceptance scenario; offsets relative to drive midpoint",
+  "events": [
+    {
+      "offset_ms": 300,
+      "event_type": "diagnostic_timeout",
+      "module": "TCM",
+      "attributes": {
+        "synthetic": true,
+        "expected_response": true
+      }
+    },
+    {
+      "offset_ms": 600,
+      "event_type": "diagnostic_timeout",
+      "module": "TCM",
+      "attributes": {
+        "synthetic": true,
+        "expected_response": true
+      }
+    },
+    {
+      "offset_ms": 900,
+      "event_type": "diagnostic_timeout",
+      "module": "TCM",
+      "attributes": {
+        "synthetic": true,
+        "expected_response": true
+      }
+    },
+    {
+      "offset_ms": 1200,
+      "event_type": "diagnostic_timeout",
+      "module": "TCM",
+      "attributes": {
+        "synthetic": true,
+        "expected_response": true
+      }
+    },
+    {
+      "offset_ms": 2000,
+      "event_type": "response_restored",
+      "module": "TCM",
+      "attributes": {
+        "synthetic": true
+      }
+    }
+  ],
+  "overrides": [
+    {
+      "signal_id": "electrical.adapter_voltage",
+      "start_offset_ms": -2000,
+      "end_offset_ms": 2000,
+      "value": 11.5
+    },
+    {
+      "signal_id": "network.tcm_response_latency_ms",
+      "start_offset_ms": 0,
+      "end_offset_ms": 2000,
+      "value": 450
+    }
+  ],
+  "gaps": [],
+  "expected_incident_count": 1,
+  "expected_trigger_types": [
+    "voltage_excursion",
+    "module_timeout"
+  ]
+}

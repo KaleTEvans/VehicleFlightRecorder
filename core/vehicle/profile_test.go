@@ -14,7 +14,7 @@ func TestLoadMockProfile(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if p.Manifest.ProfileID != "alfa.giulia.qv.2017.2_9t" || len(p.Signals) != 6 || p.Manifest.ValidatedSignals {
+	if p.Manifest.ProfileID != "alfa.giulia.qv.2017.2_9t" || len(p.Signals) != 9 || p.Manifest.ValidatedSignals {
 		t.Fatal("unexpected profile", p)
 	}
 }

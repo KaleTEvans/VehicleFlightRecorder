@@ -7,7 +7,9 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"reflect"
 
+	"vehicleflightrecorder.local/core/incidents"
 	"vehicleflightrecorder.local/core/telemetry"
 )
 
@@ -26,16 +28,19 @@ func WriteJSONL(w io.Writer, value any) error {
 }
 
 type Writer struct {
-	directory        string
-	initial          telemetry.Session
-	observations     *os.File
-	events           *os.File
-	files            []*os.File
-	closed           bool
-	failed           bool
-	last             int64
-	observationCount int64
-	eventCount       int64
+	incidents         *os.File
+	incidentRevisions map[string]incidents.Incident
+	sequenced         bool
+	directory         string
+	initial           telemetry.Session
+	observations      *os.File
+	events            *os.File
+	files             []*os.File
+	closed            bool
+	failed            bool
+	last              int64
+	observationCount  int64
+	eventCount        int64
 }
 
 // Create refuses any existing directory. Partial initialization is preserved as
@@ -44,7 +49,7 @@ func Create(directory string, session telemetry.Session) (*Writer, error) {
 	if err := session.Validate(); err != nil {
 		return nil, err
 	}
-	if session.State != "recording" || session.ObservationCount != 0 || session.EventCount != 0 {
+	if session.State != "recording" || session.ObservationCount != 0 || session.EventCount != 0 || session.IncidentCount != 0 {
 		return nil, fmt.Errorf("new session must be recording with zero counts")
 	}
 	if err := os.MkdirAll(filepath.Dir(directory), 0700); err != nil {
@@ -53,7 +58,7 @@ func Create(directory string, session telemetry.Session) (*Writer, error) {
 	if err := os.Mkdir(directory, 0700); err != nil {
 		return nil, fmt.Errorf("create new session directory: %w", err)
 	}
-	w := &Writer{directory: directory, initial: session.Clone(), last: session.StartTimeUnixMS}
+	w := &Writer{directory: directory, initial: session.Clone(), last: session.StartTimeUnixMS, incidentRevisions: map[string]incidents.Incident{}}
 	if err := writeMetadata(directory, session); err != nil {
 		return nil, err
 	}
@@ -68,6 +73,7 @@ func Create(directory string, session telemetry.Session) (*Writer, error) {
 		w.files = append(w.files, file)
 	}
 	w.observations, w.events = w.files[0], w.files[1]
+	w.incidents = w.files[2]
 	return w, nil
 }
 
@@ -77,6 +83,13 @@ func (w *Writer) Append(record telemetry.Record) error {
 	}
 	if err := record.Validate(); err != nil {
 		return err
+	}
+	count := w.observationCount + w.eventCount
+	if count == 0 {
+		w.sequenced = record.Sequence() > 0
+	}
+	if (w.sequenced && record.Sequence() != count+1) || (!w.sequenced && record.Sequence() != 0) {
+		return fmt.Errorf("record sequence must be contiguous or entirely absent")
 	}
 	if record.SessionID() != w.initial.SessionID || record.Source() != w.initial.Source || record.Timestamp() < w.last {
 		return fmt.Errorf("session/source mismatch or out-of-order timestamp")
@@ -113,6 +126,14 @@ func (w *Writer) Finalize(session telemetry.Session) error {
 	if err := session.Validate(); err != nil {
 		return err
 	}
+	if !reflect.DeepEqual(session.IncidentCapture, w.initial.IncidentCapture) || session.IncidentCount != int64(len(w.incidentRevisions)) {
+		return fmt.Errorf("incident metadata/count mismatch")
+	}
+	for _, item := range w.incidentRevisions {
+		if item.Status == "capturing" {
+			return fmt.Errorf("incident capture must be finalized before session completion")
+		}
+	}
 	if (session.Mock == nil) != (w.initial.Mock == nil) || (session.Mock != nil && *session.Mock != *w.initial.Mock) {
 		return fmt.Errorf("final metadata changed mock configuration")
 	}
@@ -128,6 +149,55 @@ func (w *Writer) Finalize(session telemetry.Session) error {
 		return fmt.Errorf("flush/close session before finalization: %w", err)
 	}
 	return writeMetadata(w.directory, session)
+}
+
+func (w *Writer) AppendIncident(item incidents.Incident) error {
+	if w.closed || w.failed {
+		return fmt.Errorf("incident writer is closed or failed")
+	}
+	if err := item.Validate(); err != nil {
+		return err
+	}
+	if item.SessionID != w.initial.SessionID || w.initial.IncidentCapture == nil {
+		return fmt.Errorf("incident session/capture mismatch")
+	}
+	previous := w.incidentRevisions[item.IncidentID]
+	if item.Revision != previous.Revision+1 {
+		return fmt.Errorf("incident revision must increment by one")
+	}
+	c := w.initial.IncidentCapture
+	if item.PreWindowSeconds*1000 != float64(c.PreWindowMS) || item.PostWindowSeconds*1000 != float64(c.PostWindowMS) || item.AvailableStartUnixMS < w.initial.StartTimeUnixMS || item.AvailableEndUnixMS > w.last {
+		return fmt.Errorf("incident coverage/configuration mismatch")
+	}
+	if previous.Revision > 0 {
+		if item.TriggerTimeUnixMS != previous.TriggerTimeUnixMS || item.TriggerType != previous.TriggerType || item.WindowStartUnixMS != previous.WindowStartUnixMS || item.AvailableStartUnixMS != previous.AvailableStartUnixMS || len(item.Triggers) < len(previous.Triggers) || !reflect.DeepEqual(item.Triggers[:len(previous.Triggers)], previous.Triggers) || item.AvailableEndUnixMS < previous.AvailableEndUnixMS {
+			return fmt.Errorf("incident revision rewrote evidence")
+		}
+		if previous.Status != "capturing" {
+			copy := item.Clone()
+			copy.Revision = previous.Revision
+			copy.RelatedIncidentIDs = previous.RelatedIncidentIDs
+			if !reflect.DeepEqual(copy, previous) {
+				return fmt.Errorf("finalized capture changed")
+			}
+		}
+	}
+	for _, trigger := range item.Triggers {
+		ref := trigger.Evidence
+		limit := w.eventCount
+		if ref.File == "observations.jsonl" {
+			limit = w.observationCount
+		}
+		if ref.Line > limit || ref.RecordSequence > w.eventCount+w.observationCount {
+			return fmt.Errorf("incident references unwritten evidence")
+		}
+	}
+	if err := WriteJSONL(w.incidents, item); err != nil {
+		w.failed = true
+		return fmt.Errorf("append incident: %w", err)
+	}
+	w.incidentRevisions[item.IncidentID] = item.Clone()
+	return nil
 }
 
 // Close without Finalize deliberately leaves state=recording on disk.

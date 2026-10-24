@@ -56,6 +56,9 @@ func TestHealthyDeterministicRatesAndPhases(t *testing.T) {
 			t.Fatal(err)
 		}
 		for _, signal := range p.Signals {
+			if !signal.EnabledFor("healthy_drive") {
+				continue
+			}
 			if counts[signal.SignalID] != int(c.DurationMS/signal.IntervalMS+1) {
 				t.Fatalf("wrong sample count for %s: %d", signal.SignalID, counts[signal.SignalID])
 			}

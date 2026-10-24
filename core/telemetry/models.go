@@ -13,6 +13,7 @@ const SchemaVersion = 1
 // Observation is a numeric canonical measurement; missing values are not zeroes.
 // Only present, finite values are supported by this first schema implementation.
 type Observation struct {
+	RecordSequence     int64   `json:"record_sequence,omitempty"`
 	SchemaVersion      int     `json:"schema_version"`
 	TimestampUnixMS    int64   `json:"timestamp_unix_ms"`
 	SessionID          string  `json:"session_id"`
@@ -30,6 +31,9 @@ type Observation struct {
 }
 
 func (o Observation) Validate() error {
+	if o.RecordSequence < 0 {
+		return fmt.Errorf("record_sequence cannot be negative")
+	}
 	if err := validateEnvelope(o.SchemaVersion, o.TimestampUnixMS, o.SessionID, o.Source); err != nil {
 		return err
 	}
@@ -65,6 +69,7 @@ func (o *Observation) UnmarshalJSON(data []byte) error {
 }
 
 type Event struct {
+	RecordSequence  int64  `json:"record_sequence,omitempty"`
 	SchemaVersion   int    `json:"schema_version"`
 	TimestampUnixMS int64  `json:"timestamp_unix_ms"`
 	SessionID       string `json:"session_id"`
@@ -77,6 +82,9 @@ type Event struct {
 }
 
 func (e Event) Validate() error {
+	if e.RecordSequence < 0 {
+		return fmt.Errorf("record_sequence cannot be negative")
+	}
 	if err := validateEnvelope(e.SchemaVersion, e.TimestampUnixMS, e.SessionID, e.Source); err != nil {
 		return err
 	}
@@ -160,6 +168,28 @@ func (r Record) Clone() Record {
 	return r
 }
 
+func (r Record) Sequence() int64 {
+	if r.Observation != nil {
+		return r.Observation.RecordSequence
+	}
+	return r.Event.RecordSequence
+}
+func (r Record) WithSequence(sequence int64) Record {
+	r = r.Clone()
+	if r.Observation != nil {
+		r.Observation.RecordSequence = sequence
+	} else {
+		r.Event.RecordSequence = sequence
+	}
+	return r
+}
+
+type CaptureConfig struct {
+	PreWindowMS  int64 `json:"pre_window_ms"`
+	PostWindowMS int64 `json:"post_window_ms"`
+	MaxSilenceMS int64 `json:"max_silence_ms"`
+}
+
 type MockConfig struct {
 	Scenario         string `json:"scenario"`
 	Seed             int64  `json:"seed"`
@@ -169,18 +199,19 @@ type MockConfig struct {
 }
 
 type Session struct {
-	SchemaVersion      int         `json:"schema_version"`
-	SessionID          string      `json:"session_id"`
-	Source             string      `json:"source"`
-	ProfileID          string      `json:"profile_id"`
-	VehiclePackVersion string      `json:"vehicle_pack_version"`
-	StartTimeUnixMS    int64       `json:"start_time_unix_ms"`
-	EndTimeUnixMS      *int64      `json:"end_time_unix_ms"`
-	State              string      `json:"state"`
-	ObservationCount   int64       `json:"observation_count"`
-	EventCount         int64       `json:"event_count"`
-	IncidentCount      int64       `json:"incident_count"`
-	Mock               *MockConfig `json:"mock,omitempty"`
+	IncidentCapture    *CaptureConfig `json:"incident_capture,omitempty"`
+	SchemaVersion      int            `json:"schema_version"`
+	SessionID          string         `json:"session_id"`
+	Source             string         `json:"source"`
+	ProfileID          string         `json:"profile_id"`
+	VehiclePackVersion string         `json:"vehicle_pack_version"`
+	StartTimeUnixMS    int64          `json:"start_time_unix_ms"`
+	EndTimeUnixMS      *int64         `json:"end_time_unix_ms"`
+	State              string         `json:"state"`
+	ObservationCount   int64          `json:"observation_count"`
+	EventCount         int64          `json:"event_count"`
+	IncidentCount      int64          `json:"incident_count"`
+	Mock               *MockConfig    `json:"mock,omitempty"`
 }
 
 func (s Session) Validate() error {
@@ -190,8 +221,11 @@ func (s Session) Validate() error {
 	if strings.TrimSpace(s.ProfileID) == "" || strings.TrimSpace(s.VehiclePackVersion) == "" {
 		return fmt.Errorf("profile_id and vehicle_pack_version are required")
 	}
-	if s.ObservationCount < 0 || s.EventCount < 0 || s.IncidentCount != 0 {
-		return fmt.Errorf("invalid counts (incidents must be zero in Milestone 1)")
+	if s.ObservationCount < 0 || s.EventCount < 0 || s.IncidentCount < 0 || (s.IncidentCount > 0 && s.IncidentCapture == nil) {
+		return fmt.Errorf("invalid counts or incident capture metadata")
+	}
+	if c := s.IncidentCapture; c != nil && (c.PreWindowMS < 0 || c.PostWindowMS < 0 || c.PreWindowMS > 86400000 || c.PostWindowMS > 86400000 || c.MaxSilenceMS <= 0 || c.MaxSilenceMS > 86400000) {
+		return fmt.Errorf("invalid incident capture metadata")
 	}
 	switch s.State {
 	case "recording":
@@ -209,7 +243,7 @@ func (s Session) Validate() error {
 		return fmt.Errorf("mock source requires reproducibility metadata")
 	}
 	if s.Mock != nil {
-		if s.Mock.Scenario != "healthy_drive" || s.Mock.DurationMS < 120000 || s.Mock.DurationMS > 86400000 || s.Mock.DurationMS%1000 != 0 || s.Mock.StepMS != 100 || s.Mock.GeneratorVersion != "1" {
+		if !ValidScenario(s.Mock.Scenario) || s.Mock.DurationMS < 120000 || s.Mock.DurationMS > 86400000 || s.Mock.DurationMS%1000 != 0 || s.Mock.StepMS != 100 || (s.Mock.GeneratorVersion != "1" && s.Mock.GeneratorVersion != "2") || (s.Mock.Scenario != "healthy_drive" && s.Mock.GeneratorVersion != "2") {
 			return fmt.Errorf("invalid mock reproducibility metadata")
 		}
 		if s.StartTimeUnixMS > math.MaxInt64-s.Mock.DurationMS {
@@ -223,6 +257,10 @@ func (s Session) Validate() error {
 }
 
 func (s Session) Clone() Session {
+	if s.IncidentCapture != nil {
+		config := *s.IncidentCapture
+		s.IncidentCapture = &config
+	}
 	if s.EndTimeUnixMS != nil {
 		end := *s.EndTimeUnixMS
 		s.EndTimeUnixMS = &end
@@ -232,4 +270,12 @@ func (s Session) Clone() Session {
 		s.Mock = &config
 	}
 	return s
+}
+
+func ValidScenario(name string) bool {
+	switch name {
+	case "healthy_drive", "voltage_tcm_dropout", "tcm_dropout", "mechanical_fault", "adapter_disconnect", "manual_mark":
+		return true
+	}
+	return false
 }

@@ -8,7 +8,9 @@ import (
 	"testing"
 	"time"
 
+	"vehicleflightrecorder.local/core/incidents"
 	"vehicleflightrecorder.local/core/telemetry"
+	"vehicleflightrecorder.local/core/vehicle"
 )
 
 func observation(timestamp int64) telemetry.Record {
@@ -209,5 +211,96 @@ func TestSinkFailurePoisonsSession(t *testing.T) {
 		if r.State() != "failed" || r.Session().State != "recording" || r.Stop(2000) == nil {
 			t.Fatal("failed session allowed finalization")
 		}
+	}
+}
+
+func TestManualIncidentLifecycle(t *testing.T) {
+	p, err := vehicle.Load("../../vehicle-packs/alfa-giulia-qv-2017")
+	if err != nil {
+		t.Fatal(err)
+	}
+	c, err := vehicle.LoadIncidentConfig("../../vehicle-packs/alfa-giulia-qv-2017", p)
+	if err != nil {
+		t.Fatal(err)
+	}
+	r, err := New(time.Minute)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := r.ConfigureIncidents(c); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := r.MarkIncident("before", 1000); err == nil {
+		t.Fatal("mark before start")
+	}
+	s := telemetry.Session{SchemaVersion: 1, SessionID: "manual", Source: "fixture", ProfileID: p.Manifest.ProfileID, VehiclePackVersion: p.Manifest.PackVersion, StartTimeUnixMS: 1000, State: "recording"}
+	dir := filepath.Join(t.TempDir(), "session")
+	if err := r.Start(dir, s); err != nil {
+		t.Fatal(err)
+	}
+	id, err := r.MarkIncident("manual", 1000)
+	if err != nil || id != "manual.incident-000001" {
+		t.Fatal(id, err)
+	}
+	if _, err := r.MarkIncident("", 1000); err == nil {
+		t.Fatal("empty label accepted")
+	}
+	if err := r.ConfigureIncidents(c); err == nil {
+		t.Fatal("changed active configuration")
+	}
+	if err := r.Stop(2000); err != nil {
+		t.Fatal(err)
+	}
+	if r.Session().IncidentCount != 1 || r.Incidents()[0].Status != "partial" {
+		t.Fatal(r.Session(), r.Incidents())
+	}
+	if _, err := r.MarkIncident("after", 2000); err == nil {
+		t.Fatal("mark after stop")
+	}
+}
+
+type failingIncidentSink struct {
+	failingSink
+	err error
+}
+
+func (s failingIncidentSink) AppendIncident(incidents.Incident) error { return s.err }
+func TestIncidentWriteFailurePreservesIncompleteSession(t *testing.T) {
+	p, err := vehicle.Load("../../vehicle-packs/alfa-giulia-qv-2017")
+	if err != nil {
+		t.Fatal(err)
+	}
+	c, err := vehicle.LoadIncidentConfig("../../vehicle-packs/alfa-giulia-qv-2017", p)
+	if err != nil {
+		t.Fatal(err)
+	}
+	r, _ := New(time.Minute)
+	if err := r.ConfigureIncidents(c); err != nil {
+		t.Fatal(err)
+	}
+	dir := filepath.Join(t.TempDir(), "failed")
+	if err := r.Start(dir, metadata()); err != nil {
+		t.Fatal(err)
+	}
+	original := r.sink
+	defer original.Close()
+	failure := errors.New("incident disk failure")
+	r.sink = failingIncidentSink{err: failure}
+	if _, err := r.MarkIncident("fault", 2000); !errors.Is(err, failure) {
+		t.Fatal(err)
+	}
+	if r.State() != "failed" || r.Stop(3000) == nil {
+		t.Fatal("incident failure must prevent finalization")
+	}
+	data, err := os.ReadFile(filepath.Join(dir, "session.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var session telemetry.Session
+	if err := json.Unmarshal(data, &session); err != nil {
+		t.Fatal(err)
+	}
+	if session.State != "recording" {
+		t.Fatal("incomplete evidence marked complete")
 	}
 }

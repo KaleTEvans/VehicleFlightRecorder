@@ -25,6 +25,7 @@ type Manifest struct {
 }
 
 type Signal struct {
+	Scenarios    []string  `json:"scenarios,omitempty"`
 	SignalID     string    `json:"signal_id"`
 	Unit         string    `json:"unit"`
 	Availability string    `json:"availability"`
@@ -79,6 +80,11 @@ func (profile Profile) Validate() error {
 	}
 	seen := make(map[string]bool)
 	for _, signal := range profile.Signals {
+		for _, name := range signal.Scenarios {
+			if !validScenario(name) {
+				return fmt.Errorf("unknown signal scenario %q", name)
+			}
+		}
 		if strings.TrimSpace(signal.SignalID) == "" || seen[signal.SignalID] || strings.TrimSpace(signal.Unit) == "" || strings.TrimSpace(signal.Provenance) == "" || signal.Availability != "mock_only" || signal.IntervalMS <= 0 || signal.IntervalMS%100 != 0 {
 			return fmt.Errorf("invalid or duplicate mock signal %q", signal.SignalID)
 		}
@@ -88,6 +94,18 @@ func (profile Profile) Validate() error {
 		seen[signal.SignalID] = true
 	}
 	return nil
+}
+
+func (s Signal) EnabledFor(scenario string) bool {
+	if len(s.Scenarios) == 0 {
+		return true
+	}
+	for _, name := range s.Scenarios {
+		if name == scenario {
+			return true
+		}
+	}
+	return false
 }
 
 func readJSON(path string, target any) error {

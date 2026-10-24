@@ -15,15 +15,17 @@ successfully and the user confirmed all four expected status labels on October 2
 JSONL session storage, rolling buffer, and Python validation/summary CLI. These
 run locally from the command line; **Milestone 1 is complete** under its Go/Python
 acceptance criteria. The native app remains the static shell.
-Incident detection and live vehicle communication are future work.
+Milestone 2 adds deterministic incident detection, capture windows, fault scenarios
+and Python timeline reconstruction. See [Milestone 2 results](docs/MILESTONE_2.md).
+Live vehicle communication remains future work.
 
 ## Architecture and layout
 
 - `ios/`: SwiftUI, native lifecycle, raw-byte transport seam, future Go bridge/export UI.
 - `core/`: generic telemetry/session models, recorder/buffer, healthy mock generator,
-  pack validation, storage, and the `mock-session` command; `mobile` remains a version-only facade.
+  incident detectors/capture, pack validation, storage, and the `mock-session` command; `mobile` remains a version-only facade.
 - `analytics/`: installable Python validator and deterministic summary CLI.
-- `vehicle-packs/`: vehicle-specific data; the first pack contains six explicitly synthetic signals.
+- `vehicle-packs/`: vehicle-specific data; the first pack contains six healthy signals and three scenario-scoped synthetic signals.
 - `docs/`: development workflow and concise data/profile/incident design notes.
 - `scripts/`: bootstrap, tests, macOS project generation and future XCFramework build.
 - `testdata/`: reserved fixture directories; `.github/workflows/`: Linux checks.
@@ -72,7 +74,7 @@ analytics/.venv/bin/python -m vehicle_flight_recorder summarize build/healthy-de
 The output directory must be new. The default seed, start time and session ID are
 fixed: the 12-minute logical drive writes 30,966 observations, nine events and no
 incidents without waiting 12 real minutes. Raw transport and incident files exist
-but remain empty. See [the Milestone 1 walkthrough](docs/MILESTONE_1.md) for
+but remain empty for this healthy scenario. See [the Milestone 1 walkthrough](docs/MILESTONE_1.md) for
 explicit flags, reproduction, incomplete-session inspection and storage limits.
 Python integration tests also require Go on PATH because they inspect real Go output.
 
@@ -108,9 +110,8 @@ Future vehicle access remains read-only: no automatic DTC clearing, ECU coding,
 configuration, calibration, actuation, undocumented commands, or arbitrary CAN
 writes. Active reads must be isolated, logged, rate-limited, and fail closed.
 
-Next is **Milestone 2**, under a separate instruction: incident detectors, capture
-windows and deterministic fault scenarios. It has not been started. The native
-dashboard and working Go bridge belong to Milestone 3.
+Next is **Milestone 3**, under a separate instruction: the native dashboard and
+minimal working Go bridge. **Milestone 3 not started.**
 
 Authoritative plans (kept under their original names):
 

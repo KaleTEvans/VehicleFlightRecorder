@@ -1,4 +1,4 @@
-# Session schema 1 — Milestone 1
+# Session schema 1 — Milestones 1–2
 
 The Go recorder writes numeric observations and discrete events. Python validates
 and summarizes those exact exports. Schema version 1 is supported; other versions
@@ -36,12 +36,14 @@ can hold byte-identical sessions with the same configured identity.
 | `end_time_unix_ms` | Null while recording; at/after start when complete |
 | `state` | `recording` or `complete` on disk |
 | `observation_count`, `event_count` | Nonnegative integers; finalized totals only when complete |
-| `incident_count` | Zero in Milestone 1 |
+| `incident_count` | Number of distinct incidents, independent of revision/trigger count |
+| `incident_capture` | Optional pre/post/silence windows in milliseconds; required when incidents exist |
 | `mock` | Required for mock source; scenario, seed, logical duration/step and generator version |
 
 Mock metadata uses `scenario: healthy_drive`, signed 64-bit `seed`, planned
 `duration_ms` (whole seconds, 2 minutes–24 hours), `step_ms: 100`, and
-`generator_version: "1"`. End time cannot exceed the planned mock duration.
+`generator_version: "1"` for healthy generation. Fault scenarios use generator
+version `"2"`; supported names appear in [Milestone 2](MILESTONE_2.md). End time cannot exceed the planned mock duration.
 An intentionally early stop can finalize a shorter session; metadata retains the
 planned generator duration for reproducibility. The CLI runs the configured full
 duration. Start time plus planned duration must fit a signed 64-bit timestamp.
@@ -71,8 +73,11 @@ Session/source fields extend the MVP's short example for explicit traceability.
 The recorder accepts globally nondecreasing logical timestamps, including equal
 timestamps in stable insertion order, and matching session/source. Records before
 session start, after the configured mock horizon, or backwards in time are rejected.
-Python checks nondecreasing order independently in each file and start/end bounds;
-separate logs do not encode a cross-file sequence number. A completed session's
+New recorder exports carry `record_sequence`, contiguous from 1 across both logs,
+including derived incident events. Python checks per-file and merged order and
+start/end bounds. Legacy Milestone 1 exports with sequences entirely absent still
+validate; their equal-time cross-file order is unspecified. Incident references
+require sequences, so legacy files cannot silently claim precise trigger order. A completed session's
 counts must match actual rows. No filename ordering is interpreted as causation.
 
 ## Rolling buffer
@@ -84,7 +89,7 @@ Backward time is rejected rather than sorted silently. Advancing logical time ca
 expire data without a new sample. Snapshots and inserted records own independent
 copies, including event attributes. All full-session records remain on disk after
 in-memory expiry. The implementation has one caller/owner; it is not a concurrent
-recorder API. Incident triggers/post-windows are not implemented.
+recorder API. The incident engine borrows this buffer synchronously to determine pre-coverage.
 
 ## Mock evidence and empty files
 
@@ -94,10 +99,12 @@ describe engine start, idle, acceleration, cruise, deceleration, stop, and shutd
 Samples exist at time zero and the inclusive final sample time. A default 12-minute
 drive writes 30,966 observations and nine events (seven phases plus start/stop).
 
-`incidents.jsonl` is deliberately empty. `raw/transport.jsonl` is also empty:
+`incidents.jsonl` contains the revision journal described in
+[the incident contract](INCIDENT_MODEL.md); it stays empty for healthy drives.
+`raw/transport.jsonl` remains empty:
 the source is normalized synthetic waveforms and has no raw adapter byte stream.
 No adapter requests/responses are fabricated to fill that file. Python rejects
-nonempty incident/raw files as unsupported instead of silently ignoring evidence.
+nonempty raw files as unsupported instead of silently ignoring evidence.
 Future real recording must preserve actual raw evidence alongside decoded values.
 
 ## Incomplete sessions and validation
@@ -118,5 +125,17 @@ inferred merely because all expected filenames exist.
 The writer syncs files before committing metadata, but does not fsync parent
 directories or guarantee storage-device power-loss durability. Atomic rename is
 tested at the filesystem/API level; no actual phone crash/power-loss recovery is
-claimed. Full session logs remain authoritative; later incident windows will be
+claimed. Full session logs remain authoritative; incident windows are
 views/indexes over that evidence, not separate truth.
+
+## Milestone 2 compatibility
+
+The session schema remains 1 with additive `record_sequence` and
+`incident_capture` fields. This reader supports both original Milestone 1 exports
+and the incident extension; older Milestone 1 readers reject nonempty incident
+files explicitly. The mock vehicle pack is version 0.2.0. Healthy waveform values,
+rates, counts and phases are preserved, while serialized bytes change because of
+sequence numbers and pack provenance. Fault-scenario catalogs add scoped mock
+signals without changing the healthy six-signal catalog. Incident snapshots also
+use schema 1; unsupported versions fail explicitly. See the incident contract for
+revision semantics, coverage reasons and reconstruction.

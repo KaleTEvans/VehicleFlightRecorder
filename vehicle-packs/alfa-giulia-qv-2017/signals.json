@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "pack_version": "0.1.0",
+  "pack_version": "0.2.0",
   "profile_id": "alfa.giulia.qv.2017.2_9t",
   "signals": [
     {
@@ -8,7 +8,10 @@
       "unit": "rpm",
       "availability": "mock_only",
       "interval_ms": 100,
-      "mock_range": [0, 8000],
+      "mock_range": [
+        0,
+        8000
+      ],
       "provenance": "Synthetic healthy-drive waveform; not validated against a vehicle"
     },
     {
@@ -16,7 +19,10 @@
       "unit": "km/h",
       "availability": "mock_only",
       "interval_ms": 100,
-      "mock_range": [0, 300],
+      "mock_range": [
+        0,
+        300
+      ],
       "provenance": "Synthetic healthy-drive waveform; not validated against a vehicle"
     },
     {
@@ -24,7 +30,10 @@
       "unit": "%",
       "availability": "mock_only",
       "interval_ms": 100,
-      "mock_range": [0, 100],
+      "mock_range": [
+        0,
+        100
+      ],
       "provenance": "Synthetic healthy-drive waveform; not validated against a vehicle"
     },
     {
@@ -32,7 +41,10 @@
       "unit": "V",
       "availability": "mock_only",
       "interval_ms": 100,
-      "mock_range": [10, 16],
+      "mock_range": [
+        10,
+        16
+      ],
       "provenance": "Synthetic healthy-drive waveform; not validated against a vehicle"
     },
     {
@@ -40,7 +52,10 @@
       "unit": "%",
       "availability": "mock_only",
       "interval_ms": 500,
-      "mock_range": [0, 100],
+      "mock_range": [
+        0,
+        100
+      ],
       "provenance": "Synthetic healthy-drive waveform; not validated against a vehicle"
     },
     {
@@ -48,8 +63,54 @@
       "unit": "degC",
       "availability": "mock_only",
       "interval_ms": 1000,
-      "mock_range": [-40, 130],
+      "mock_range": [
+        -40,
+        130
+      ],
       "provenance": "Synthetic healthy-drive waveform; not validated against a vehicle"
+    },
+    {
+      "signal_id": "network.tcm_response_latency_ms",
+      "unit": "ms",
+      "availability": "mock_only",
+      "interval_ms": 100,
+      "mock_range": [
+        0,
+        5000
+      ],
+      "provenance": "Synthetic fault scenario; no vehicle validation",
+      "scenarios": [
+        "voltage_tcm_dropout",
+        "tcm_dropout"
+      ]
+    },
+    {
+      "signal_id": "engine.boost.requested",
+      "unit": "kPa",
+      "availability": "mock_only",
+      "interval_ms": 100,
+      "mock_range": [
+        0,
+        300
+      ],
+      "provenance": "Synthetic fault scenario; no vehicle validation",
+      "scenarios": [
+        "mechanical_fault"
+      ]
+    },
+    {
+      "signal_id": "engine.boost.actual",
+      "unit": "kPa",
+      "availability": "mock_only",
+      "interval_ms": 100,
+      "mock_range": [
+        0,
+        300
+      ],
+      "provenance": "Synthetic fault scenario; no vehicle validation",
+      "scenarios": [
+        "mechanical_fault"
+      ]
     }
   ]
 }

@@ -1,0 +1,25 @@
+{
+  "schema_version": 1,
+  "pack_version": "0.2.0",
+  "profile_id": "alfa.giulia.qv.2017.2_9t",
+  "scenario_id": "manual_mark",
+  "availability": "mock_only",
+  "provenance": "Synthetic acceptance scenario; offsets relative to drive midpoint",
+  "events": [
+    {
+      "offset_ms": 0,
+      "event_type": "manual_incident_marked",
+      "module": "",
+      "attributes": {
+        "synthetic": true,
+        "label": "synthetic manual marker"
+      }
+    }
+  ],
+  "overrides": [],
+  "gaps": [],
+  "expected_incident_count": 1,
+  "expected_trigger_types": [
+    "manual_marker"
+  ]
+}

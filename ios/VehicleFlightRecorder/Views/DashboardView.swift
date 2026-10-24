@@ -63,11 +63,12 @@ struct DashboardView: View {
             NavigationStack { IncidentsView(model: model) }.tabItem { Label("Incidents", systemImage: "flag") }
             NavigationStack { DebugView(model: model) }.tabItem { Label("Debug", systemImage: "wrench.and.screwdriver") }
         }
-        .task {
+        .task(id: phase) {
             await model.refresh(advance: false)
+            guard phase == .active else { return }
             while !Task.isCancelled {
                 do { try await Task.sleep(for: .milliseconds(250)) } catch { break }
-                if phase == .active { await model.refresh(advance: true) }
+                await model.refresh(advance: true)
             }
         }
         .sheet(isPresented: Binding(get: { model.shareURL != nil }, set: { if !$0 { model.shareURL = nil } })) {

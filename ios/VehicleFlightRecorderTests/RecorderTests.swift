@@ -17,6 +17,11 @@ final class RecorderTests: XCTestCase {
             do { _ = try await service.archive(before.session!.id); XCTFail("Active export allowed") } catch {}
             for step in 1...288 {
                 try await service.advance()
+                if step == 1 {
+                    let changed = try await service.snapshot()
+                    XCTAssertEqual(changed.elapsedMs, 2500)
+                    XCTAssertNotEqual(changed.signals.first { $0.signalId == "powertrain.coolant.temperature" }?.value, before.signals.first { $0.signalId == "powertrain.coolant.temperature" }?.value)
+                }
                 if step == 30, scenario == "healthy_drive" { _ = try await service.mark() }
             }
             before = try await service.snapshot()

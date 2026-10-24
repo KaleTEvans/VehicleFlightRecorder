@@ -36,12 +36,14 @@ enum SessionExporter {
         try data.write(to: destination, options: .atomic)
         return destination
     }
+    private static let crcTable: [UInt32] = (0..<256).map { value in
+        var remainder = UInt32(value)
+        for _ in 0..<8 { remainder = (remainder >> 1) ^ (remainder & 1 == 1 ? 0xedb88320 : 0) }
+        return remainder
+    }
     private static func crc32(_ contents: Data) -> UInt32 {
         var crc: UInt32 = 0xffffffff
-        for byte in contents {
-            crc ^= UInt32(byte)
-            for _ in 0..<8 { crc = (crc >> 1) ^ (crc & 1 == 1 ? 0xedb88320 : 0) }
-        }
+        for byte in contents { crc = (crc >> 8) ^ crcTable[Int((crc ^ UInt32(byte)) & 0xff)] }
         return crc ^ 0xffffffff
     }
 }

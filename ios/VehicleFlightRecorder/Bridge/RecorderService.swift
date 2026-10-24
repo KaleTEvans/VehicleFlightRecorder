@@ -15,17 +15,23 @@ actor RecorderService {
         core = controller
         sessionsDirectory = sessions
     }
-    func snapshot() throws -> CoreSnapshot { try decodeCore(CoreSnapshot.self, core.snapshot()) }
+    private func response(_ call: (NSErrorPointer) -> String) throws -> String {
+        var error: NSError?
+        let result = call(&error)
+        if let error { throw error }
+        return result
+    }
+    func snapshot() throws -> CoreSnapshot { try decodeCore(CoreSnapshot.self, response { core.snapshot($0) }) }
     func start(_ scenario: String) throws { try core.start(scenario) }
     func advance() throws { try core.advance(2500) }
     func stop() throws { try core.stop() }
-    func mark() throws -> String { try core.mark("Manual incident") }
-    func sessions() throws -> [StoredSession] { try decodeCore([StoredSession].self, core.sessionsJSON()) }
+    func mark() throws -> String { try response { core.mark("Manual incident", error: $0) } }
+    func sessions() throws -> [StoredSession] { try decodeCore([StoredSession].self, response { core.sessionsJSON($0) }) }
     func incident(session: String, id: String, offset: Int64) throws -> IncidentPage {
-        try decodeCore(IncidentPage.self, core.incidentJSON(session, incidentID: id, offset: offset))
+        try decodeCore(IncidentPage.self, response { core.incidentJSON(session, incidentID: id, offset: offset, error: $0) })
     }
     func archive(_ id: String) throws -> URL {
-        let path = try core.exportPath(id)
+        let path = try response { core.exportPath(id, error: $0) }
         return try SessionExporter.archive(directory: URL(fileURLWithPath: path), output: FileManager.default.temporaryDirectory.appendingPathComponent("Exports", isDirectory: true))
     }
 }

@@ -71,7 +71,7 @@ func (c *Controller) Start(scenarioName string) error {
 		return fmt.Errorf("a drive is already recording")
 	}
 	if c.core != nil && c.core.State() == "failed" {
-		return fmt.Errorf("recorder failed; close it before starting another drive")
+		return fmt.Errorf("recorder failed; restart the controller before starting another drive")
 	}
 	var scenario *vehicle.Scenario
 	if scenarioName != "healthy_drive" {

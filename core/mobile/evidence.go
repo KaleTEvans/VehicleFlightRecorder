@@ -149,10 +149,18 @@ func (c *Controller) IncidentJSON(sessionID, incidentID string, offset int64) (s
 		}
 		return a.RecordSequence < b.RecordSequence
 	})
+	triggerOffsets := map[string]int64{}
+	for n, row := range rows {
+		for _, trigger := range selected.Triggers {
+			if row.Reference.RecordSequence == trigger.Evidence.RecordSequence {
+				triggerOffsets[trigger.TriggerID] = int64(n)
+			}
+		}
+	}
 	total := int64(len(rows))
 	if offset > total {
 		return "", fmt.Errorf("timeline offset exceeds evidence")
 	}
 	end := min(total, offset+200)
-	return encode(map[string]any{"incident": selected, "timeline": rows[offset:end], "total_records": total, "next_offset": end, "has_more": end < total})
+	return encode(map[string]any{"incident": selected, "trigger_offsets": triggerOffsets, "timeline": rows[offset:end], "total_records": total, "next_offset": end, "has_more": end < total})
 }

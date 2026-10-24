@@ -110,6 +110,7 @@ struct EvidenceEntry: Codable, Identifiable {
 struct IncidentPage: Codable {
     let incident: IncidentInfo
     let timeline: [EvidenceEntry]
+    let triggerOffsets: [String: Int64]
     let totalRecords: Int64
     let nextOffset: Int64
     let hasMore: Bool

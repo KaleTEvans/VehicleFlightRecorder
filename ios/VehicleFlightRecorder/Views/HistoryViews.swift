@@ -14,7 +14,7 @@ struct SessionsView: View {
                             Section("Drive") {
                                 LabeledContent("Started", value: row.session.started.formatted())
                                 LabeledContent("Duration", value: row.session.duration)
-                                LabeledContent("State", value: row.session.state.capitalized)
+                                LabeledContent("State", value: model.sessionState(row.session))
                                 LabeledContent("Samples", value: "\(row.session.observationCount)")
                                 LabeledContent("Events", value: "\(row.session.eventCount)")
                                 LabeledContent("Incidents", value: "\(row.session.incidentCount)")
@@ -38,7 +38,7 @@ struct SessionsView: View {
                         VStack(alignment: .leading, spacing: 5) {
                             Text(row.session.started, style: .date).font(.headline)
                             Text("\(row.session.started.formatted(date: .omitted, time: .shortened)) · \(row.session.duration)")
-                            Text("\(row.session.observationCount) samples · \(row.session.incidentCount) incidents · \(row.session.state)").font(.caption).foregroundStyle(.secondary)
+                            Text("\(row.session.observationCount) samples · \(row.session.incidentCount) incidents · \(model.sessionState(row.session))").font(.caption).foregroundStyle(.secondary)
                         }
                     }
                 }
@@ -80,6 +80,7 @@ struct IncidentDetailView: View {
     @State private var rows: [EvidenceEntry] = []
     @State private var error: String?
     @State private var loading = false
+    @State private var startOffset: Int64 = 0
     private var current: IncidentInfo { page?.incident ?? incident }
     var body: some View {
         List {
@@ -89,7 +90,7 @@ struct IncidentDetailView: View {
                 LabeledContent("Available span", value: String(format: "%.1f s", current.capturedSeconds))
                 Text("Coverage: \(current.incompleteReasons.isEmpty ? "Available requested window" : current.incompleteReasons.joined(separator: ", ").replacingOccurrences(of: "_", with: " "))")
                 ForEach(current.coverageGaps) { gap in
-                    Text("Gap: \(gap.reason.replacingOccurrences(of: "_", with: " ")) · \(Double(gap.endTimeUnixMs - gap.startTimeUnixMs) / 1000, specifier: "%.1f") s")
+                    Text("Gap: \(gap.reason.replacingOccurrences(of: "_", with: " ")) · \(Double(gap.startTimeUnixMs - current.triggerTimeUnixMs) / 1000, specifier: "%+.1f") to \(Double(gap.endTimeUnixMs - current.triggerTimeUnixMs) / 1000, specifier: "%+.1f") s")
                         .foregroundStyle(.orange)
                 }
                 if !current.relatedIncidentIds.isEmpty { Text("Related: \(current.relatedIncidentIds.joined(separator: ", "))").font(.caption) }
@@ -98,9 +99,13 @@ struct IncidentDetailView: View {
                 ForEach(current.triggers) { trigger in
                     VStack(alignment: .leading, spacing: 4) {
                         Text(scenarioTitle(trigger.triggerType)).font(.headline)
+                        Text(String(format: "%+.3f s from first trigger", Double(trigger.timestampUnixMs - current.triggerTimeUnixMs) / 1000)).font(.caption.monospaced())
                         Text("\(trigger.category) · \(trigger.severity)\(trigger.label.map { " · " + $0 } ?? "")")
                         Text("\(trigger.evidence.file):\(trigger.evidence.line) · sequence \(trigger.evidence.recordSequence)")
                             .font(.caption.monospaced()).foregroundStyle(.secondary)
+                        if let offset = page?.triggerOffsets[trigger.id] {
+                            Button("View evidence around trigger") { Task { await load(reset: true, override: max(0, offset - 50)) } }.disabled(loading)
+                        }
                     }
                 }
                 Text("Synthetic temporal evidence. A preceding event does not establish a cause.").font(.caption).foregroundStyle(.secondary)
@@ -115,7 +120,7 @@ struct IncidentDetailView: View {
                     }
                 }
                 if let page {
-                    Text("Showing \(rows.count) of \(page.totalRecords) records").font(.caption).foregroundStyle(.secondary)
+                    Text("Records \(startOffset + 1)–\(startOffset + Int64(rows.count)) of \(page.totalRecords)").font(.caption).foregroundStyle(.secondary)
                     if page.hasMore { Button("Load next 200 records") { Task { await load(reset: false) } }.disabled(loading) }
                 }
                 if loading { ProgressView() }
@@ -125,12 +130,14 @@ struct IncidentDetailView: View {
             .task { await load(reset: true) }
             .toolbar { Button("Refresh") { Task { await load(reset: true) } }.disabled(loading) }
     }
-    private func load(reset: Bool) async {
+    private func load(reset: Bool, override: Int64? = nil) async {
         guard !loading, let service else { return }
         loading = true
         defer { loading = false }
         do {
-            let result = try await service.incident(session: incident.sessionId, id: incident.id, offset: reset ? 0 : (page?.nextOffset ?? 0))
+            let offset = override ?? (reset ? 0 : (page?.nextOffset ?? 0))
+            let result = try await service.incident(session: incident.sessionId, id: incident.id, offset: offset)
+            if reset { startOffset = offset }
             rows = reset ? result.timeline : rows + result.timeline
             page = result; error = nil
         } catch { self.error = error.localizedDescription }

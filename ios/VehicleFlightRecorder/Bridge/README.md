@@ -1,3 +1,1 @@
-The future thin bridge consumes the gomobile-generated XCFramework from core/mobile.
-Prefer strings, JSON, bytes, and scalar values. No recorder API or framework link
-is required for the Milestone 0 static shell.
+The RecorderService actor owns one real MobileController from the generated Go XCFramework. JSON models map snapshots and evidence for presentation. Domain logic remains in Go. See docs/MILESTONE_3.md.

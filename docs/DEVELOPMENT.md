@@ -242,3 +242,12 @@ validated through the remote build and user-observed browser launch. The new pac
 signals are explicitly mock-only; real polling/threshold arrays remain empty.
 The JSONL finalization and schema choices are documented in DATA_SCHEMA.md. No
 enterprise implementation or Milestone 2 work is included.
+
+
+## Milestone 3 native mock integration
+
+See [MILESTONE_3.md](MILESTONE_3.md) for the serialized runtime API, pinned mobile
+toolchain, simulator-only framework build, native test/export evidence and UX
+acceptance steps. Run build_go_ios.sh on the macOS runner before generating the
+Xcode project; the generated framework and bundled pack folder are build outputs.
+The workflow builds cleanly from source and reports the actual Xcode/SDK version.

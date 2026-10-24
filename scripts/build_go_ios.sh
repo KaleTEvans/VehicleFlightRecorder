@@ -1,25 +1,23 @@
 #!/usr/bin/env bash
 set -euo pipefail
 ROOT="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
-# Apple SDKs and a full Xcode installation are required. WSL cannot build iOS.
 [[ "$(uname -s)" == Darwin ]] || {
-    echo "Go iOS binding requires macOS and Xcode's Apple SDKs. Run this script on a Mac; no XCFramework was built." >&2
-    exit 1
+  echo "Go iOS binding requires macOS and Xcode Apple SDKs; no framework built." >&2
+  exit 1
 }
-for tool in go gomobile gobind xcrun; do
-    command -v "$tool" >/dev/null || {
-        echo "Missing $tool. See the Go XCFramework setup in docs/DEVELOPMENT.md." >&2
-        exit 1
-    }
-done
-xcrun --sdk iphoneos --show-sdk-path >/dev/null
-xcrun --sdk iphonesimulator --show-sdk-path >/dev/null
+source "$ROOT/scripts/mobile_toolchain.env"
 export GOCACHE="${GOCACHE:-$ROOT/.cache/go-build}"
 export GOMODCACHE="${GOMODCACHE:-$ROOT/.cache/go-mod}"
-export TMPDIR="$ROOT/.cache/tmp"
-mkdir -p "$ROOT/build/ios" "$TMPDIR"
+export GOPATH="$ROOT/.cache/go-path" GOBIN="$ROOT/.tools" TMPDIR="$ROOT/.cache/tmp"
+export PATH="$GOBIN:$PATH"
+mkdir -p "$GOBIN" "$TMPDIR" "$ROOT/build/ios"
+xcrun --sdk iphonesimulator --show-sdk-path
+rm -rf "$ROOT/build/ios/VehiclePack"
+cp -R "$ROOT/vehicle-packs/alfa-giulia-qv-2017" "$ROOT/build/ios/VehiclePack"
 cd "$ROOT/core"
-# The initial facade exports version metadata only. Framework integration and
-# reproducible mobile-tool version pinning are hardened in Milestone 4.
-gomobile bind -target=ios,iossimulator -iosversion=17.0 \
-    -o "$ROOT/build/ios/VehicleFlightRecorderCore.xcframework" ./mobile
+go install "golang.org/x/mobile/cmd/gomobile@$MOBILE_VERSION"
+go install "golang.org/x/mobile/cmd/gobind@$MOBILE_VERSION"
+go version -m "$GOBIN/gomobile"
+go version -m "$GOBIN/gobind"
+gomobile bind -target=iossimulator/arm64 -iosversion=17.0 \
+  -o "$ROOT/build/ios/VehicleFlightRecorderCore.xcframework" ./mobile

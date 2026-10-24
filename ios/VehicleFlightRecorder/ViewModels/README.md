@@ -1,2 +1,1 @@
-Reserved for presentation state mapping. Recorder and diagnostic decisions belong in Go.
-The static Milestone 0 dashboard needs no view model.
+RecorderModel owns presentation state and explicit actions on the main actor; RecorderService serializes blocking Go calls off the UI actor. No view recomputation creates markers.

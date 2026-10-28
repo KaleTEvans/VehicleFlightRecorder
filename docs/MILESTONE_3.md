@@ -4,8 +4,8 @@ Status: **PARTIALLY COMPLETE**. Native implementation, local checks, and the
 fixed-compiler macOS simulator build/native export validation pass. Interactive
 Appetize recording/manual marking and basic usability have user confirmation.
 The user screenshot confirms a captured automatic incident with both triggers
-in order and full available coverage. Evidence-button scrolling correction
-awaits a rebuilt preview and human verification; exported-file retrieval remains
+in order and full available coverage. The revised evidence-button interaction passes a native UI regression test
+and is uploaded to Appetize; renewed user confirmation remains pending; exported-file retrieval remains
 unconfirmed;
 they are separate from automated native acceptance.
 Milestone 4 not started. A UX review follows this functional milestone.
@@ -258,3 +258,20 @@ Stage only the named VehicleFlightRecorder.app for the existing strict packager;
 keep its identity/platform/executable/ARM/ZIP checks unchanged. Export xcresult
 attachments into the native artifact for direct screenshot review. A full run
 with this packaging correction is required before claiming preview upload.
+
+Final publication run [40760970035](https://github.com/KaleTEvans/VehicleFlightRecorder/actions/runs/40760970035)
+on source `ddd275b` passed: three hosted unit tests, the native UI regression
+(75.094 s), native-generated ZIP validation/reconstruction, strict app packaging
+and Appetize upload. Destination: fresh iPhone 16 Pro / iOS 18.5 ARM64 with Xcode
+16.4. The test verifies actual viewport displacement after voltage, timeout and
+repeated voltage taps. Exported screenshots were downloaded and visually reviewed:
+the canonical heading is near the top after each jump and the two selections
+show different corresponding evidence pages. This is native simulator interaction
+evidence; renewed user testing on Appetize's iPhone 14 Pro / iOS 17.2 remains
+separate. No claim of new browser observation is made.
+
+[Native/UI evidence artifact](https://github.com/KaleTEvans/VehicleFlightRecorder/actions/runs/40760970035/artifacts/12848751496).
+Retained locally under ignored `build/milestone-3-scroll-ui-evidence-ddd275b`,
+including `native-acceptance/ui-attachments/manifest.json` and the three screenshots.
+Local Go tests/vet, 59 Python tests, ten script tests and actionlint pass; both
+GitHub core/analytics checks for `ddd275b` passed. Milestone 4 not started.

@@ -248,3 +248,13 @@ The following diagnostic device listing returned after another 12 seconds.
 Allow 120 seconds for the initial runtime query to accommodate CoreSimulator
 service startup, retaining a 240-second boot limit and ten-minute step cap. This
 run supplies no evidence of UI test success or failure.
+
+Run `40759601825` passed all three native unit tests and the UI regression
+`testBothTriggerButtonsRevealTimeline` (69.742 s). The latter verifies viewport
+movement after voltage, module-timeout and repeated voltage selections. Native
+exports also validated/reconstructed. Packaging then correctly refused the two
+`.app` bundles now present in Xcode's products directory (app plus UI-test runner).
+Stage only the named VehicleFlightRecorder.app for the existing strict packager;
+keep its identity/platform/executable/ARM/ZIP checks unchanged. Export xcresult
+attachments into the native artifact for direct screenshot review. A full run
+with this packaging correction is required before claiming preview upload.

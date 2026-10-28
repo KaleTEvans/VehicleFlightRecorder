@@ -85,6 +85,9 @@ jobs:
             ARCHS=arm64 CODE_SIGNING_ALLOWED=NO test
           APP_DATA=$(xcrun simctl get_app_container "$SIMULATOR_ID" com.kaleevans.vehicleflightrecorder data)
           mkdir -p build/native-acceptance
+          xcrun xcresulttool export attachments \
+            --path build/ios-preview/NativeTests.xcresult \
+            --output-path build/native-acceptance/ui-attachments
           cp -R "$APP_DATA/Documents/NativeAcceptance/Exports" build/native-acceptance/
           printf 'Simulator: %s\nCommit: %s\n' "$SIMULATOR_ID" "$GITHUB_SHA" > build/native-acceptance/provenance.txt
           xcrun simctl io "$SIMULATOR_ID" screenshot build/native-acceptance/simulator.png
@@ -113,8 +116,12 @@ jobs:
 
       - name: Verify and package simulator app
         run: |
+          mkdir -p build/ios-preview/PackageProducts
+          ditto \
+            build/ios-preview/DerivedData/Build/Products/Debug-iphonesimulator/VehicleFlightRecorder.app \
+            build/ios-preview/PackageProducts/VehicleFlightRecorder.app
           python3 scripts/package_ios_preview.py \
-            build/ios-preview/DerivedData/Build/Products/Debug-iphonesimulator \
+            build/ios-preview/PackageProducts \
             build/ios-preview/VehicleFlightRecorder-simulator.zip
 
       # Keep the ZIP even if the optional external upload fails later.

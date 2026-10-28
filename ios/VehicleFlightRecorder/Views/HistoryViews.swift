@@ -42,6 +42,10 @@ struct SessionsView: View {
                         }
                     }
                 }
+                if model.hasMoreSessions {
+                    Button("Load more sessions") { Task { await model.loadMoreSessions() } }.disabled(model.busy)
+                }
+                if let error = model.error { Text(error).foregroundStyle(.red) }
             } header: { Text("Local mock drives") }
         }.navigationTitle("Sessions").refreshable { await model.refresh(advance: false) }
     }

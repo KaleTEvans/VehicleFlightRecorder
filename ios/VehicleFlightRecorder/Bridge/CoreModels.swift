@@ -74,6 +74,7 @@ struct StoredSession: Codable, Identifiable {
     var id: String { session.id }
 }
 struct CoreSnapshot: Codable {
+    let bridgeVersion: Int64
     let coreVersion: String
     let packVersion: String
     let state: String
@@ -115,8 +116,23 @@ struct IncidentPage: Codable {
     let nextOffset: Int64
     let hasMore: Bool
 }
+struct SessionPage: Codable {
+    let sessions: [StoredSession]
+    let totalSessions: Int64
+    let nextOffset: Int64
+    let hasMore: Bool
+}
 func decodeCore<T: Decodable>(_ type: T.Type, _ json: String) throws -> T {
-    let decoder = JSONDecoder()
-    decoder.keyDecodingStrategy = .convertFromSnakeCase
-    return try decoder.decode(type, from: Data(json.utf8))
+    guard json.utf8.count <= 8 * 1024 * 1024 else {
+        throw BridgeFailure(category: "resource_limit", operation: "decode", detail: "Bridge response exceeds 8 MiB")
+    }
+    do {
+        let decoder = JSONDecoder()
+        decoder.keyDecodingStrategy = .convertFromSnakeCase
+        let value = try decoder.decode(type, from: Data(json.utf8))
+        if let snapshot = value as? CoreSnapshot, snapshot.bridgeVersion != RecorderService.supportedBridgeVersion {
+            throw BridgeFailure(category: "unsupported_version", operation: "decode", detail: "Unsupported snapshot bridge version")
+        }
+        return value
+    } catch { throw BridgeFailure.translated(error, operation: "decode") }
 }

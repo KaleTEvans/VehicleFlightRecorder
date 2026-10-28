@@ -5,12 +5,31 @@ import UIKit
 // ZIP STORE packaging only. Canonical evidence bytes and paths are unchanged.
 enum SessionExporter {
     static let files = ["session.json", "observations.jsonl", "events.jsonl", "incidents.jsonl", "raw/transport.jsonl"]
+    static let maximumArchiveBytes: UInt64 = 128 * 1024 * 1024
     static func archive(directory: URL, output: URL) throws -> URL {
+        let root = directory.standardizedFileURL.resolvingSymlinksInPath()
+        var total: UInt64 = 0
+        for name in files {
+            let file = root.appendingPathComponent(name)
+            let attributes = try FileManager.default.attributesOfItem(atPath: file.path)
+            guard attributes[.type] as? FileAttributeType == .typeRegular,
+                  file.resolvingSymlinksInPath().path == file.path else {
+                throw BridgeFailure(category: "corrupt_data", operation: "archive", detail: "Export requires local regular evidence files")
+            }
+            let size = (attributes[.size] as? NSNumber)?.uint64Value ?? UInt64.max
+            guard size <= maximumArchiveBytes - total else {
+                throw BridgeFailure(category: "resource_limit", operation: "archive", detail: "Session exceeds the 128 MiB export limit; original evidence is preserved")
+            }
+            total += size
+        }
         var data = Data()
         var central = Data()
         for name in files {
-            let file = directory.appendingPathComponent(name)
-            let contents = try Data(contentsOf: file)
+            let file = root.appendingPathComponent(name)
+            let contents = try Data(contentsOf: file, options: .mappedIfSafe)
+            guard UInt64(contents.count) <= maximumArchiveBytes, UInt64(data.count + contents.count) <= maximumArchiveBytes + 4096 else {
+                throw BridgeFailure(category: "resource_limit", operation: "archive", detail: "Evidence grew beyond export limit")
+            }
             guard contents.count < Int(UInt32.max), data.count < Int(UInt32.max) else {
                 throw NSError(domain: "Export", code: 1, userInfo: [NSLocalizedDescriptionKey: "Session exceeds supported ZIP size"])
             }

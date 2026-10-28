@@ -210,7 +210,7 @@ hang remains unconfirmed.
 
 The workflow now explicitly selects Xcode 16.4, creates a fresh iPhone 16 Pro on
 the runtime matching that Xcode's simulator SDK, bounds each `xcrun` call and
-limits boot completion to 240 seconds. The whole startup step is capped at eight
+limits boot completion to 240 seconds. The whole startup step is capped at ten
 minutes, with runtime/destination/failure/device/process evidence included in the
 native artifact. Startup failure still fails native acceptance; it does not skip
 tests or publish an unverified preview. Focused synthetic tests check runtime
@@ -241,3 +241,10 @@ first, checks actual heading frame movement into the viewport, and retains
 screenshots in xcresult. The test does not equate data changes with scrolling.
 Normal launches still open Dashboard. Native/UI acceptance and renewed Appetize
 verification are pending until the new run and user observation are recorded.
+
+UI regression run `40758950924` compiled the app but failed before test execution:
+the first `simctl list runtimes -j` exceeded the initial 30-second command limit.
+The following diagnostic device listing returned after another 12 seconds.
+Allow 120 seconds for the initial runtime query to accommodate CoreSimulator
+service startup, retaining a 240-second boot limit and ten-minute step cap. This
+run supplies no evidence of UI test success or failure.

@@ -28,7 +28,7 @@ def main():
     output.mkdir(parents=True, exist_ok=True)
     try:
         sdk = run('xcrun', '--sdk', 'iphonesimulator', '--show-sdk-version', capture=True).strip()
-        runtimes = run('xcrun', 'simctl', 'list', 'runtimes', '-j', capture=True)
+        runtimes = run('xcrun', 'simctl', 'list', 'runtimes', '-j', timeout=120, capture=True)
         (output / 'runtimes.json').write_text(runtimes)
         runtime = select_runtime(json.loads(runtimes)['runtimes'], sdk)
         # Avoid relying on pre-created device order or its saved boot/migration state.

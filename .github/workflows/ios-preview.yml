@@ -67,7 +67,7 @@ jobs:
 
       - name: Create and boot matching iPhone simulator (bounded)
         id: destination
-        timeout-minutes: 8
+        timeout-minutes: 10
         run: python3 scripts/boot_ios_simulator.py
 
       - name: Test real native Go bridge and export

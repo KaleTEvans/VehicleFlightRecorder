@@ -35,7 +35,40 @@ The test application must:
 14. Be designed so the real OBDLink transport can be inserted later without rewriting the application.
 15. Support hands-off recording on the physical iPhone after initial setup, without requiring the user to open the app or press Start on every trip. Use validated vehicle-activity evidence rather than scanner connection alone (see §15 and Milestone 7).
 
-## 1.2 Explicit non-goals for the first iteration
+## 1.2 Diagnostic-first scope and future product boundary
+
+**Planning clarification — October 28, 2026:** The MVP exists to investigate the
+owner's immediate intermittent vehicle problem. It remains diagnostic-first.
+The generic recorder and standard OBD discovery are shared infrastructure; the
+2017 Giulia QV is the first physical validation vehicle, not a dependency embedded
+in the generic implementation. Verified Alfa-specific requests, decoders,
+applicability and diagnostic rules belong in the vehicle pack.
+
+The intended progression is:
+
+1. Generic diagnostic foundation and supported standard-signal discovery.
+2. Reliable physical-device recording and evidence-quality characterization.
+3. Verified Alfa drivetrain expansion needed to investigate the immediate fault.
+4. A separately planned Driver Companion V2, using demonstrated capabilities.
+5. Enterprise expansion when evidence and product needs justify it.
+
+Do not move Alfa diagnostic work behind trip/performance features. Conversely,
+do not make the MVP depend on exhaustive proprietary-signal discovery. Prioritize
+verified signals that answer the diagnostic questions. Capturing a real fault is
+valuable evidence, but its unpredictable occurrence must not prevent testing
+capture/reconstruction with controlled fixtures. Successful infrastructure tests
+do not establish that the user's real fault has been diagnosed.
+
+Generic support means discovering which implemented standard parameters the
+connected vehicle reports, not assuming every standardized parameter exists on
+every vehicle. Testing on the Alfa validates that configuration only. Broader
+compatibility still needs representative vehicle/protocol testing.
+
+GPS routes, motion-derived G measurements, performance timing, and a complete
+cockpit-inspired consumer redesign belong to V2. Basic MVP usability improvements
+remain in scope. This clarification does not authorize V2 implementation.
+
+## 1.3 Explicit non-goals for the first iteration
 
 Do **not** implement these yet:
 
@@ -452,6 +485,26 @@ Optional:
 - decoder_version
 - vehicle_pack_version
 
+## 6.1.1 Live timing, freshness and future sources
+
+Before live recording, define timestamp semantics explicitly and version any
+schema changes. Preserve request-send and response-receive timing where available,
+using a monotonic clock for elapsed durations and a documented mapping to session
+wall time. Receipt time is not automatically the ECU's measurement time. Preserve
+an actual source timestamp when available; otherwise leave measurement time
+unknown rather than inventing precision.
+
+Keep decoded observations traceable to raw transactions and source/decoder
+versions. A dashboard may retain the last value, but must expose its age and
+stale/invalid state. Refreshing the display must not create a new measurement.
+Validate freshness against observed acquisition behavior and diagnostic needs.
+
+Document an extension path for independent OBD, GPS and phone-motion sources,
+including per-observation provenance, clock alignment and late-arriving data.
+The current single-source/ordered-ingestion contract must be revisited explicitly
+before adding asynchronous sources. Do not implement GPS, Core Motion, sensor
+fusion or a speculative multi-source framework as part of this requirement.
+
 ## 6.2 Event
 
 Events are discrete occurrences rather than continuously sampled values.
@@ -721,7 +774,75 @@ Proposed initial classes:
 - DTC added/removed/status change.
 - incident marker.
 
-Actual poll rates must later be adjusted based on MX+ throughput, ECU behavior, and the number of active diagnostic requests.
+These classes are planning targets, not promised rates or verified adapter
+capabilities. Actual poll rates must be adjusted based on MX+ throughput, ECU
+behavior, and the number of active diagnostic requests. In particular, a nominal
+10–20 Hz FAST class does not establish that each FAST signal can be sampled at
+that rate simultaneously.
+
+## 10.1 Automatic standard-signal discovery and generic fallback
+
+Milestone 6 must implement standard supported-parameter discovery in the shared
+Go diagnostic layer. Implement known standard requests and decoders once, then
+query the connected vehicle for its supported subset. Preserve responding ECU
+identity rather than combining distinct responses into an unexplained value.
+Discovery is bounded to implemented standards and documented reads; it is not
+brute-force probing for unknown proprietary identifiers.
+
+Keep these states distinct: advertised support, successfully observed/decoded,
+not supported, supported but temporarily unavailable, and unknown/not checked.
+A timeout is not proof that a signal is unsupported. Do not repeatedly request
+known unsupported parameters during normal recording. Revalidate capabilities
+when the vehicle or relevant connection configuration changes; cached results
+must retain their identity and provenance rather than becoming universal facts.
+
+If no enhanced vehicle pack matches, retain supported generic diagnostics.
+Manufacturer-specific requests and rules require an applicable validated pack;
+never apply Alfa thresholds or module assumptions to an unidentified vehicle.
+The application should expose actual coverage and explain unavailable features.
+This fallback is an architectural requirement, not a claim of broad production
+vehicle certification during the Alfa MVP.
+
+## 10.2 Capability and evidence-quality report
+
+Export a machine-readable capability report with a readable summary. Associate
+it with the tested vehicle/configuration and relevant sessions. Include:
+
+- adapter model, firmware when available, transport and diagnostic protocol;
+- vehicle identity when available, its source, and any unresolved identification;
+- application, schema, decoder and vehicle-pack versions;
+- signal identifier, source ECU, units, provenance and validation status;
+- discovery status, attempted/successful requests, failures and decode errors;
+- requested interval and achieved successful-observation rate per signal;
+- response-latency distribution, inter-arrival gaps and freshness limitations;
+- test duration, vehicle operating state and the complete concurrent signal set;
+- comparison against a trusted reference and unresolved discrepancies.
+
+Measure a bounded selection individually and under the intended combined polling
+workload. Include representative stationary and driving conditions; perform
+configuration/discovery work while parked. Do not maximize traffic simply to find
+a theoretical ceiling. Retain the tested conservative configuration as an output.
+There is no single universal frequency for a signal independent of workload.
+
+Report successful replies separately from changes in returned values. Equal
+values may be legitimate steady measurements; neither equal nor changing values
+alone proves the ECU's internal sensor refresh rate. Mark that refresh rate
+unknown unless there is supporting evidence. A fast log-writing or UI-refresh
+loop must not inflate the reported acquisition rate.
+
+## 10.3 Bounded, prioritized polling
+
+Implement a modest scheduler sufficient for the diagnostic MVP, not the entire
+enterprise polling platform. Set bounded timeouts, request budgets, priorities
+and retry/backoff behavior. A slow or unavailable signal must not indefinitely
+stall unrelated recording. Use the lowest useful rates demonstrated by tests;
+reduce workload when latency/errors indicate degraded communication.
+
+Preserve the distinction between adapter loss and individual ECU failures.
+Record missed coverage and scheduling changes as evidence. Deprioritizing failed
+requests must not erase the module dropout that the recorder is meant to capture.
+No companion/performance sampling mode may displace required diagnostic coverage
+in this MVP.
 
 ---
 
@@ -1231,6 +1352,30 @@ Most logic should remain testable outside Xcode.
 
 ---
 
+## 20.4 Physical-device reliability and acceptance evidence
+
+Milestone 7 must retain an explicit acceptance matrix backed by physical-iPhone,
+MX+ and vehicle evidence. Simulator results are insufficient. Cover:
+
+- repeated complete drives, including a representative long-duration session;
+- foreground, background and locked-screen recording;
+- the distinct wake/termination states and limitations defined in §15;
+- ignition-on/engine-off, stationary running, stop/start and end-of-drive grace;
+- adapter disconnect/reconnect and individual module response loss;
+- absence of duplicate sessions or premature closure during brief interruptions;
+- interrupted-session recovery that preserves valid evidence and labels gaps;
+- finalized exports retrieved and validated by the Python tools;
+- observed phone battery impact, storage growth and raw-log volume per hour;
+- request/response health and any observed vehicle-network disturbance.
+
+Record test configuration, duration, expected behavior, observed result, evidence
+location and unresolved limitations. Define acceptable battery/storage budgets
+from representative measurements before acceptance; do not invent universal
+limits. A recoverable incomplete session must never be presented as complete.
+Do not intentionally induce a vehicle fault to satisfy an acceptance case; use
+controlled transcripts/fixtures for cases unsuitable for physical testing and
+label the resulting evidence accordingly.
+
 # 21. Safety constraints
 
 This application should initially be **read-only**.
@@ -1410,15 +1555,22 @@ Acceptance:
 Deliverables:
 
 - OBDLink initialization sequence based on official docs.
-- standard OBD discovery.
+- automatic standard OBD discovery and explicit generic fallback (§10.1).
 - first real signals.
 - adapter voltage.
 - session recorded from stationary vehicle.
+- initial capability report, including response timing and observed signal quality (§10.2).
+- defined live timestamp/freshness semantics and raw-transaction provenance (§6.1.1).
+- bounded prioritized scheduler with tested timeout/backoff behavior (§10.3).
 
 Acceptance:
 - no dashboard warnings caused by the app.
 - stable connection for a prolonged test.
 - clean disconnect/reconnect.
+- supported/unsupported/temporarily unavailable states remain distinguishable.
+- exported report distinguishes requested rates from achieved observations.
+- unavailable signals do not stall the recorder or appear as fresh zero values.
+- generic operation does not require or silently apply an Alfa-specific pack.
 
 ## Milestone 7 — controlled road logging
 
@@ -1428,6 +1580,8 @@ Deliverables:
 - hands-off session start/stop using validated engine/drivetrain activity, as defined in §15; scanner connection alone must not start a drive.
 - tested background, locked-screen and reconnect lifecycle with documented wake/launch limitations.
 - real drive export.
+- capability report under the actual combined road-logging workload.
+- physical-device reliability matrix and measured battery/storage impact (§20.4).
 - comparison against MultiECUScan/known values.
 
 Acceptance:
@@ -1437,7 +1591,10 @@ Acceptance:
 - module dropout, brief adapter loss and engine stop/start preserve evidence without premature session closure or duplicate sessions.
 - unsupported wake/launch states and any required user action are documented explicitly.
 - no unacceptable network disturbance.
-- no missing/corrupt sessions.
+- no missing/corrupt sessions in normal tested operation; interrupted sessions retain recoverable evidence with honest completeness labels.
+- retrieved exports pass Python validation and preserve timing/source provenance.
+- measured acquisition rates and coverage are sufficient for the selected diagnostic objectives; unresolved deficiencies are documented rather than hidden.
+- tested battery/storage budgets and lifecycle limitations are recorded.
 
 ## Milestone 8 — Giulia-specific drivetrain expansion
 
@@ -1450,6 +1607,23 @@ Deliverables:
 - module heartbeat/latency.
 - DTC snapshots.
 - initial real incident correlation.
+- prioritized signal selection tied to the owner's diagnostic questions, with documented provenance and reference validation.
+- capability report extended for verified pack signals under the combined workload.
+
+Acceptance:
+- manufacturer-specific definitions remain outside the generic core.
+- generic fallback still works without the Alfa enhanced definitions.
+- diagnostic findings distinguish observations, correlation and hypotheses.
+- controlled capture/reconstruction tests are recorded separately from real-fault evidence; do not claim the vehicle issue is resolved without supporting findings.
+
+## Post-MVP decision gate — Driver Companion V2
+
+Use the validated capability reports and reliable diagnostic recordings to decide
+which trip/performance features are supportable. The diagnostic objective and
+Alfa package work above retain priority. V2 will have a separate reviewed plan;
+its feature list, GPS/motion requirements, metric-quality contracts and visual
+design are not authorized by this MVP update. Enterprise infrastructure remains
+conditional on demonstrated needs.
 
 ---
 

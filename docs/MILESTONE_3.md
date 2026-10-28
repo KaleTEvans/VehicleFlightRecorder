@@ -203,9 +203,10 @@ Preview run `40752847105` compiled the Go framework and Swift app, then remained
 in the simulator selection/boot step. Its original `simctl bootstatus -b` had
 no process timeout, and selection used the first available device without matching
 its runtime to the selected SDK. Cancellation was requested, including forced
-cancellation when the runner did not promptly stop; completed runner logs were
-not yet available when this correction was prepared. The exact underlying
-CoreSimulator hang is therefore unconfirmed.
+cancellation when the runner did not promptly stop; the completed logs show no command output between entering the startup step
+at 19:22:41 UTC and cancellation at 19:30:52 UTC. They do not distinguish a
+hung listing, boot or boot-status command, so the exact underlying CoreSimulator
+hang remains unconfirmed.
 
 The workflow now explicitly selects Xcode 16.4, creates a fresh iPhone 16 Pro on
 the runtime matching that Xcode's simulator SDK, bounds each `xcrun` call and
@@ -215,3 +216,12 @@ native artifact. Startup failure still fails native acceptance; it does not skip
 tests or publish an unverified preview. Focused synthetic tests check runtime
 selection, unavailable-runtime failure and timeout propagation; only a macOS run
 can verify real simulator startup.
+
+Corrected native run [40754975883](https://github.com/KaleTEvans/VehicleFlightRecorder/actions/runs/40754975883)
+on implementation commit `007e68a` passed. Fresh SDK-matched simulator startup
+completed in 85 seconds (19:34:21–19:35:46 UTC). All three hosted native tests
+passed with zero failures; actual native export validation/reconstruction,
+artifact packaging and Appetize upload passed. This preview includes the
+trigger-evidence scroll fix from `5927a19`; human confirmation of its visible
+scroll behavior remains pending. Local Go tests/vet, 59 Python tests, ten script
+tests and actionlint passed; both GitHub core/analytics checks passed.

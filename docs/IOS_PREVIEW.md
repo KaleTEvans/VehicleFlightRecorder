@@ -1,3 +1,14 @@
+# Current Milestone 3 preview
+
+The workflow now builds the real Go simulator XCFramework, links the native
+dashboard, runs hosted native bridge/export tests and validates app-container ZIPs
+in Python before packaging/upload. See [Milestone 3](MILESTONE_3.md) for current
+status, commands, toolchain pinning and interactive acceptance. The
+[fixed-compiler native run passed](https://github.com/KaleTEvans/VehicleFlightRecorder/actions/runs/40051022426)
+with three XCTest cases and two validated native session exports; Appetize upload
+passed. Interactive browser observation remains pending. The historical
+Milestone 0.5 results below describe the earlier static shell, not the new build.
+
 # Milestone 0.5: native iOS preview from Windows/WSL
 
 ## Current acceptance status

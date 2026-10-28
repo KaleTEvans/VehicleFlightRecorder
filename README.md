@@ -14,7 +14,8 @@ successfully and the user confirmed all four expected status labels on October 2
 2026. Milestone 1 now provides a Go recorder, deterministic healthy mock drive,
 JSONL session storage, rolling buffer, and Python validation/summary CLI. These
 run locally from the command line; **Milestone 1 is complete** under its Go/Python
-acceptance criteria. The native app remains the static shell.
+acceptance criteria. Milestone 3 now implements the native dashboard and Go bridge; cloud and interactive
+acceptance status is tracked in [Milestone 3](docs/MILESTONE_3.md).
 Milestone 2 adds deterministic incident detection, capture windows, fault scenarios
 and Python timeline reconstruction. See [Milestone 2 results](docs/MILESTONE_2.md).
 Live vehicle communication remains future work.
@@ -23,7 +24,7 @@ Live vehicle communication remains future work.
 
 - `ios/`: SwiftUI, native lifecycle, raw-byte transport seam, future Go bridge/export UI.
 - `core/`: generic telemetry/session models, recorder/buffer, healthy mock generator,
-  incident detectors/capture, pack validation, storage, and the `mock-session` command; `mobile` remains a version-only facade.
+  incident detectors/capture, pack validation, storage, and the `mock-session` command; `mobile` supplies the serialized native recorder facade.
 - `analytics/`: installable Python validator and deterministic summary CLI.
 - `vehicle-packs/`: vehicle-specific data; the first pack contains six healthy signals and three scenario-scoped synthetic signals.
 - `docs/`: development workflow and concise data/profile/incident design notes.
@@ -110,8 +111,10 @@ Future vehicle access remains read-only: no automatic DTC clearing, ECU coding,
 configuration, calibration, actuation, undocumented commands, or arbitrary CAN
 writes. Active reads must be isolated, logged, rate-limited, and fail closed.
 
-Next is **Milestone 3**, under a separate instruction: the native dashboard and
-minimal working Go bridge. **Milestone 3 not started.**
+**Milestone 3 is complete:** the native dashboard, local Go-backed mock drives,
+manual/automatic incidents, evidence navigation and finalized export passed native
+validation and user acceptance. The minimal UI is accepted for initial testing;
+Appetize file-retrieval limits are documented. **Milestone 4 not started.**
 
 Authoritative plans (kept under their original names):
 

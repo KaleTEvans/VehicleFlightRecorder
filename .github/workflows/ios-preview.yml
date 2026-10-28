@@ -19,6 +19,8 @@ jobs:
   simulator:
     runs-on: macos-15
     timeout-minutes: 30
+    env:
+      DEVELOPER_DIR: /Applications/Xcode_16.4.app/Contents/Developer
     defaults:
       run:
         shell: bash
@@ -34,6 +36,15 @@ jobs:
           xcodebuild -version
           xcodebuild -showsdks
           uname -m
+
+      - name: Set up pinned Go toolchain
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.26.10"
+          cache: false
+
+      - name: Build Go simulator XCFramework from source
+        run: ./scripts/build_go_ios.sh
 
       - name: Generate existing XcodeGen project
         run: |
@@ -54,10 +65,63 @@ jobs:
             -derivedDataPath build/ios-preview/DerivedData \
             ARCHS=arm64 ONLY_ACTIVE_ARCH=NO CODE_SIGNING_ALLOWED=NO build
 
+      - name: Create and boot matching iPhone simulator (bounded)
+        id: destination
+        timeout-minutes: 10
+        run: python3 scripts/boot_ios_simulator.py
+
+      - name: Test real native Go bridge and export
+        env:
+          SIMULATOR_ID: ${{ steps.destination.outputs.id }}
+        run: |
+          xcodebuild \
+            -project ios/VehicleFlightRecorder.xcodeproj \
+            -scheme VehicleFlightRecorder \
+            -configuration Debug \
+            -destination "platform=iOS Simulator,id=$SIMULATOR_ID" \
+            -derivedDataPath build/ios-preview/DerivedData \
+            -resultBundlePath build/ios-preview/NativeTests.xcresult \
+            -parallel-testing-enabled NO \
+            ARCHS=arm64 CODE_SIGNING_ALLOWED=NO test
+          APP_DATA=$(xcrun simctl get_app_container "$SIMULATOR_ID" com.kaleevans.vehicleflightrecorder data)
+          mkdir -p build/native-acceptance
+          xcrun xcresulttool export attachments \
+            --path build/ios-preview/NativeTests.xcresult \
+            --output-path build/native-acceptance/ui-attachments
+          cp -R "$APP_DATA/Documents/NativeAcceptance/Exports" build/native-acceptance/
+          printf 'Simulator: %s\nCommit: %s\n' "$SIMULATOR_ID" "$GITHUB_SHA" > build/native-acceptance/provenance.txt
+          xcrun simctl io "$SIMULATOR_ID" screenshot build/native-acceptance/simulator.png
+
+      - name: Validate native-generated session exports in Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Reconstruct native exports
+        run: |
+          ./scripts/bootstrap.sh
+          analytics/.venv/bin/python scripts/validate_native_exports.py build/native-acceptance
+
+      - name: Publish native test and export evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: VehicleFlightRecorder-native-acceptance
+          path: |
+            build/native-acceptance/
+            build/ios-preview/NativeTests.xcresult/
+            build/ios-preview/simulator-startup/
+          if-no-files-found: warn
+          retention-days: 14
+
       - name: Verify and package simulator app
         run: |
+          mkdir -p build/ios-preview/PackageProducts
+          ditto \
+            build/ios-preview/DerivedData/Build/Products/Debug-iphonesimulator/VehicleFlightRecorder.app \
+            build/ios-preview/PackageProducts/VehicleFlightRecorder.app
           python3 scripts/package_ios_preview.py \
-            build/ios-preview/DerivedData/Build/Products/Debug-iphonesimulator \
+            build/ios-preview/PackageProducts \
             build/ios-preview/VehicleFlightRecorder-simulator.zip
 
       # Keep the ZIP even if the optional external upload fails later.
@@ -76,8 +140,8 @@ jobs:
         run: |
           {
             echo '## iOS Simulator build'
-            echo 'Unsigned native SwiftUI shell; MOCK / SIMULATOR, disconnected.'
-            echo 'No Go recorder is linked. No vehicle connection or commands.'
+            echo 'Unsigned native SwiftUI dashboard; MOCK / SIMULATOR, real local Go recorder.'
+            echo 'Native Go bridge/export tests passed. Physical vehicle connection remains disabled.'
             printf '\n[Download build artifact](%s)\n' "$ARTIFACT_URL"
             echo 'Artifact: VehicleFlightRecorder-ios-simulator (14-day retention).'
             echo 'Extract the GitHub artifact once, then upload VehicleFlightRecorder-simulator.zip to Appetize.'
@@ -114,7 +178,7 @@ jobs:
           platform: ios
           appFile: build/ios-preview/VehicleFlightRecorder-simulator.zip
           fileType: zip
-          note: Vehicle Flight Recorder - Milestone 0.5 mock-only simulator shell
+          note: Vehicle Flight Recorder - Milestone 3 Go-backed mock recorder
           timeout: '120'
 
       - name: Report Appetize upload result
@@ -128,7 +192,7 @@ jobs:
               echo '### Appetize upload succeeded'
               printf '\n[Open browser preview](https://appetize.io/app/%s)\n' "$PREVIEW_KEY"
               echo 'If a reused key is masked, open the corresponding build in your Appetize dashboard.'
-              echo 'Only mock/disconnected state is available. Launch and UI observation are still manual checks.'
+              echo 'Interactive Go-backed mock scenarios are available. Browser launch and interactive observation remain separate checks.'
               echo 'Build links may be accessible to anyone holding the link; review Appetize App Permissions before sharing.'
             } >> "$GITHUB_STEP_SUMMARY"
           else

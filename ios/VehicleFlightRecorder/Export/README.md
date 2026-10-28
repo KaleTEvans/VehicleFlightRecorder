@@ -1,2 +1,1 @@
-Reserved for native session-sharing UI. Go will own session files; Python will
-analyze exported sessions. No export implementation in Milestone 0.
+Finalized Go session paths are packaged as ZIP STORE archives with the five canonical evidence paths intact and presented through UIActivityViewController. XCTest exports are retrieved from the real simulator app container for Python validation.

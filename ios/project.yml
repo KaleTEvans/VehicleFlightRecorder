@@ -17,6 +17,9 @@ targets:
         excludes:
           - "**/*.md"
           - Resources/Info.plist
+      - path: ../build/ios/VehiclePack
+        type: folder
+        buildPhase: resources
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.kaleevans.vehicleflightrecorder
@@ -26,9 +29,39 @@ targets:
         CODE_SIGN_STYLE: Automatic
     dependencies:
       - sdk: ExternalAccessory.framework
+      - framework: ../build/ios/VehicleFlightRecorderCore.xcframework
+        embed: false
     attributes:
       SystemCapabilities:
         com.apple.BackgroundModes:
           enabled: 1
     scheme:
       gatherCoverageData: false
+      testTargets:
+        - VehicleFlightRecorderTests
+        - VehicleFlightRecorderUITests
+
+  VehicleFlightRecorderTests:
+    type: bundle.unit-test
+    platform: iOS
+    sources:
+      - path: VehicleFlightRecorderTests
+    dependencies:
+      - target: VehicleFlightRecorder
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.kaleevans.vehicleflightrecorder.tests
+        GENERATE_INFOPLIST_FILE: YES
+
+  VehicleFlightRecorderUITests:
+    type: bundle.ui-testing
+    platform: iOS
+    sources:
+      - path: VehicleFlightRecorderUITests
+    dependencies:
+      - target: VehicleFlightRecorder
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.kaleevans.vehicleflightrecorder.uitests
+        GENERATE_INFOPLIST_FILE: YES
+        TEST_TARGET_NAME: VehicleFlightRecorder

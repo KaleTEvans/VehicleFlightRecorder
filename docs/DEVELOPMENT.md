@@ -90,12 +90,12 @@ formatting validation. CI execution itself requires pushing to a GitHub reposito
 ## Boundaries and layout
 
 - `ios/VehicleFlightRecorder`: App and Views contain a static SwiftUI shell.
-  ViewModels, Bridge, and Export reserve native presentation/integration seams.
+  ViewModels, Bridge, and Export implement native presentation and Go integration.
   Transport contains a generic raw-byte contract and two inert implementations.
 - `core/`: local module `vehicleflightrecorder.local/core`; no hosting ownership
-  implied. `mobile.Version()` is the only initial exported facade function.
+  implied. The mobile facade serializes the recorder for native callers.
   Telemetry/session models, recorder/buffer, healthy mock, profile loader and JSONL
-  storage now run through `cmd/mock-session`. Incidents remain reserved for Milestone 2.
+  storage run through `cmd/mock-session`; Milestone 2 adds incident capture.
 - `analytics/`: src-layout package with strict streaming validation and JSON summary CLI.
 - `vehicle-packs/`: manufacturer metadata and six mock-only synthetic signal definitions.
 - `testdata/`: reserved scenario directories; integration fixtures are generated
@@ -159,7 +159,8 @@ there are no third-party Swift libraries. XcodeGen is a build tool only.
 the generated `.xcodeproj` is ignored and reproducible. No hand-authored Xcode
 metadata or fabricated entitlement is needed. Project structure follows the
 [XcodeGen specification](https://github.com/yonaskolb/XcodeGen/blob/master/Docs/ProjectSpec.md).
-The static app does not depend on a Go framework to build. Icons, distribution
+The Milestone 3 app requires the generated Go simulator framework before project
+generation. Icons, distribution
 assets, and App Store packaging are outside this bootstrap.
 
 ## Approved accessory identity
@@ -187,32 +188,22 @@ uses EAAccessoryManager and EASession, not CoreBluetooth. Capability, signing,
 provisioning/entitlement requirements and actual background behavior require Mac
 and physical-device validation. Configuration alone does not prove live access.
 
-## Future Go XCFramework workflow
+## Go simulator XCFramework workflow
 
-This workflow is prepared but not validated from WSL. On a Mac with Go and full
-Xcode, install matching gomobile/gobind tools using the official
-[gomobile documentation](https://pkg.go.dev/golang.org/x/mobile/cmd/gomobile).
-For an initial tooling evaluation (then record/pin the resolved x/mobile revision):
+On macOS with full Xcode and the pinned native Go 1.26.10 compiler:
 
 ```bash
-go install golang.org/x/mobile/cmd/gomobile@latest
-go install golang.org/x/mobile/cmd/gobind@latest
-export PATH="$(go env GOPATH)/bin:$PATH"
-gomobile init
 ./scripts/build_go_ios.sh
+./scripts/generate_xcode_project.sh
 ```
 
-Mobile tooling can require a newer Go release than the core's minimum. If binding
-reports missing `golang.org/x/mobile/bind` packages, add the same evaluated x/mobile
-revision as a module dependency during the Mac integration milestone. It is not
-introduced as an untested dependency of the current Linux core.
-
-The script checks platform, tools, and both Apple SDKs, then invokes
-`gomobile bind -target=ios,iossimulator -iosversion=17.0` on `./mobile`, targeting
-`build/ios/VehicleFlightRecorderCore.xcframework`. Only version metadata is exposed
-now. Framework linking, real recorder API design, compatible toolchain pinning,
-and bridge/lifecycle validation remain future work, with integration hardening
-in Milestone 4. Building an XCFramework does not build or launch an iOS app.
+The build script installs matching gomobile and gobind versions from
+`scripts/mobile_toolchain.env`, binds `./mobile` for `iossimulator/arm64`, stages
+the mock vehicle pack, and writes the ignored static
+`build/ios/VehicleFlightRecorderCore.xcframework`. The module graph and go.sum
+record the same binding runtime. Swift imports the framework and owns it through
+a serial actor. Device slices/signing and broader bridge hardening remain future
+work. See [Milestone 3](MILESTONE_3.md) for exact APIs and native export validation.
 
 ## WSL limitations and pending validation
 
@@ -242,3 +233,12 @@ validated through the remote build and user-observed browser launch. The new pac
 signals are explicitly mock-only; real polling/threshold arrays remain empty.
 The JSONL finalization and schema choices are documented in DATA_SCHEMA.md. No
 enterprise implementation or Milestone 2 work is included.
+
+
+## Milestone 3 native mock integration
+
+See [MILESTONE_3.md](MILESTONE_3.md) for the serialized runtime API, pinned mobile
+toolchain, simulator-only framework build, native test/export evidence and UX
+acceptance steps. Run build_go_ios.sh on the macOS runner before generating the
+Xcode project; the generated framework and bundled pack folder are build outputs.
+The workflow builds cleanly from source and reports the actual Xcode/SDK version.

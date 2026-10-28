@@ -48,6 +48,7 @@ relabeling it complete or enabling finalized export.
 - Session page: 50; timeline page: 200; indexed capture: 50,000 rows.
 - Manual marks: 100 per drive; bounded producer channel: 64 records plus pending.
 - Native archive payload: 128 MiB, preflighted before reading/allocating payload.
+- Aggregate history metadata/response and incident snapshots: 8 MiB; timeline index: 16 MiB of raw rows.
 
 Bounds fail visibly and preserve original files; they do not truncate canonical
 records. Readers reject non-regular/symlink escapes, foreign identities, malformed

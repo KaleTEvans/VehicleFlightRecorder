@@ -10,6 +10,7 @@ import (
 	"sync"
 	"testing"
 	"time"
+	"vehicleflightrecorder.local/core/telemetry"
 )
 
 func newTestController(t *testing.T, root string) *Controller {
@@ -226,4 +227,24 @@ func TestManualBudgetDoesNotAppendOrPoisonRecording(t *testing.T) {
 	if err := c.Stop(); err != nil {
 		t.Fatal(err)
 	}
+}
+
+func TestMetadataBudgetAndUnknownObservationFields(t *testing.T) {
+	c := newTestController(t, t.TempDir())
+	_ = c.Start("healthy_drive")
+	_ = c.Stop()
+	original := c.core.Session()
+	for i := 0; i < 12; i++ {
+		value := original
+		value.SessionID = fmt.Sprintf("import-%d", i)
+		value.ProfileID = strings.Repeat("x", 800000)
+		path := filepath.Join(c.root, value.SessionID)
+		_ = os.Mkdir(path, 0700)
+		raw, _ := json.Marshal(value)
+		_ = os.WriteFile(filepath.Join(path, "session.json"), raw, 0600)
+	}
+	_, err := c.SessionsPageJSON(0)
+	code(t, err, "resource_limit")
+	var observation telemetry.Observation
+	code(t, decodeDocument([]byte(`{"schema_version":1,"timestamp_unix_ms":1,"session_id":"test","source":"mock","signal_id":"s","value":0,"unit":"V","quality":"valid","unexpected":true}`), &observation), "corrupt_data")
 }

@@ -1,13 +1,18 @@
-# Current Milestone 3 preview
+# Current native preview
 
-The workflow now builds the real Go simulator XCFramework, links the native
-dashboard, runs hosted native bridge/export tests and validates app-container ZIPs
-in Python before packaging/upload. See [Milestone 3](MILESTONE_3.md) for current
-status, commands, toolchain pinning and interactive acceptance. The
-[fixed-compiler native run passed](https://github.com/KaleTEvans/VehicleFlightRecorder/actions/runs/40051022426)
-with three XCTest cases and two validated native session exports; Appetize upload
-passed. Interactive browser observation remains pending. The historical
-Milestone 0.5 results below describe the earlier static shell, not the new build.
+Milestone 3's Go-backed dashboard and evidence navigation are accepted. Milestone 4
+hardens bridge compatibility/errors/lifecycle, paged history and archive bounds.
+The workflow now creates a device+simulator ARM64 XCFramework from the centralized
+native toolchain settings and checks an unsigned device app before native simulator
+unit/UI tests. Native-created exports are validated in Python; UI screenshots and
+build provenance are retained alongside xcresult. Only the simulator app is sent
+to Appetize. Device compilation is not signing, installation or hardware access.
+
+See [Milestone 4](MILESTONE_4.md) for current verification status and
+[bridge contract](BRIDGE_CONTRACT.md) for behavior and limits. Start a fresh
+Appetize session after an upload; an existing session can retain an older build.
+Browser interaction remains separate from a passing runner/upload. The historical
+Milestone 0.5 results below describe the earlier static shell and old commands.
 
 # Milestone 0.5: native iOS preview from Windows/WSL
 

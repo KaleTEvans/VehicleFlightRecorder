@@ -45,7 +45,7 @@ jobs:
           go-version: ${{ steps.toolchain.outputs.go_version }}
           cache: false
 
-      - name: Build Go simulator XCFramework from source
+      - name: Build pinned device and simulator XCFramework from source
         run: ./scripts/build_go_ios.sh
 
       - name: Generate existing XcodeGen project

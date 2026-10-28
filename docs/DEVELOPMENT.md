@@ -188,7 +188,7 @@ uses EAAccessoryManager and EASession, not CoreBluetooth. Capability, signing,
 provisioning/entitlement requirements and actual background behavior require Mac
 and physical-device validation. Configuration alone does not prove live access.
 
-## Go simulator XCFramework workflow
+## Go device and simulator XCFramework workflow
 
 On macOS with full Xcode and the pinned native Go 1.26.10 compiler:
 
@@ -198,12 +198,15 @@ On macOS with full Xcode and the pinned native Go 1.26.10 compiler:
 ```
 
 The build script installs matching gomobile and gobind versions from
-`scripts/mobile_toolchain.env`, binds `./mobile` for `iossimulator/arm64`, stages
+`scripts/mobile_toolchain.env`, binds `./mobile` for device ARM64 and simulator ARM64, stages
 the mock vehicle pack, and writes the ignored static
 `build/ios/VehicleFlightRecorderCore.xcframework`. The module graph and go.sum
 record the same binding runtime. Swift imports the framework and owns it through
-a serial actor. Device slices/signing and broader bridge hardening remain future
-work. See [Milestone 3](MILESTONE_3.md) for exact APIs and native export validation.
+a serial actor. The script validates generator/runtime/compiler settings and
+writes `build/ios/native-build-manifest.json` with source hashes and actual SDKs.
+The workflow compiles an unsigned device target before simulator tests. Signing,
+installation and hardware access remain Milestone 5 work. See
+[Milestone 4](MILESTONE_4.md) and [bridge contract](BRIDGE_CONTRACT.md).
 
 ## WSL limitations and pending validation
 
@@ -238,7 +241,39 @@ enterprise implementation or Milestone 2 work is included.
 ## Milestone 3 native mock integration
 
 See [MILESTONE_3.md](MILESTONE_3.md) for the serialized runtime API, pinned mobile
-toolchain, simulator-only framework build, native test/export evidence and UX
+toolchain, native test/export evidence and UX
 acceptance steps. Run build_go_ios.sh on the macOS runner before generating the
 Xcode project; the generated framework and bundled pack folder are build outputs.
 The workflow builds cleanly from source and reports the actual Xcode/SDK version.
+
+## Milestone 4 bridge hardening
+
+Read [BRIDGE_CONTRACT.md](BRIDGE_CONTRACT.md) for compatibility, stable errors,
+limits, terminal close, incomplete sessions and paged history. See
+[LIVE_TIMING.md](LIVE_TIMING.md) for the deferred M5/M6 migration design.
+
+Portable checks:
+
+```bash
+./scripts/test_all.sh
+(cd core && go test -race ./mobile -count=1 -v)
+python3 scripts/mobile_build_config.py
+.tools/actionlint .github/workflows/ci.yml .github/workflows/ios-preview.yml
+bash -n scripts/build_go_ios.sh
+```
+
+On macOS, select the configured Xcode for project generation/manual builds too:
+
+```bash
+source scripts/mobile_toolchain.env
+export DEVELOPER_DIR="/Applications/Xcode_${MOBILE_XCODE_VERSION}.app/Contents/Developer"
+./scripts/build_go_ios.sh
+./scripts/generate_xcode_project.sh
+xcodebuild -project ios/VehicleFlightRecorder.xcodeproj -scheme VehicleFlightRecorder \
+  -configuration Debug -sdk iphoneos -destination 'generic/platform=iOS' \
+  -derivedDataPath build/ios-device-validation ARCHS=arm64 CODE_SIGNING_ALLOWED=NO build
+```
+
+This last command is an unsigned compile check, not an installable signed IPA.
+Use the workflow for actual simulator native/UI tests, native export extraction,
+Python validation and preview publication. No Mac setup is required in WSL.

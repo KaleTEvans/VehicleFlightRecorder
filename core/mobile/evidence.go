@@ -22,8 +22,13 @@ func scanJSON(path, name string, visit func(int64, json.RawMessage) error) error
 	defer file.Close()
 	reader := bufio.NewReaderSize(file, maxJSONBytes+1)
 	line := int64(0)
+	bytesRead := int64(0)
 	for {
 		data, err := reader.ReadSlice('\n')
+		bytesRead += int64(len(data))
+		if bytesRead > maxLogBytes {
+			return fault("resource_limit", "scanJSON", fmt.Errorf("%s exceeded file budget while reading", name))
+		}
 		if err == bufio.ErrBufferFull || len(data) > maxJSONBytes {
 			return fault("resource_limit", "scanJSON", fmt.Errorf("%s:%d exceeds JSONL line limit", name, line+1))
 		}
@@ -52,6 +57,8 @@ func scanJSON(path, name string, visit func(int64, json.RawMessage) error) error
 func readIncidents(path string) ([]incidents.Incident, error) {
 	items := []incidents.Incident{}
 	indexes := map[string]int{}
+	sizes := map[string]int{}
+	retainedBytes := 0
 	err := scanJSON(path, "incidents.jsonl", func(_ int64, data json.RawMessage) error {
 		var item incidents.Incident
 		if err := decodeDocument(data, &item); err != nil {
@@ -63,15 +70,20 @@ func readIncidents(path string) ([]incidents.Incident, error) {
 		if item.SessionID != filepath.Base(path) {
 			return fault("corrupt_data", "readIncidents", fmt.Errorf("foreign incident"))
 		}
-		if len(items) >= 2000 {
-			return fault("resource_limit", "readIncidents", fmt.Errorf("incident limit reached"))
+		retainedBytes += len(data) - sizes[item.IncidentID]
+		if retainedBytes > maxResponseBytes {
+			return fault("resource_limit", "readIncidents", fmt.Errorf("incident snapshot memory budget exceeded"))
 		}
+		sizes[item.IncidentID] = len(data)
 		if n, ok := indexes[item.IncidentID]; ok {
 			if item.Revision != items[n].Revision+1 {
 				return fmt.Errorf("invalid incident revision")
 			}
 			items[n] = item
 		} else {
+			if len(items) >= 2000 {
+				return fault("resource_limit", "readIncidents", fmt.Errorf("incident limit reached"))
+			}
 			if item.Revision != 1 {
 				return fmt.Errorf("invalid initial incident revision")
 			}
@@ -126,6 +138,7 @@ func (c *Controller) IncidentJSON(sessionID, incidentID string, offset int64) (r
 		return "", fault("invalid_input", "IncidentJSON", fmt.Errorf("unknown incident ID"))
 	}
 	rows := []evidenceRow{}
+	retainedBytes := 0
 	for _, name := range []string{"observations.jsonl", "events.jsonl"} {
 		err := scanJSON(path, name, func(line int64, data json.RawMessage) error {
 			var record telemetry.Record
@@ -152,6 +165,10 @@ func (c *Controller) IncidentJSON(sessionID, incidentID string, offset int64) (r
 				return fmt.Errorf("foreign session evidence")
 			}
 			if record.Timestamp() >= selected.AvailableStartUnixMS && record.Timestamp() <= selected.AvailableEndUnixMS {
+				retainedBytes += len(data)
+				if retainedBytes > 2*maxResponseBytes {
+					return fault("resource_limit", "IncidentJSON", fmt.Errorf("timeline index memory budget exceeded; evidence preserved"))
+				}
 				if len(rows) >= maxTimelineRows {
 					return fault("resource_limit", "IncidentJSON", fmt.Errorf("capture exceeds timeline row limit; original evidence preserved"))
 				}

@@ -74,6 +74,7 @@ func (c *Controller) historyHeaders() ([]historyHeader, error) {
 		return nil, fault("resource_limit", "history", fmt.Errorf("history exceeds %d entries; evidence is preserved", maxHistoryEntries))
 	}
 	headers := []historyHeader{}
+	metadataBytes := 0
 	for _, entry := range entries {
 		if !entry.IsDir() {
 			continue
@@ -85,6 +86,14 @@ func (c *Controller) historyHeaders() ([]historyHeader, error) {
 		session, err := readSession(path)
 		if err != nil {
 			return nil, fmt.Errorf("session %s: %w", entry.Name(), err)
+		}
+		encoded, err := json.Marshal(session)
+		if err != nil {
+			return nil, err
+		}
+		metadataBytes += len(encoded)
+		if metadataBytes > maxResponseBytes {
+			return nil, fault("resource_limit", "history", fmt.Errorf("history metadata exceeds memory budget; evidence preserved"))
 		}
 		headers = append(headers, historyHeader{path, session})
 	}
@@ -98,6 +107,7 @@ func (c *Controller) historyHeaders() ([]historyHeader, error) {
 }
 func (c *Controller) historyRows(headers []historyHeader) ([]map[string]any, error) {
 	rows := []map[string]any{}
+	responseBytes := 0
 	for _, header := range headers {
 		session, path := header.session, header.path
 		items, err := readIncidents(path)
@@ -155,7 +165,16 @@ func (c *Controller) historyRows(headers []historyHeader) ([]map[string]any, err
 			}
 			size += info.Size()
 		}
-		rows = append(rows, map[string]any{"session": session, "incidents": items, "size_bytes": size})
+		row := map[string]any{"session": session, "incidents": items, "size_bytes": size}
+		encoded, err := json.Marshal(row)
+		if err != nil {
+			return nil, err
+		}
+		responseBytes += len(encoded)
+		if responseBytes > maxResponseBytes {
+			return nil, fault("resource_limit", "history", fmt.Errorf("history response exceeds memory budget; original evidence is preserved"))
+		}
+		rows = append(rows, row)
 	}
 	return rows, nil
 }

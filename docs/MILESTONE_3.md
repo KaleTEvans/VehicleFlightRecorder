@@ -225,3 +225,19 @@ artifact packaging and Appetize upload passed. This preview includes the
 trigger-evidence scroll fix from `5927a19`; human confirmation of its visible
 scroll behavior remains pending. Local Go tests/vet, 59 Python tests, ten script
 tests and actionlint passed; both GitHub core/analytics checks passed.
+
+### Evidence scrolling regression follow-up
+
+The user verified that the first scroll fix updates the canonical timeline data
+but still does not move the viewport in a fresh Appetize session. That fix did
+not resolve visible navigation. Replace the incident detail List with a
+ScrollView and eager card/heading stack, keeping the evidence anchor materialized.
+Request scrolling through a state-change observer after successful page loading;
+failed loads do not jump. This preserves the same trigger offsets and Go evidence.
+
+A new native UI-test target launches a Debug-only host with an isolated, real
+Go-generated voltage/TCM incident. It taps both trigger buttons and repeats the
+first, checks actual heading frame movement into the viewport, and retains
+screenshots in xcresult. The test does not equate data changes with scrolling.
+Normal launches still open Dashboard. Native/UI acceptance and renewed Appetize
+verification are pending until the new run and user observation are recorded.

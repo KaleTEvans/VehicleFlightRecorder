@@ -39,6 +39,7 @@ targets:
       gatherCoverageData: false
       testTargets:
         - VehicleFlightRecorderTests
+        - VehicleFlightRecorderUITests
 
   VehicleFlightRecorderTests:
     type: bundle.unit-test
@@ -51,3 +52,16 @@ targets:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.kaleevans.vehicleflightrecorder.tests
         GENERATE_INFOPLIST_FILE: YES
+
+  VehicleFlightRecorderUITests:
+    type: bundle.ui-testing
+    platform: iOS
+    sources:
+      - path: VehicleFlightRecorderUITests
+    dependencies:
+      - target: VehicleFlightRecorder
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.kaleevans.vehicleflightrecorder.uitests
+        GENERATE_INFOPLIST_FILE: YES
+        TEST_TARGET_NAME: VehicleFlightRecorder

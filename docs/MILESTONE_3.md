@@ -1,14 +1,18 @@
 # Milestone 3 — native dashboard and working mock bridge
 
-Status: **PARTIALLY COMPLETE**. Native implementation, local checks, and the
-fixed-compiler macOS simulator build/native export validation pass. Interactive
-Appetize recording/manual marking and basic usability have user confirmation.
-The user screenshot confirms a captured automatic incident with both triggers
-in order and full available coverage. The revised evidence-button interaction passes a native UI regression test
-and is uploaded to Appetize; renewed user confirmation remains pending; exported-file retrieval remains
-unconfirmed;
-they are separate from automated native acceptance.
-Milestone 4 not started. A UX review follows this functional milestone.
+Status: **COMPLETE** — closed with user acceptance on October 28, 2026.
+Native builds, core/analytics checks, native unit/UI tests, and native-generated
+export validation pass. User testing confirms recording, manual incident marking,
+automatic voltage/TCM capture, initial UI usability and the corrected visible
+trigger-evidence scrolling. The screenshot confirms captured coverage and both
+triggers in order. The user accepts the minimal UI for initial testing.
+
+Appetize presents the native share sheet; browser file retrieval remains an
+explicit simulator/service limitation, not a claim that a downloaded file was
+observed. Actual native-generated ZIPs were independently retrieved and validated
+in Python. No remaining Milestone 3 acceptance item is blocking closeout.
+**Milestone 4 not started.** Earlier pending statements below are historical
+verification records, superseded by this closeout and the final evidence section.
 
 ## Responsibilities and runtime
 
@@ -275,3 +279,12 @@ Retained locally under ignored `build/milestone-3-scroll-ui-evidence-ddd275b`,
 including `native-acceptance/ui-attachments/manifest.json` and the three screenshots.
 Local Go tests/vet, 59 Python tests, ten script tests and actionlint pass; both
 GitHub core/analytics checks for `ddd275b` passed. Milestone 4 not started.
+
+## Milestone closeout — October 28, 2026
+
+After starting the updated Appetize build, the user confirmed that the trigger
+evidence scrolling now works and explicitly requested closure of Milestone 3.
+This completes the outstanding human interaction acceptance. Retain the minimal
+UI for initial testing and plan later refinements separately. Native/UI build
+40760970035 and its artifacts above remain the implementation evidence. The
+follow-on Milestone 4 is not started by closing this milestone.

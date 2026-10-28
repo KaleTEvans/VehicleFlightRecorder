@@ -111,9 +111,10 @@ Future vehicle access remains read-only: no automatic DTC clearing, ECU coding,
 configuration, calibration, actuation, undocumented commands, or arbitrary CAN
 writes. Active reads must be isolated, logged, rate-limited, and fail closed.
 
-**Milestone 3 is in progress:** a native dashboard, local Go-backed mock drives,
-manual marking, session/incident screens and finalized export. A UX review follows
-its functional acceptance. **Milestone 4 not started.**
+**Milestone 3 is complete:** the native dashboard, local Go-backed mock drives,
+manual/automatic incidents, evidence navigation and finalized export passed native
+validation and user acceptance. The minimal UI is accepted for initial testing;
+Appetize file-retrieval limits are documented. **Milestone 4 not started.**
 
 Authoritative plans (kept under their original names):
 

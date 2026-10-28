@@ -2,7 +2,11 @@
 
 Status: **PARTIALLY COMPLETE**. Native implementation, local checks, and the
 fixed-compiler macOS simulator build/native export validation pass. Interactive
-Appetize healthy/manual/fault flows and browser share observation remain pending;
+Appetize recording/manual marking and basic usability have user confirmation.
+The user screenshot confirms a captured automatic incident with both triggers
+in order and full available coverage. Evidence-button scrolling correction
+awaits a rebuilt preview and human verification; exported-file retrieval remains
+unconfirmed;
 they are separate from automated native acceptance.
 Milestone 4 not started. A UX review follows this functional milestone.
 
@@ -87,13 +91,19 @@ After a successful preview upload, open the existing Appetize build. Confirm the
 new four-tab dashboard launches, physical adapter remains disconnected, and a
 healthy drive updates telemetry. At 01:00 logical time or later, tap MARK INCIDENT
 once, allow 120 more logical seconds, stop and inspect its captured timeline.
-Start voltage/TCM from Debug and allow it to complete: voltage must precede the
-communication trigger in one captured incident. Export a finalized drive with the
+Select voltage/TCM in Debug before starting a new drive. Use the dashboard
+elapsed timer, not wall time: the synthetic voltage drop starts at 05:58,
+and the third TCM timeout occurs at 06:00.9. One automatic incident should
+appear around 06:01 without a manual mark. Allow the timer past 08:01 for
+the post-trigger capture, or let the drive finish at 12:00. Voltage must
+precede the communication trigger in that incident. The approximate 10×
+playback rate can be slower in Appetize; a fixed wall-time estimate is not
+an acceptance criterion. Export a finalized drive with the
 native share sheet. Browser download availability is service-dependent; the
 runner's actual native test export provides a separate verified retrieval path.
 Do not claim an Appetize sharing interaction or observation from an upload alone.
 
-Appetize interaction and browser sharing remain pending until observed. No live
+Remaining Appetize checks require observed results. No live
 accessory discovery, streams, commands, proprietary definitions or hardware
 accuracy claims are introduced. Existing Milestone 4 bridge hardening (broader
 lifecycle/error/version contracts, long-run reliability) remains future work.
@@ -139,7 +149,8 @@ These expire after 14 days. Copies and local CLI results are retained under igno
 home screen after XCTest exits; it is not UI interaction evidence.
 
 The [Appetize preview](https://appetize.io/app/nrnzclustneju2ltjppkozdkta) was updated
-successfully. User observation has been requested for the interactive flows above.
+successfully. User observations for recording, manual marking, automatic fault
+creation, share-sheet presentation and basic usability are recorded below.
 The Windows computer-use skill was read and attempted for this task, but its
 node_repl helper rejected the WSL workspace before initialization with
 `sandboxCwd is not a local file URI: file:///home/kaletevans/dev/VehicleFlightRecorder`.
@@ -165,3 +176,23 @@ than suppressing garbage collection, patching generated wrappers, or retrying aw
 the failure. The corrected run above passes native tests and actual-export reconstruction
 with Go 1.26.10 and uploads that build to Appetize. Earlier native artifacts are
 historical evidence, not a claim that the old compiler was reliable.
+
+## Human testing feedback — 2026-10-28
+
+The user reports recording and manual incident marking work, and basic usability
+looks good with further refinement desired. The initial voltage/TCM attempt ended before the scheduled fault was observed.
+After the six-minute logical-time checkpoint was clarified, the user repeated
+the test and confirmed automatic incident creation works. The user considers
+the minimal UI suitable for initial testing. The supplied screenshot confirms Captured status, two triggers, voltage at
++0.000 s followed by module timeout at +2.900 s, 60 s / 120 s configured
+coverage and 182.9 s available span. The user reports the evidence-jump button
+appears unresponsive. Code inspection shows it replaces the timeline page below
+the fold without moving the viewport. The fix adds explicit scrolling to a
+stable timeline anchor after loading and independent button styling for List
+rows. Native build and renewed interactive verification are required before
+closing that issue.
+
+Export presents a native share sheet with Save to Files. The user reports the
+file menu then disappears. Share presentation is observed; successful saving,
+file retrieval, and browser download are unconfirmed. Do not treat menu
+dismissal as proof of a saved ZIP.

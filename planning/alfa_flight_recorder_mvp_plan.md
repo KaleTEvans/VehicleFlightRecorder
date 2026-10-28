@@ -33,6 +33,7 @@ The test application must:
 12. Export sessions in a format Python can consume easily.
 13. Keep Alfa-specific definitions separate from the generic recorder.
 14. Be designed so the real OBDLink transport can be inserted later without rewriting the application.
+15. Support hands-off recording on the physical iPhone after initial setup, without requiring the user to open the app or press Start on every trip. Use validated vehicle-activity evidence rather than scanner connection alone (see §15 and Milestone 7).
 
 ## 1.2 Explicit non-goals for the first iteration
 
@@ -987,12 +988,41 @@ MX+ becomes available
 → ExternalAccessory identifies it
 → app opens EASession
 → Go core initializes adapter
-→ ignition/vehicle activity detected
-→ session auto-starts
+→ validated engine/drivetrain activity detected
+→ session auto-starts without a per-trip app-open or Start action
 → drive logs continuously
 → ignition/vehicle activity ends
 → session closes after grace period
 ```
+
+**Hands-off recording requirement (user clarification, October 28, 2026):**
+After initial installation/setup, the normal experience should not require the
+user to open the app each time they start the car. A scanner connection is a
+transport event, not sufficient proof that a drive has started: the adapter may
+be available with ignition on and engine off.
+
+Use fresh engine and transmission module reporting as candidate activity evidence,
+combined with a validated engine-running signal (for example RPM when available).
+Module responses alone may also occur with ignition on and engine off, so do not
+assume their presence proves that the engine is running. Validate the actual
+signals, module reachability, freshness windows, debounce and start/stop grace
+periods on the target car before fixing the policy. Do not require vehicle
+movement before recording; preserve startup and stationary engine-running data.
+
+Once recording, loss of engine or transmission responses must remain incident
+and coverage evidence, rather than immediately stopping the session or silently
+suppressing recording. Define a conservative degraded-start policy when one
+module is unavailable; do not discard a potential startup fault because both
+modules are not reporting. Brief disconnects/reconnects and engine stop/start
+must not create duplicate sessions or prematurely end a drive. Expose the actual
+recording state, coverage limits, and any required recovery action clearly.
+
+Milestones 5–7 must verify accessory discovery, background/locked-screen operation,
+and supported reconnect/wake behavior on the physical iPhone, including the
+previously launched, suspended, OS-terminated and user-force-quit app states.
+Treat these as distinct test cases; do not promise connection-triggered launch
+in every state without evidence. Record platform limitations and any unavoidable
+user action explicitly. Simulator tests cannot establish this requirement.
 
 Do not implement automatic ignition inference until real adapter behavior can be observed.
 
@@ -1395,12 +1425,17 @@ Acceptance:
 Deliverables:
 
 - limited validated polling schedule.
-- auto/session behavior.
+- hands-off session start/stop using validated engine/drivetrain activity, as defined in §15; scanner connection alone must not start a drive.
+- tested background, locked-screen and reconnect lifecycle with documented wake/launch limitations.
 - real drive export.
 - comparison against MultiECUScan/known values.
 
 Acceptance:
 - repeatable real-world logs.
+- after initial setup, no per-trip app-open or Start action in the supported, physically verified lifecycle states.
+- ignition-on/engine-off does not create a false drive; stationary engine-running activity is recorded.
+- module dropout, brief adapter loss and engine stop/start preserve evidence without premature session closure or duplicate sessions.
+- unsupported wake/launch states and any required user action are documented explicitly.
 - no unacceptable network disturbance.
 - no missing/corrupt sessions.
 

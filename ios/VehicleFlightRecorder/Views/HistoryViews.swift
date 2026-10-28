@@ -83,52 +83,65 @@ struct IncidentDetailView: View {
     @State private var startOffset: Int64 = 0
     private var current: IncidentInfo { page?.incident ?? incident }
     var body: some View {
-        List {
-            Section("Capture") {
-                IncidentRow(incident: current)
-                LabeledContent("Configured pre / post", value: "\(Int(current.preWindowSeconds)) s / \(Int(current.postWindowSeconds)) s")
-                LabeledContent("Available span", value: String(format: "%.1f s", current.capturedSeconds))
-                Text("Coverage: \(current.incompleteReasons.isEmpty ? "Available requested window" : current.incompleteReasons.joined(separator: ", ").replacingOccurrences(of: "_", with: " "))")
-                ForEach(current.coverageGaps) { gap in
-                    Text("Gap: \(gap.reason.replacingOccurrences(of: "_", with: " ")) · \(Double(gap.startTimeUnixMs - current.triggerTimeUnixMs) / 1000, specifier: "%+.1f") to \(Double(gap.endTimeUnixMs - current.triggerTimeUnixMs) / 1000, specifier: "%+.1f") s")
-                        .foregroundStyle(.orange)
+        ScrollViewReader { proxy in
+            List {
+                Section("Capture") {
+                    IncidentRow(incident: current)
+                    LabeledContent("Configured pre / post", value: "\(Int(current.preWindowSeconds)) s / \(Int(current.postWindowSeconds)) s")
+                    LabeledContent("Available span", value: String(format: "%.1f s", current.capturedSeconds))
+                    Text("Coverage: \(current.incompleteReasons.isEmpty ? "Available requested window" : current.incompleteReasons.joined(separator: ", ").replacingOccurrences(of: "_", with: " "))")
+                    ForEach(current.coverageGaps) { gap in
+                        Text("Gap: \(gap.reason.replacingOccurrences(of: "_", with: " ")) · \(Double(gap.startTimeUnixMs - current.triggerTimeUnixMs) / 1000, specifier: "%+.1f") to \(Double(gap.endTimeUnixMs - current.triggerTimeUnixMs) / 1000, specifier: "%+.1f") s")
+                            .foregroundStyle(.orange)
+                    }
+                    if !current.relatedIncidentIds.isEmpty { Text("Related: \(current.relatedIncidentIds.joined(separator: ", "))").font(.caption) }
                 }
-                if !current.relatedIncidentIds.isEmpty { Text("Related: \(current.relatedIncidentIds.joined(separator: ", "))").font(.caption) }
-            }
-            Section("Triggers · observed order") {
-                ForEach(current.triggers) { trigger in
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text(scenarioTitle(trigger.triggerType)).font(.headline)
-                        Text(String(format: "%+.3f s from first trigger", Double(trigger.timestampUnixMs - current.triggerTimeUnixMs) / 1000)).font(.caption.monospaced())
-                        Text("\(trigger.category) · \(trigger.severity)\(trigger.label.map { " · " + $0 } ?? "")")
-                        Text("\(trigger.evidence.file):\(trigger.evidence.line) · sequence \(trigger.evidence.recordSequence)")
-                            .font(.caption.monospaced()).foregroundStyle(.secondary)
-                        if let offset = page?.triggerOffsets[trigger.id] {
-                            Button("View evidence around trigger") { Task { await load(reset: true, override: max(0, offset - 50)) } }.disabled(loading)
+                Section("Triggers · observed order") {
+                    ForEach(current.triggers) { trigger in
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text(scenarioTitle(trigger.triggerType)).font(.headline)
+                            Text(String(format: "%+.3f s from first trigger", Double(trigger.timestampUnixMs - current.triggerTimeUnixMs) / 1000)).font(.caption.monospaced())
+                            Text("\(trigger.category) · \(trigger.severity)\(trigger.label.map { " · " + $0 } ?? "")")
+                            Text("\(trigger.evidence.file):\(trigger.evidence.line) · sequence \(trigger.evidence.recordSequence)")
+                                .font(.caption.monospaced()).foregroundStyle(.secondary)
+                            if let offset = page?.triggerOffsets[trigger.id] {
+                                Button("View evidence around trigger") {
+                                    Task {
+                                        await load(reset: true, override: max(0, offset - 50))
+                                        // Loading changes rows below the fold. Give the List a
+                                        // layout turn before revealing the stable evidence anchor.
+                                        await Task.yield()
+                                        withAnimation { proxy.scrollTo("evidence-start", anchor: .top) }
+                                    }
+                                }.buttonStyle(.borderless).disabled(loading)
+                            }
                         }
                     }
+                    Text("Synthetic temporal evidence. A preceding event does not establish a cause.").font(.caption).foregroundStyle(.secondary)
                 }
-                Text("Synthetic temporal evidence. A preceding event does not establish a cause.").font(.caption).foregroundStyle(.secondary)
-            }
-            Section("Canonical evidence timeline") {
-                ForEach(rows) { row in
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text(String(format: "%+.3f s", Double(row.reference.timestampUnixMs - current.triggerTimeUnixMs) / 1000)).font(.caption.monospaced()).foregroundStyle(.secondary)
-                        Text(row.title).font(.subheadline)
-                        Text(row.detail).font(.caption)
-                        Text("\(row.reference.file):\(row.reference.line)").font(.caption2.monospaced()).foregroundStyle(.secondary)
+                Section("Canonical evidence timeline") {
+                    Text("Evidence around the selected position · times relative to the first trigger")
+                        .font(.caption).foregroundStyle(.secondary)
+                        .id("evidence-start")
+                    ForEach(rows) { row in
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text(String(format: "%+.3f s", Double(row.reference.timestampUnixMs - current.triggerTimeUnixMs) / 1000)).font(.caption.monospaced()).foregroundStyle(.secondary)
+                            Text(row.title).font(.subheadline)
+                            Text(row.detail).font(.caption)
+                            Text("\(row.reference.file):\(row.reference.line)").font(.caption2.monospaced()).foregroundStyle(.secondary)
+                        }
                     }
+                    if let page {
+                        Text("Records \(startOffset + 1)–\(startOffset + Int64(rows.count)) of \(page.totalRecords)").font(.caption).foregroundStyle(.secondary)
+                        if page.hasMore { Button("Load next 200 records") { Task { await load(reset: false) } }.disabled(loading) }
+                    }
+                    if loading { ProgressView() }
+                    if let error { Text(error).foregroundStyle(.red) }
                 }
-                if let page {
-                    Text("Records \(startOffset + 1)–\(startOffset + Int64(rows.count)) of \(page.totalRecords)").font(.caption).foregroundStyle(.secondary)
-                    if page.hasMore { Button("Load next 200 records") { Task { await load(reset: false) } }.disabled(loading) }
-                }
-                if loading { ProgressView() }
-                if let error { Text(error).foregroundStyle(.red) }
-            }
-        }.navigationTitle("Incident evidence")
-            .task { await load(reset: true) }
-            .toolbar { Button("Refresh") { Task { await load(reset: true) } }.disabled(loading) }
+            }.navigationTitle("Incident evidence")
+                .task { await load(reset: true) }
+                .toolbar { Button("Refresh") { Task { await load(reset: true) } }.disabled(loading) }
+        }
     }
     private func load(reset: Bool, override: Int64? = nil) async {
         guard !loading, let service else { return }

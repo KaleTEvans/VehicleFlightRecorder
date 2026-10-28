@@ -19,6 +19,8 @@ jobs:
   simulator:
     runs-on: macos-15
     timeout-minutes: 30
+    env:
+      DEVELOPER_DIR: /Applications/Xcode_16.4.app/Contents/Developer
     defaults:
       run:
         shell: bash
@@ -63,13 +65,10 @@ jobs:
             -derivedDataPath build/ios-preview/DerivedData \
             ARCHS=arm64 ONLY_ACTIVE_ARCH=NO CODE_SIGNING_ALLOWED=NO build
 
-      - name: Select available iPhone simulator
+      - name: Create and boot matching iPhone simulator (bounded)
         id: destination
-        run: |
-          SIMULATOR_ID=$(xcrun simctl list devices available -j | python3 -c 'import json,sys; devices=json.load(sys.stdin)["devices"]; print(next(d["udid"] for key,rows in devices.items() if "iOS" in key for d in rows if "iPhone" in d["name"] and d["isAvailable"]))')
-          echo "id=$SIMULATOR_ID" >> "$GITHUB_OUTPUT"
-          xcrun simctl boot "$SIMULATOR_ID"
-          xcrun simctl bootstatus "$SIMULATOR_ID" -b
+        timeout-minutes: 8
+        run: python3 scripts/boot_ios_simulator.py
 
       - name: Test real native Go bridge and export
         env:
@@ -108,6 +107,7 @@ jobs:
           path: |
             build/native-acceptance/
             build/ios-preview/NativeTests.xcresult/
+            build/ios-preview/simulator-startup/
           if-no-files-found: warn
           retention-days: 14
 

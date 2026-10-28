@@ -196,3 +196,22 @@ Export presents a native share sheet with Save to Files. The user reports the
 file menu then disappears. Share presentation is observed; successful saving,
 file retrieval, and browser download are unconfirmed. Do not treat menu
 dismissal as proof of a saved ZIP.
+
+### Simulator startup reliability follow-up
+
+Preview run `40752847105` compiled the Go framework and Swift app, then remained
+in the simulator selection/boot step. Its original `simctl bootstatus -b` had
+no process timeout, and selection used the first available device without matching
+its runtime to the selected SDK. Cancellation was requested, including forced
+cancellation when the runner did not promptly stop; completed runner logs were
+not yet available when this correction was prepared. The exact underlying
+CoreSimulator hang is therefore unconfirmed.
+
+The workflow now explicitly selects Xcode 16.4, creates a fresh iPhone 16 Pro on
+the runtime matching that Xcode's simulator SDK, bounds each `xcrun` call and
+limits boot completion to 240 seconds. The whole startup step is capped at eight
+minutes, with runtime/destination/failure/device/process evidence included in the
+native artifact. Startup failure still fails native acceptance; it does not skip
+tests or publish an unverified preview. Focused synthetic tests check runtime
+selection, unavailable-runtime failure and timeout propagation; only a macOS run
+can verify real simulator startup.

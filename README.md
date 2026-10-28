@@ -122,6 +122,11 @@ Authoritative plans (kept under their original names):
 - [Enterprise architecture](planning/vehicle_health_enterprise_architecture.md)
 - [Milestone 0.5 assignment](planning/milestone_0.5.md)
 - [Milestone 1 assignment](planning/milestone_1.md)
+- [Milestone 2 assignment](planning/milestone_2.md)
+- [Milestone 3 assignment](planning/milestone_3.md)
+- [Milestone 4 — bridge integration hardening](planning/milestone_4.md)
+- [Milestone 5 — MX+ transport shell](planning/milestone_5.md)
+- [Milestone 6 — standard OBD and capability reporting](planning/milestone_6.md)
 
 The active milestone assignment takes priority over broader implementation suggestions
 in the plans. Enterprise services and expanded vehicle coverage remain future work.

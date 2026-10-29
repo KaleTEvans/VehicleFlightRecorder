@@ -26,6 +26,7 @@ import Foundation
         if !executor.submit({ transport.pump.lifecycle(phase) }) { error = "Lifecycle event mailbox overflow" }
     }
     func share() async {
+        export = nil
         await run { transport in
             guard transport.state != .ready, transport.state != .connecting, let capture = transport.capture else { throw VehicleTransportError.failed("Disconnect before exporting the current capture.") }
             let source = URL(fileURLWithPath: capture.core.path())

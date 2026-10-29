@@ -30,13 +30,14 @@ def replay_values(key, raw):
 
     This is an offline integrity check, not an alternative acquisition/parser loop.
     """
+    raw = raw.strip(b" \t\r\n")
     if not raw.endswith(b">") or raw.count(b">") != 1 or len(raw) > 8192:
         return {}
     try:
         lines = raw[:-1].decode("ascii").replace("\n", "\r").split("\r")
     except UnicodeError:
         return {}
-    result, duplicates = {}, set()
+    result, duplicates, seen_ecus = {}, set(), set()
     for line in lines:
         line = line.strip()
         compact = "".join(line.upper().split())
@@ -47,16 +48,24 @@ def replay_values(key, raw):
                 if "adapter" in result: duplicates.add("adapter")
                 result["adapter"] = float(line)
             continue
-        if not re.fullmatch(r"7E[8-F](?:[0-9A-F]{2}){2,8}", compact):
+        if not re.match(r"7E[8-F]", compact):
             continue
-        ecu, data = compact[:3], bytes.fromhex(compact[3:])
+        ecu = compact[:3]
+        if ecu in seen_ecus: duplicates.add(ecu)
+        seen_ecus.add(ecu)
+        if not re.fullmatch(r"7E[8-F](?:[0-9A-F]{2}){2,8}", compact):
+            duplicates.add(ecu)
+            continue
+        data = bytes.fromhex(compact[3:])
         if not 1 <= data[0] <= 7 or data[0]+1 > len(data):
+            duplicates.add(ecu)
             continue
         payload = data[1:1+data[0]]
         if key == "support":
             continue
         pid, length = (12, 4) if key == "rpm" else (5, 3)
         if len(payload) != length or payload[:2] != bytes((65, pid)):
+            if not (len(payload) == 3 and payload[:2] == b'\x7f\x01'): duplicates.add(ecu)
             continue
         if ecu in result: duplicates.add(ecu)
         result[ecu] = int.from_bytes(payload[2:], "big") / 4 if key == "rpm" else payload[2] - 40

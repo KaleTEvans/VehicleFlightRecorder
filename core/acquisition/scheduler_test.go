@@ -249,3 +249,64 @@ func TestTransactionBudgetStopsWithoutDiscardingHistory(t *testing.T) {
 		t.Fatal("history discarded or admission not stopped")
 	}
 }
+
+func TestPartialDiscoveryDoesNotInventCapabilityForSupportRequest(t *testing.T) {
+	s := makeScheduler(t)
+	w, _ := s.Poll(0)
+	response(t, s, w, 1, "7E8 06 41 00 08 10 00 00\r7E9 06 41 00\r>")
+	for _, row := range s.Report().Capabilities {
+		if row.Key == "support" || row.ECU == "7E9" {
+			t.Fatal("invented discovery state", row)
+		}
+	}
+	if s.Report().Transactions[0].Outcome != "partial" {
+		t.Fatal("partial discovery hidden")
+	}
+}
+
+func TestRepeatedEvidenceFailuresRemainBounded(t *testing.T) {
+	s := makeScheduler(t)
+	w, _ := s.Poll(0)
+	_ = s.Accepted(w.Generation, w.ID, 1, len(w.Bytes))
+	s.rawBytes = MaxRawBytes
+	for i := 0; i < 100; i++ {
+		_ = s.Receive(w.Generation, int64(i+2), []byte{'x'})
+	}
+	if len(s.Report().Issues) != 1 {
+		t.Fatal("unbounded repeated errors")
+	}
+	if e := makeScheduler(t).WriteReport(filepath.Join(t.TempDir(), "empty.json")); e == nil {
+		t.Fatal("empty acquisition exported")
+	}
+}
+
+func TestSearchingIsProgressAndRawBudgetPrecedesAdmission(t *testing.T) {
+	for _, tc := range []struct{ body, outcome string }{{"7E8 06 41 00 08 10 00 00\r>", "ok"}, {"NO DATA\r>", "no_data"}} {
+		s := makeScheduler(t)
+		w, _ := s.Poll(0)
+		response(t, s, w, 1, "SEARCHING...\r"+tc.body)
+		if s.Report().Transactions[0].Outcome != tc.outcome {
+			t.Fatal(s.Report().Transactions[0])
+		}
+	}
+	s := makeScheduler(t)
+	s.rawBytes = MaxRawBytes
+	if _, e := s.Poll(0); e == nil {
+		t.Fatal("evidence reservation ignored")
+	}
+	if len(s.Report().Transactions) != 0 {
+		t.Fatal("unadmitted request invented")
+	}
+}
+
+func TestWhitespaceAfterPromptDoesNotBlockTheNextRequest(t *testing.T) {
+	s := makeScheduler(t)
+	w, _ := s.Poll(0)
+	response(t, s, w, 1, "\r\n7E8 06 41 00 08 10 00 00\r>\r\n")
+	if e := s.Receive(w.Generation, 4, []byte("\r\n")); e != nil {
+		t.Fatal(e)
+	}
+	if next, e := s.Poll(Second); e != nil || next == nil || next.Key != "rpm" {
+		t.Fatal(next, e)
+	}
+}

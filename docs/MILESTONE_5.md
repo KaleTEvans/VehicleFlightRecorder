@@ -200,12 +200,14 @@ runs each cover 12 logical seconds with no real-time waiting. Healthy produces
 37 transactions and 51 observations; edge cases produce 36 transactions and 46
 observations across two generations. Timeout/late replies and cancellation remain
 explicit. Both reports are byte-reproducible and passed independent Python checks.
-These are synthetic fixture outcomes, not physical acquisition rates.
+A third partial-reply run retains 34 observations and 17 partial outcomes while
+excluding malformed responder values. These are synthetic fixture outcomes, not
+physical acquisition rates.
 
 Portable verification passed: all Go packages/tests and vet, focused
 OBD/acquisition race checks, 98 Python tests (28 acquisition tests), 22 script
 tests, actionlint and diff/format checks. A bounded five-second framing/parser
-fuzz run completed 170,017 executions with two workers, zero failures. Resource
+final-source fuzz run completed 156,986 executions with two workers, zero failures. Resource
 checks include bounded actual file reads during growth and stopping at the
 transaction-history limit without silently discarding evidence.
 

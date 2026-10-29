@@ -54,7 +54,8 @@ known adapter status text, valid zero values, negative mode-01 replies and volta
 unavailability are covered. ECU IDs remain addresses; they are never labeled TCM
 or dual ECM roles by assumption.
 
-Each callback is arbitrary bytes. Framer limits: 64 KiB per input, 8 KiB per
+Each callback is arbitrary bytes. Harmless whitespace around prompts is tolerated
+across chunk boundaries; authoritative raw records still retain those bytes. Framer limits: 64 KiB per input, 8 KiB per
 incomplete response, 16 completed frames/call. Parser limits: 32 lines, 256 bytes
 per line, at most eight CAN data bytes with a valid single-frame payload length.
 Headerless, DLC-decorated, 29-bit, multiframe and other legacy formats are rejected
@@ -168,14 +169,21 @@ analytics/.venv/bin/python -m vehicle_flight_recorder validate-acquisition \
   build/offline-preparation/healthy.json
 analytics/.venv/bin/python -m vehicle_flight_recorder validate-acquisition \
   build/offline-preparation/edge-cases.json
+(cd core && go run ./cmd/offline-acquisition \
+  --scenario partial_replies --output ../build/offline-preparation/partial-replies.json)
+analytics/.venv/bin/python -m vehicle_flight_recorder validate-acquisition \
+  build/offline-preparation/partial-replies.json
 ```
 
-Use new output filenames on subsequent runs. Both scenarios cover 12 logical
+Use new output filenames on subsequent runs. All three scenarios cover 12 logical
 seconds without wall-time waiting and are byte-reproducible. Healthy: 37 admitted
 transactions, 51 observations, one end-of-run cancellation. Edge cases: 36
 transactions, 46 observations, one timeout/late reply, partial-write cancellation
 and explicit reconnect to generation 2, plus end-of-run cancellation. These are
-fixture counts, never measurements of a car or phone.
+fixture counts, never measurements of a car or phone. The `partial_replies`
+scenario preserves healthy replies alongside a malformed second ECU: 37
+transactions, 34 observations and 17 explicitly partial outcomes, independently
+validated in Python.
 
 Cross-language tests build and run the actual Go CLI twice, compare exact outputs,
 then mutate the evidence to check rejection. Go covers fragmentation/coalescing,

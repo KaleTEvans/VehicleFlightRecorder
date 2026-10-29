@@ -65,6 +65,9 @@ func (f *Framer) Feed(chunk []byte) ([][]byte, error) {
 			f.failed = true
 			return nil, fmt.Errorf("non-ASCII transport data")
 		}
+		if len(f.buffer) == 0 && (b == '\r' || b == '\n' || b == '\t' || b == ' ') {
+			continue
+		}
 		f.buffer = append(f.buffer, b)
 		if len(f.buffer) > 8192 {
 			f.failed = true

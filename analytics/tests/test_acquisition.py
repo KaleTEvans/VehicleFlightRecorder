@@ -21,7 +21,7 @@ def acquisition_reports(tmp_path_factory):
     binary = output / 'offline-acquisition'
     subprocess.run([go, 'build', '-o', str(binary), './cmd/offline-acquisition'], cwd=root / 'core', env=env, check=True)
     reports = {}
-    for scenario in ['healthy', 'edge_cases']:
+    for scenario in ['healthy', 'edge_cases', 'partial_replies']:
         first, second = output / f'{scenario}.json', output / f'{scenario}-repeat.json'
         for path in [first, second]:
             subprocess.run([str(binary), '--scenario', scenario, '--output', str(path)], check=True, capture_output=True)
@@ -38,9 +38,10 @@ def test_actual_go_reports_and_cli(acquisition_reports):
         assert result['physical_validation'] is False
         assert result['source'] == 'synthetic'
         assert result['duration_seconds'] == 12
-        assert result['observation_count'] == (51 if scenario == 'healthy' else 46)
-        assert result['generation'] == (1 if scenario == 'healthy' else 2)
+        assert result['observation_count'] == {'healthy': 51, 'edge_cases': 46, 'partial_replies': 34}[scenario]
+        assert result['generation'] == (2 if scenario == 'edge_cases' else 1)
         if scenario == 'edge_cases': assert result['outcomes']['timeout'] == 1
+        if scenario == 'partial_replies': assert result['outcomes']['partial'] == 17
         cli = subprocess.run([sys.executable, '-m', 'vehicle_flight_recorder', 'validate-acquisition', str(path)], capture_output=True, check=True)
         assert json.loads(cli.stdout) == result
 

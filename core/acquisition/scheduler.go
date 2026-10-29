@@ -3,6 +3,7 @@
 package acquisition
 
 import (
+	"bytes"
 	"fmt"
 	"math"
 	"sort"
@@ -128,10 +129,19 @@ func (s *Scheduler) clock(now int64) error {
 	s.report.DurationNS = now
 	return nil
 }
+func (s *Scheduler) issue(detail string) {
+	for _, existing := range s.report.Issues {
+		if existing == detail {
+			return
+		}
+	}
+	s.report.Issues = append(s.report.Issues, detail)
+}
+
 func (s *Scheduler) raw(kind, id string, now int64, data []byte) error {
 	if len(data) > 65536 || s.rawBytes+len(data) > MaxRawBytes || len(s.report.Raw) >= 4096 {
 		s.report.State = "blocked"
-		s.report.Issues = append(s.report.Issues, "raw_budget_exhausted")
+		s.issue("raw_budget_exhausted")
 		return fmt.Errorf("raw evidence budget exhausted")
 	}
 	s.rawBytes += len(data)
@@ -180,10 +190,15 @@ func (s *Scheduler) Poll(now int64) (*Work, error) {
 	}
 	if len(s.report.Transactions) >= MaxTransactions {
 		s.report.State = "blocked"
-		s.report.Issues = append(s.report.Issues, "transaction_budget_exhausted")
+		s.issue("transaction_budget_exhausted")
 		return nil, fmt.Errorf("transaction budget exhausted")
 	}
 	d, _ := obd.Lookup(s.entries[selected].spec.Key)
+	if s.rawBytes+len(d.Command) > MaxRawBytes || len(s.report.Raw) >= 4096 {
+		s.issue("raw_budget_exhausted")
+		s.report.State = "blocked"
+		return nil, fmt.Errorf("no evidence budget for request admission")
+	}
 	tx := Transaction{ID: fmt.Sprintf("tx-%04d", len(s.report.Transactions)+1), Generation: s.report.Generation, Key: d.Key, StartNS: now, Outcome: "pending"}
 	s.report.Transactions = append(s.report.Transactions, tx)
 	s.active = len(s.report.Transactions) - 1
@@ -289,7 +304,7 @@ func (s *Scheduler) Tick(now int64) error {
 	}
 	if s.report.State == "draining" && now >= s.drainDeadline {
 		s.report.State = "blocked"
-		s.report.Issues = append(s.report.Issues, "drain_deadline_requires_reconnect")
+		s.issue("drain_deadline_requires_reconnect")
 	}
 	if s.active >= 0 && now >= s.deadline {
 		idx := s.active
@@ -301,7 +316,7 @@ func (s *Scheduler) Tick(now int64) error {
 			s.drainDeadline = now + Second
 		} else if tx.AcceptedBytes > 0 {
 			s.report.State = "blocked"
-			s.report.Issues = append(s.report.Issues, "partial_command_requires_reconnect")
+			s.issue("partial_command_requires_reconnect")
 		}
 	}
 	return nil
@@ -333,9 +348,12 @@ func (s *Scheduler) Receive(generation int, now int64, data []byte) error {
 	if s.report.State == "blocked" || s.report.State == "disconnected" {
 		return fmt.Errorf("connection cannot admit responses")
 	}
+	if s.report.State == "ready" && len(bytes.TrimSpace(data)) == 0 {
+		return nil
+	}
 	if s.report.State == "ready" {
 		s.report.State = "blocked"
-		s.report.Issues = append(s.report.Issues, "unsolicited_bytes_require_reconnect")
+		s.issue("unsolicited_bytes_require_reconnect")
 		return fmt.Errorf("unsolicited bytes")
 	}
 	frames, err := s.framer.Feed(data)
@@ -372,13 +390,19 @@ func (s *Scheduler) Receive(generation int, now int64, data []byte) error {
 	tx.AdapterStatus = append([]string{}, reply.Statuses...)
 	for _, failure := range reply.Failures {
 		tx.AdapterStatus = append(tx.AdapterStatus, "decode_error:"+failure.ECU+":"+failure.Detail)
-		if failure.ECU != "unknown" {
+		if failure.ECU != "unknown" && tx.Key != "support" {
 			s.capabilities.Unavailable(failure.ECU, tx.Key, tx.ID)
 		}
 	}
 	hasFailedResponder := false
 	outcome := "adapter_error"
-	if len(reply.Statuses) == 1 && reply.Statuses[0] == "NO DATA" {
+	terminalStatuses := []string{}
+	for _, status := range reply.Statuses {
+		if status != "SEARCHING..." {
+			terminalStatuses = append(terminalStatuses, status)
+		}
+	}
+	if len(terminalStatuses) == 1 && terminalStatuses[0] == "NO DATA" {
 		outcome = "no_data"
 	}
 	for _, response := range reply.Responses {
@@ -388,14 +412,18 @@ func (s *Scheduler) Receive(generation int, now int64, data []byte) error {
 		}
 		if response.State == "negative_response" {
 			hasFailedResponder = true
-			s.capabilities.Unavailable(response.ECU, tx.Key, tx.ID)
+			if tx.Key != "support" {
+				s.capabilities.Unavailable(response.ECU, tx.Key, tx.ID)
+			}
 			if outcome != "ok" {
 				outcome = "negative_response"
 			}
 		}
 		if response.State == "unavailable" {
 			hasFailedResponder = true
-			s.capabilities.Unavailable(response.ECU, tx.Key, tx.ID)
+			if tx.Key != "support" {
+				s.capabilities.Unavailable(response.ECU, tx.Key, tx.ID)
+			}
 			if outcome != "ok" {
 				outcome = "unavailable"
 			}
@@ -412,7 +440,7 @@ func (s *Scheduler) Receive(generation int, now int64, data []byte) error {
 			outcome = "ok"
 		}
 	}
-	if outcome == "ok" && (len(reply.Failures) > 0 || len(reply.Statuses) > 0 || hasFailedResponder) {
+	if outcome == "ok" && (len(reply.Failures) > 0 || len(terminalStatuses) > 0 || hasFailedResponder) {
 		outcome = "partial"
 	}
 	s.finish(now, outcome)

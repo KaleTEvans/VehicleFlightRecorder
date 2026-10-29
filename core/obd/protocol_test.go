@@ -156,3 +156,25 @@ func TestPartialECUFailurePreservesOtherResponder(t *testing.T) {
 		t.Fatal("shared capability pointer")
 	}
 }
+
+func TestPromptWhitespaceAcrossEveryBoundary(t *testing.T) {
+	data := []byte("\r\n010C\r7E8 04 41 0C 1A F8\r>\r\n")
+	for split := 0; split <= len(data); split++ {
+		var f Framer
+		a, e := f.Feed(data[:split])
+		if e != nil {
+			t.Fatal(e)
+		}
+		b, e := f.Feed(data[split:])
+		if e != nil {
+			t.Fatal(e)
+		}
+		all := append(a, b...)
+		if len(all) != 1 || f.Pending() != 0 {
+			t.Fatal(split)
+		}
+		if _, e = Parse("rpm", all[0]); e != nil {
+			t.Fatal(e)
+		}
+	}
+}

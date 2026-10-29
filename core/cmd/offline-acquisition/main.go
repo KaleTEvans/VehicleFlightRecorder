@@ -12,12 +12,12 @@ import (
 func run(args []string) error {
 	flags := flag.NewFlagSet("offline-acquisition", flag.ContinueOnError)
 	output := flags.String("output", "", "new report file; existing files are never overwritten")
-	scenario := flags.String("scenario", "healthy", "healthy or edge_cases; all data is synthetic")
+	scenario := flags.String("scenario", "healthy", "healthy, edge_cases or partial_replies; all data is synthetic")
 	if err := flags.Parse(args); err != nil {
 		return err
 	}
-	if *output == "" || flags.NArg() != 0 || (*scenario != "healthy" && *scenario != "edge_cases") {
-		return fmt.Errorf("provide --output and --scenario healthy|edge_cases")
+	if *output == "" || flags.NArg() != 0 || (*scenario != "healthy" && *scenario != "edge_cases" && *scenario != "partial_replies") {
+		return fmt.Errorf("provide --output and --scenario healthy|edge_cases|partial_replies")
 	}
 	second := acquisition.Second
 	scheduler, err := acquisition.New(1793000000000, []acquisition.Schedule{{Key: "support", IntervalNS: 10 * second, TimeoutNS: second / 2, Priority: 0}, {Key: "rpm", IntervalNS: second / 2, TimeoutNS: second / 2, Priority: 1}, {Key: "coolant", IntervalNS: second, TimeoutNS: second / 2, Priority: 2}, {Key: "adapter_voltage", IntervalNS: second, TimeoutNS: second / 2, Priority: 3}})
@@ -65,6 +65,9 @@ func run(args []string) error {
 				text = "7E8 06 41 00 08 10 00 00\r7E9 06 41 00 00 10 00 00\r>"
 			case "rpm":
 				text = "7E8 04 41 0C 1A F8\r7E9 04 41 0C 00 00\r>"
+				if *scenario == "partial_replies" {
+					text = "7E8 04 41 0C 1A F8\r7E9 04 41 0C 00\r>"
+				}
 			case "coolant":
 				text = "7E8 03 41 05 7B\r>"
 			case "adapter_voltage":

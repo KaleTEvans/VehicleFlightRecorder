@@ -23,6 +23,9 @@ func clone(r Report) Report {
 // artifact, not the canonical live-drive schema or proof of physical capability.
 func (s *Scheduler) WriteReport(path string) error {
 	r := s.Report()
+	if r.DurationNS <= 0 {
+		return fmt.Errorf("positive acquisition duration required")
+	}
 	if r.Version != 1 || r.Kind != "offline-acquisition" || r.Source != "synthetic" {
 		return fmt.Errorf("unsupported report contract")
 	}

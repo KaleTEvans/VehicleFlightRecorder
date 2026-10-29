@@ -106,7 +106,8 @@ framework steps remain in [development instructions](docs/DEVELOPMENT.md).
 
 ## Safety and next steps
 
-The default mock transport is disconnected. Both transport shells reject writes.
+Simulator transport stays disconnected. Physical builds expose only an explicitly
+enabled adapter identity read; connecting sends no commands.
 Future vehicle access remains read-only: no automatic DTC clearing, ECU coding,
 configuration, calibration, actuation, undocumented commands, or arbitrary CAN
 writes. Active reads must be isolated, logged, rate-limited, and fail closed.
@@ -117,7 +118,9 @@ validation and user acceptance. The minimal UI is accepted for initial testing;
 Appetize file-retrieval limits are documented.
 **Milestone 4 is complete:** [bridge/build/lifecycle report](docs/MILESTONE_4.md),
 with passing native/portable checks and user-confirmed Appetize smoke acceptance.
-Milestone 5 not started.
+**Milestone 5 is partially complete:** transport implementation and automated
+verification are in progress; enrollment, signed installation and physical checks
+remain pending.
 
 Authoritative plans (kept under their original names):
 

@@ -18,7 +18,7 @@ struct DashboardView: View {
                         }
                         VStack(alignment: .leading, spacing: 6) {
                             Text(model.snapshot?.state.capitalized ?? "Ready to record").font(.largeTitle.bold())
-                            Text(model.snapshot?.elapsed ?? "00:00").font(.system(.title, design: .monospaced)).monospacedDigit()
+                            Text(model.snapshot?.elapsed ?? "00:00").font(.system(.title, design: .monospaced)).monospacedDigit().accessibilityIdentifier("drive-elapsed")
                             Text("Physical adapter: Not connected").font(.subheadline).foregroundStyle(.secondary)
                             Text("Mock source: \(model.snapshot?.mockTransportState ?? "Ready")").font(.caption).foregroundStyle(.secondary)
                         }
@@ -64,6 +64,7 @@ struct DashboardView: View {
             NavigationStack { DebugView(model: model) }.tabItem { Label("Debug", systemImage: "wrench.and.screwdriver") }
         }
         .task(id: phase) {
+            model.setSceneActive(phase == .active)
             await model.refresh(advance: false)
             guard phase == .active else { return }
             while !Task.isCancelled {

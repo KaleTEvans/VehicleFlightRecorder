@@ -19,8 +19,6 @@ jobs:
   simulator:
     runs-on: macos-15
     timeout-minutes: 30
-    env:
-      DEVELOPER_DIR: /Applications/Xcode_16.4.app/Contents/Developer
     defaults:
       run:
         shell: bash
@@ -29,6 +27,10 @@ jobs:
         uses: actions/checkout@v6
         with:
           persist-credentials: false
+
+      - name: Read and verify native toolchain contract
+        id: toolchain
+        run: python3 scripts/mobile_build_config.py --github-output "$GITHUB_OUTPUT" --github-env "$GITHUB_ENV"
 
       - name: Report Apple toolchain
         run: |
@@ -40,10 +42,10 @@ jobs:
       - name: Set up pinned Go toolchain
         uses: actions/setup-go@v5
         with:
-          go-version: "1.26.10"
+          go-version: ${{ steps.toolchain.outputs.go_version }}
           cache: false
 
-      - name: Build Go simulator XCFramework from source
+      - name: Build pinned device and simulator XCFramework from source
         run: ./scripts/build_go_ios.sh
 
       - name: Generate existing XcodeGen project
@@ -53,6 +55,19 @@ jobs:
           fi
           xcodegen --version
           ./scripts/generate_xcode_project.sh
+
+      - name: Compile unsigned device app (no installation or hardware claim)
+        run: |
+          xcodebuild \
+            -project ios/VehicleFlightRecorder.xcodeproj \
+            -scheme VehicleFlightRecorder \
+            -configuration Debug \
+            -sdk iphoneos \
+            -destination 'generic/platform=iOS' \
+            -derivedDataPath build/ios-device-validation \
+            ARCHS=arm64 ONLY_ACTIVE_ARCH=NO CODE_SIGNING_ALLOWED=NO build
+          mkdir -p build/native-acceptance/device-compile
+          cp build/ios-device-validation/Build/Products/Debug-iphoneos/VehicleFlightRecorder.app/Info.plist build/native-acceptance/device-compile/Info.plist
 
       - name: Build real SwiftUI app for ARM iOS Simulator
         run: |
@@ -111,6 +126,7 @@ jobs:
             build/native-acceptance/
             build/ios-preview/NativeTests.xcresult/
             build/ios-preview/simulator-startup/
+            build/ios/native-build-manifest.json
           if-no-files-found: warn
           retention-days: 14
 
@@ -141,7 +157,7 @@ jobs:
           {
             echo '## iOS Simulator build'
             echo 'Unsigned native SwiftUI dashboard; MOCK / SIMULATOR, real local Go recorder.'
-            echo 'Native Go bridge/export tests passed. Physical vehicle connection remains disabled.'
+            echo 'Versioned bridge/lifecycle/export/UI tests passed; unsigned device compile passed. Physical vehicle connection remains disabled.'
             printf '\n[Download build artifact](%s)\n' "$ARTIFACT_URL"
             echo 'Artifact: VehicleFlightRecorder-ios-simulator (14-day retention).'
             echo 'Extract the GitHub artifact once, then upload VehicleFlightRecorder-simulator.zip to Appetize.'
@@ -178,7 +194,7 @@ jobs:
           platform: ios
           appFile: build/ios-preview/VehicleFlightRecorder-simulator.zip
           fileType: zip
-          note: Vehicle Flight Recorder - Milestone 3 Go-backed mock recorder
+          note: Vehicle Flight Recorder - Milestone 4 hardened mock bridge
           timeout: '120'
 
       - name: Report Appetize upload result

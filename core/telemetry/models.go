@@ -54,7 +54,9 @@ func (o Observation) Validate() error {
 func (o *Observation) UnmarshalJSON(data []byte) error {
 	type plain Observation
 	var decoded plain
-	if err := json.Unmarshal(data, &decoded); err != nil {
+	decoder := json.NewDecoder(bytes.NewReader(data))
+	decoder.DisallowUnknownFields()
+	if err := decoder.Decode(&decoded); err != nil {
 		return err
 	}
 	var fields map[string]json.RawMessage

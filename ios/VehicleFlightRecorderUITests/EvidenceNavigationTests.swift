@@ -37,4 +37,26 @@ final class EvidenceNavigationTests: XCTestCase {
             add(screenshot)
         }
     }
+    func testDashboardSurvivesBackgroundAndLabelsInterruptedRelaunch() {
+        continueAfterFailure = false
+        let app = XCUIApplication()
+        app.launch()
+        let start = app.buttons["Start mock drive"]
+        XCTAssertTrue(start.waitForExistence(timeout: 15))
+        start.tap()
+        let stop = app.buttons["Stop and save drive"]
+        XCTAssertTrue(stop.waitForExistence(timeout: 10))
+        let elapsed = app.staticTexts["drive-elapsed"]
+        expectation(for: NSPredicate { _, _ in elapsed.label != "00:00" }, evaluatedWith: elapsed)
+        waitForExpectations(timeout: 10)
+        XCUIDevice.shared.press(.home)
+        app.activate()
+        XCTAssertTrue(stop.waitForExistence(timeout: 10))
+        app.terminate()
+        app.launch()
+        app.tabBars.buttons["Sessions"].tap()
+        let interrupted = app.staticTexts.matching(NSPredicate(format: "label CONTAINS %@", "Interrupted / incomplete")).firstMatch
+        XCTAssertTrue(interrupted.waitForExistence(timeout: 10))
+    }
+
 }

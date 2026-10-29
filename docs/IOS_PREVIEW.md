@@ -13,7 +13,7 @@ See [Milestone 4](MILESTONE_4.md) for current verification status and
 Appetize session after an upload; an existing session can retain an older build.
 The [final M4 native run passed](https://github.com/KaleTEvans/VehicleFlightRecorder/actions/runs/40802263720):
 11 hosted unit tests, two UI tests, unsigned device compilation, actual export
-validation and Appetize upload. Renewed M4 browser smoke acceptance is pending.
+validation and Appetize upload. The user confirmed all renewed M4 browser smoke checks passed on October 29, 2026.
 Browser interaction remains separate from a passing runner/upload. The historical
 Milestone 0.5 results below describe the earlier static shell and old commands.
 

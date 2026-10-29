@@ -1,13 +1,13 @@
 # Milestone 4 — bridge, lifecycle and native build hardening
 
-Status: **PARTIALLY COMPLETE**. Implementation and automated acceptance pass,
-including clean device/simulator framework builds, unsigned device compilation,
-11 hosted unit tests, two native UI tests, actual native export validation and
-Appetize publication. The only remaining acceptance item is the requested fresh
-Appetize user smoke check; browser control is blocked by the WSL helper-path
-error recorded below. The PR remains draft pending that observation.
-**Milestone 5 not started.** Earlier progress statements below are historical;
-the final native evidence section records the current tested source.
+Status: **COMPLETE** — user acceptance recorded October 29, 2026.
+Implementation and automated acceptance pass: clean device/simulator framework
+builds, unsigned device compilation, 11 hosted unit tests, two native UI tests,
+actual native export validation and Appetize publication. The user confirmed all
+fresh-session smoke checks passed: healthy recording, manual capture, saved
+incident details, evidence scrolling and native share-sheet presentation.
+**Milestone 5 not started.** Earlier pending statements below are historical and
+superseded by this closeout; signing and physical hardware access remain future work.
 
 ## Scope and ownership
 
@@ -175,3 +175,13 @@ incident/evidence jump, and confirm Export presents the native share sheet.
 Actual exported data already has independent native/Python evidence; browser
 file-download limitations remain documented. No signed installation, accessory
 connection, real background logging, or Milestone 5 work is claimed.
+
+## Human acceptance and closeout — October 29, 2026
+
+The user explicitly confirmed “All checks passed” for the requested fresh Appetize
+healthy drive: manual mark after 01:00 logical time, two further simulated minutes,
+stop/save, incident opening, evidence-button scrolling and Export share-sheet
+presentation. This completes the final M4 acceptance item. It does not establish
+browser file retrieval, a signed phone installation or physical accessory behavior.
+Native-created ZIP retrieval/validation is independently recorded above.
+Milestone 4 is complete; Milestone 5 has not started.

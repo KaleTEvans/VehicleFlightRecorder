@@ -15,6 +15,7 @@ final class RecorderModel: ObservableObject {
     private var sceneActive = true
     private var closed = false
     private var operationError: String?
+    private var refreshFailure: String?
     let service: RecorderService?
     let sessionLocation: String
     private var refreshCount = 0
@@ -74,8 +75,9 @@ final class RecorderModel: ObservableObject {
                 let page = try await service.sessionPage()
                 guard currentRevision == revision, !Task.isCancelled else { return }
                 applyHistory(page)
+                refreshFailure = nil
             }
-            error = value.error.isEmpty ? operationError : BridgeFailure.translated(
+            error = value.error.isEmpty ? (operationError ?? refreshFailure) : BridgeFailure.translated(
                 NSError(domain: "Recorder", code: 1, userInfo: [NSLocalizedDescriptionKey: value.error]), operation: "refresh").localizedDescription
         } catch {
             guard currentRevision == revision, !Task.isCancelled else { return }
@@ -92,6 +94,7 @@ final class RecorderModel: ObservableObject {
                 guard currentRevision == revision, !Task.isCancelled else { return }
                 message += " · State refresh failed: " + error.localizedDescription
             }
+            refreshFailure = message
             self.error = message
         }
     }
@@ -101,6 +104,7 @@ final class RecorderModel: ObservableObject {
     }
     private func clearActionError() {
         operationError = nil
+        refreshFailure = nil
         error = nil
     }
     func loadMoreSessions() async {

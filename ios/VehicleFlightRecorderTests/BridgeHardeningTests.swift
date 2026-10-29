@@ -121,4 +121,25 @@ final class BridgeHardeningTests: XCTestCase {
         await model.shutdown()
     }
 
+    @MainActor
+    func testHistoryFailurePersistsUntilFullRefreshRecovers() async throws {
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        let recorder = try service(at: directory)
+        let model = RecorderModel(service: recorder)
+        await model.start()
+        await model.stop()
+        let id = try XCTUnwrap(model.snapshot?.session?.id)
+        let journal = directory.appendingPathComponent(id).appendingPathComponent("incidents.jsonl")
+        let original = try Data(contentsOf: journal)
+        try Data("{bad}\n".utf8).write(to: journal)
+        await model.refresh(advance: false)
+        XCTAssertNotNil(model.error)
+        await model.refresh(advance: true) // Snapshot-only success does not repair history.
+        XCTAssertNotNil(model.error)
+        try original.write(to: journal) // Explicit test-fixture repair, never app recovery.
+        await model.refresh(advance: false)
+        XCTAssertNil(model.error)
+        await model.shutdown()
+    }
+
 }

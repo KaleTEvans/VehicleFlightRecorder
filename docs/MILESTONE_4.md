@@ -90,3 +90,8 @@ after the core completes or encounters I/O failure. Refresh retrieves current
 state after an error without silently swallowing a secondary refresh failure.
 Action errors persist across successful background refreshes and clear on a
 successful deliberate action. The final native run must cover this correction.
+
+A related history-error regression prevents a successful snapshot-only tick from
+erasing a failed history-read message. Poll errors persist until a full refresh
+actually succeeds, while recovered history clears the error. The fixture repairs
+corrupt bytes explicitly in the test; the application still performs no repair.

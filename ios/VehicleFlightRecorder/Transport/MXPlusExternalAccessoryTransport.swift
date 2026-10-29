@@ -107,6 +107,7 @@ final class MXPlusExternalAccessoryTransport: NSObject, VehicleTransport, Stream
             notice = matches.isEmpty ? "No com.obdlink accessory (\(all.count) connected accessories)" : "Multiple com.obdlink accessories; disconnect all but the test adapter"
             return
         }
+        guard pump.reconnectReady else { notice = "Reconnect backoff is active; try again shortly"; return }
         let accessory = matches[0]
         do {
             var metadata = accessory.metadata
@@ -150,7 +151,7 @@ final class MXPlusExternalAccessoryTransport: NSObject, VehicleTransport, Stream
             if inputOpened && outputOpened { pump.ready(generation: generation) }
         }
         if eventCode.contains(.hasBytesAvailable) {
-            var bytes = [Int8](repeating: 0, count: 4096)
+            var bytes = [UInt8](repeating: 0, count: 4096)
             // Bound work per callback so timers/close commands can make progress.
             for _ in 0..<16 {
                 guard channel.input.hasBytesAvailable, state == .ready || state == .connecting else { break }

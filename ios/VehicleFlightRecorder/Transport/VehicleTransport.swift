@@ -50,6 +50,8 @@ final class TransportPump {
     private var failures = 0
     var now: () -> TimeInterval = { ProcessInfo.processInfo.systemUptime }
 
+    var reconnectReady: Bool { now() >= nextConnect }
+
     func begin(channel: TransportChannel, capture: TransportCapture) throws {
         guard state != .connecting && state != .ready else { channel.close(); try capture.close("duplicate connection rejected"); return }
         guard now() >= nextConnect else { channel.close(); try capture.close("reconnect backoff"); throw VehicleTransportError.failed("Reconnect backoff is active.") }

@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"os"
 	"strings"
+	"sync"
 	"testing"
 )
 
@@ -104,5 +105,36 @@ func TestConnectionDiskFailureAndBudget(t *testing.T) {
 	}
 	if e := d.Close("failed", 102); e == nil {
 		t.Fatal("failure forgotten")
+	}
+}
+
+func TestConnectionConcurrentClosePreservesContiguousJournal(t *testing.T) {
+	c := capture(t)
+	var group sync.WaitGroup
+	for i := 0; i < 8; i++ {
+		group.Add(1)
+		go func() {
+			defer group.Done()
+			for j := 0; j < 8; j++ {
+				_ = c.Receive([]byte{0, 255}, 200)
+			}
+		}()
+	}
+	group.Add(1)
+	go func() { defer group.Done(); _ = c.Close("concurrent close", 200) }()
+	group.Wait()
+	b, err := os.ReadFile(c.Path())
+	if err != nil {
+		t.Fatal(err)
+	}
+	lines := strings.Split(strings.TrimSpace(string(b)), "\n")
+	for i, line := range lines {
+		var row captureRow
+		if err := json.Unmarshal([]byte(line), &row); err != nil || row.Sequence != int64(i+1) {
+			t.Fatal(line, err)
+		}
+		if i == len(lines)-1 && row.Kind != "closed" {
+			t.Fatal("close was not terminal")
+		}
 	}
 }

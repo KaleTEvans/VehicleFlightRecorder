@@ -15,7 +15,7 @@ accepted mock dashboard. There is no fallback to synthetic readings on device.
 
 ```mermaid
 stateDiagram-v2
-  disconnected --> connecting: explicit discovery / one matching protocol
+  disconnected --> connecting: startup or explicit discovery / one matching protocol
   connecting --> ready: both stream open events
   connecting --> failed: open error / 10 second deadline
   ready --> failed: stream loss / preservation error / write deadline
@@ -23,7 +23,8 @@ stateDiagram-v2
   failed --> connecting: new connection after backoff
 ```
 
-Existing accessories are enumerated after observers register. Notifications cause
+On physical-screen startup, observers register and existing accessories are
+enumerated. This opens only the byte session; no command is sent. Notifications cause
 re-enumeration; zero/multiple matches are explicitly reported. Selection requires
 `com.obdlink`; reported name/model/firmware are retained as evidence. Disconnect
 removes observers, unregisters notifications, unschedules/closes streams and closes

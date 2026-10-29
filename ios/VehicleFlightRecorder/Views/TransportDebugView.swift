@@ -32,7 +32,7 @@ struct TransportDebugView: View {
             }
             .navigationTitle("Adapter Transport")
             .sheet(isPresented: $showExport) { if let url = model.export { SessionShareSheet(url: url) } }
-            .task { while !Task.isCancelled { await model.refresh(); try? await Task.sleep(for: .milliseconds(500)) } }
+            .task { await model.connect(); while !Task.isCancelled { await model.refresh(); try? await Task.sleep(for: .milliseconds(500)) } }
             .onChange(of: phase) { _, value in
                 Task { await model.lifecycle(value == .active ? "foreground" : value == .background ? "background" : "inactive") }
             }

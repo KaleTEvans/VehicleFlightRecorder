@@ -53,7 +53,8 @@ processing and installation remain user-observed checks, not inferred from uploa
 
 Record build/commit, iPhone model/iOS, adapter model/firmware and test time. Pair
 MX+ through iOS settings and close other apps holding its session. Open Adapter
-Transport, tap Discover / Connect and verify both streams reach `ready`. Confirm
+Transport and verify startup discovery opens both streams to `ready`. Use
+Discover / Connect for a later explicit retry. Confirm
 requested/accepted bytes remain zero until the identity action is enabled and
 tapped. Read identity once; preserve the actual response or timeout. Disconnect,
 export the closed JSONL capture and validate it using the Python command in

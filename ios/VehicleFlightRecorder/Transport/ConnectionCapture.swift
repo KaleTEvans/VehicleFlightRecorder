@@ -22,9 +22,7 @@ final class GoConnectionCapture: TransportCapture {
     func receive(_ data: Data) throws { try core.receive(data, ns: Self.clock()) }
     func accepted(_ data: Data) throws { try core.accepted(data, ns: Self.clock()) }
     func identity() throws -> Data {
-        var error: NSError?
-        let bytes = core.identityRequest(Self.clock(), error: &error)
-        if let error { throw error }
+        let bytes: Data? = try core.identityRequest(Self.clock())
         guard let bytes else { throw VehicleTransportError.failed("Missing Go command") }
         return bytes
     }

@@ -82,7 +82,7 @@ private final class DirectoryFixture: AccessoryDirectory {
     var last: NativeStreamChannel?
     func observe(_ changed: @escaping () -> Void) { registrations += 1; self.changed = changed }
     func stopObserving() { if changed != nil { removals += 1 }; changed = nil }
-    func open(_ id: UInt) -> NativeStreamChannel? {
+    func open(_ id: Int) -> NativeStreamChannel? {
         opens += 1
         if failOpen { return nil }
         let value = NativeStreamChannel(input: InputStream(data: Data()), output: OutputStream.toMemory())

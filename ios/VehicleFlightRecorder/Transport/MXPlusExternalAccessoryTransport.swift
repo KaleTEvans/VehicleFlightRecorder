@@ -4,7 +4,7 @@ import ExternalAccessory
 #endif
 
 struct AccessoryDescriptor {
-    let id: UInt
+    let id: Int
     let protocols: [String]
     let metadata: [String: String]
 }
@@ -12,7 +12,7 @@ protocol AccessoryDirectory: AnyObject {
     var accessories: [AccessoryDescriptor] { get }
     func observe(_ changed: @escaping () -> Void)
     func stopObserving()
-    func open(_ id: UInt) -> NativeStreamChannel?
+    func open(_ id: Int) -> NativeStreamChannel?
 }
 #if !targetEnvironment(simulator)
 final class EAAccessoryDirectory: AccessoryDirectory {
@@ -36,7 +36,7 @@ final class EAAccessoryDirectory: AccessoryDirectory {
         for observer in observers { NotificationCenter.default.removeObserver(observer) }; observers.removeAll()
         EAAccessoryManager.shared().unregisterForLocalNotifications()
     }
-    func open(_ id: UInt) -> NativeStreamChannel? {
+    func open(_ id: Int) -> NativeStreamChannel? {
         guard let accessory = EAAccessoryManager.shared().connectedAccessories.first(where: { $0.connectionID == id }),
               accessory.protocolStrings.contains("com.obdlink"),
               let session = EASession(accessory: accessory, forProtocol: "com.obdlink"),
@@ -60,7 +60,7 @@ final class MXPlusExternalAccessoryTransport: NSObject, VehicleTransport, Stream
     private var inputOpened = false
     private var outputOpened = false
     private var channel: NativeStreamChannel?
-    private var selectedID: UInt?
+    private var selectedID: Int?
     init(root: URL, executor: TransportExecutor, directory: AccessoryDirectory? = nil) {
         self.root = root; self.executor = executor
         #if targetEnvironment(simulator)
@@ -146,7 +146,7 @@ final class MXPlusExternalAccessoryTransport: NSObject, VehicleTransport, Stream
             if inputOpened && outputOpened { pump.ready(generation: generation) }
         }
         if eventCode.contains(.hasBytesAvailable) {
-            var bytes = [UInt8](repeating: 0, count: 4096)
+            var bytes = [Int8](repeating: 0, count: 4096)
             // Bound work per callback so timers/close commands can make progress.
             for _ in 0..<16 {
                 guard channel.input.hasBytesAvailable, state == .ready || state == .connecting else { break }
@@ -167,7 +167,7 @@ final class NativeStreamChannel: TransportChannel {
     private let owner: AnyObject?
     init(input: InputStream, output: OutputStream, owner: AnyObject? = nil) { self.input = input; self.output = output; self.owner = owner }
     var hasSpace: Bool { !closed && output.hasSpaceAvailable }
-    func write(_ data: Data) -> Int { data.withUnsafeBytes { output.write($0.bindMemory(to: UInt8.self).baseAddress!, maxLength: data.count) } }
+    func write(_ data: Data) -> Int { data.withUnsafeBytes { output.write($0.bindMemory(to: Int8.self).baseAddress!, maxLength: data.count) } }
     func close() {
         guard !closed else { return }; closed = true
         for stream in [input as Stream, output as Stream] {

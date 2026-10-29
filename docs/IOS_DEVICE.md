@@ -56,6 +56,10 @@ tapped. Read identity once; preserve the actual response or timeout. Disconnect,
 export the closed JSONL capture and validate it using the Python command in
 MILESTONE_5.md. Repeat connect/disconnect and ensure no automatic stale replay.
 
+Preserved captures from earlier launches are also available in Files → On My
+iPhone → Vehicle Flight Recorder → ConnectionCaptures. Copy evidence before
+editing or removing anything in the app documents folder.
+
 Record foreground, background, lock/unlock, suspension, OS termination and user
 force-quit separately, including timing and recovery steps. Missing final close
 means interruption; do not edit it into a successful capture. No state is assumed

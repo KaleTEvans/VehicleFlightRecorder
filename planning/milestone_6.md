@@ -16,6 +16,48 @@ If a prerequisite is incomplete, identify it and complete independent work withi
 this milestone; do not silently implement earlier milestones or claim physical
 acceptance using only mocks.
 
+## Preparation status and current M5 boundary
+
+Planning update — October 29, 2026: M5 implementation passed portable checks,
+18 native unit tests, two UI tests and unsigned device builds. Its physical
+acceptance remains pending; the user has applied for Apple Developer enrollment
+and is awaiting approval. Enrollment, provisioning, installation and actual MX+
+stream evidence must be rechecked before claiming M6 physical prerequisites.
+This status note does not activate M6.
+
+The implemented M5 byte seam is synchronous on a dedicated native run loop,
+with Go-owned version-1 standalone connection captures and one explicitly enabled
+adapter firmware identity read. It does not provide a generic arbitrary-send
+function, command scheduler or vehicle parser. Extend the Go-owned allowlist and
+bounded native delivery contract deliberately for M6; preserve one authoritative
+raw byte history and migrate/cross-reference connection evidence into live drives
+without fabricating transactions from callback boundaries. Preserve legacy mock
+exports and explicitly distinguish standalone connection files from drive exports.
+
+The accepted build contract keeps the preview on Xcode 16.4 and uses a separate
+Xcode 26.0.1 device profile for current App Store Connect uploads, with shared
+Go 1.26.10 / pinned x/mobile and iOS 17 deployment floor. Inspect the actual
+config/scripts rather than collapsing the profiles or reusing the old preview SDK
+for TestFlight. Recheck primary platform requirements when implementation starts.
+
+## Reuse the authorized offline preparation
+
+The user subsequently authorized an offline preparation extension within M5:
+`core/obd`, `core/acquisition` and `core/cmd/offline-acquisition`, with a standalone
+synthetic report and Python validator. Read `docs/OFFLINE_ACQUISITION.md` and the
+actual tests before implementing overlapping logic. The narrow catalog/profile,
+resource/deadline policies and explicit-clock harness are tested starting points,
+not physically verified adapter configuration or sampling rates. They are not
+imported by the mobile facade and do not enable new physical commands.
+
+M6 still owns documented adapter initialization, actual format/protocol validation,
+expanded verified catalog/discovery, native integration and safe request admission,
+production clock/configuration identity, coordinated live-drive schema/export
+migration and physical stationary/reference acceptance. Preserve the existing
+STI-only physical boundary until the appropriate integration is deliberately
+implemented and tested. A synthetic acquisition report is not a live drive or
+a passed physical capability report; do not simply re-label its source.
+
 ## Authoritative context and scope
 
 Read the full current plans:
@@ -25,6 +67,8 @@ planning/alfa_flight_recorder_mvp_plan.md
 planning/vehicle_health_enterprise_architecture.md
 planning/milestone_4.md
 planning/milestone_5.md
+planning/milestone_7.md           # next-milestone boundary
+planning/milestone_8.md           # pack-expansion boundary
 ```
 
 Then read README, the implemented `docs/MILESTONE_4.md` and `docs/MILESTONE_5.md`,
@@ -249,6 +293,15 @@ missing module erase startup faults. These observations inform, but do not yet
 implement, the automatic start/stop/debounce/grace/reconnect policy in M7.
 Record available background/locked-screen behavior on the real phone; the full
 hands-off wake/termination/reliability acceptance matrix remains M7 work.
+
+M7 also owns the approved automatic recording confirmation in MVP §15.1: after a
+successful automatic session begins accepting telemetry, one quiet confirmation
+per session, foreground in-app versus background local notification, optional
+permission/preference and active/ended-session tap routing. M6 should expose
+reliable session identity, start origin, successful admission and coverage facts
+needed by that handoff, without adding automatic-drive policy, user-facing
+notifications or permission prompts now. Internal accessory connect notifications
+are not user-facing recording confirmations. No V2 cockpit redesign is required.
 
 ## Required verification
 

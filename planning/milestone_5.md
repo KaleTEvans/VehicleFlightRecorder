@@ -21,6 +21,25 @@ physical scanner. Missing signing/account/device access does not prevent useful
 code, transcript tests and unsigned native builds, but leaves physical acceptance
 pending and the milestone PARTIALLY COMPLETE.
 
+## Approved offline preparation extension — October 29, 2026
+
+The user explicitly authorized bringing bounded M6 preparation into M5 while
+Apple Developer enrollment approval is pending. This supersedes the prohibition
+on beginning M6 work only for the following offline scope:
+
+- Documented response framing/parsing and multiple-ECU/error transcript tests.
+- Bounded prioritized scheduling, deadlines, backoff, cancellation and generation
+  handling using an explicit simulated clock and adapter.
+- A verified initial standard decoder/discovery subset and explicit capability states.
+- Synthetic versioned timing/raw-provenance/capability exports with independent
+  Go/Python validation and legacy mock compatibility.
+
+Keep this logic isolated from the mobile transport. Do not expand its live command
+allowlist, initialize/poll a real vehicle or claim physical acceptance. M5 still
+requires the installed phone/MX+ checks below; full M6 live integration remains a
+separate handoff. The implementation contract/results are in
+`docs/OFFLINE_ACQUISITION.md` and `docs/MILESTONE_5.md`.
+
 ## Authoritative context
 
 Read the full current MVP and enterprise plans, then:

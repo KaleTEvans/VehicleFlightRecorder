@@ -8,6 +8,10 @@ has not yet been executed with signing assets or installed on a phone.
 
 ## User setup
 
+Status update — October 29, 2026: the user has applied for Apple Developer
+enrollment and is awaiting approval. Signing and installation remain pending;
+no credentials have been requested in chat.
+
 An active Apple Developer Program account, App Store Connect app record and
 approved bundle `com.kaleevans.vehicleflightrecorder` are required. Use marketing
 version 0.1.0; build numbers come from workflow run/attempt. Manufacturer approval

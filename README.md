@@ -119,8 +119,8 @@ Appetize file-retrieval limits are documented.
 **Milestone 4 is complete:** [bridge/build/lifecycle report](docs/MILESTONE_4.md),
 with passing native/portable checks and user-confirmed Appetize smoke acceptance.
 **Milestone 5 is partially complete:** transport implementation and automated
-verification are in progress; enrollment, signed installation and physical checks
-remain pending.
+verification passed; developer enrollment approval, signed installation and
+physical checks remain pending.
 
 Authoritative plans (kept under their original names):
 
@@ -133,6 +133,8 @@ Authoritative plans (kept under their original names):
 - [Milestone 4 — bridge integration hardening](planning/milestone_4.md)
 - [Milestone 5 — MX+ transport shell](planning/milestone_5.md)
 - [Milestone 6 — standard OBD and capability reporting](planning/milestone_6.md)
+- [Milestone 7 — controlled road logging and recording confirmation](planning/milestone_7.md)
+- [Milestone 8 — verified Giulia drivetrain expansion](planning/milestone_8.md)
 
 The active milestone assignment takes priority over broader implementation suggestions
 in the plans. Enterprise services and expanded vehicle coverage remain future work.
@@ -141,3 +143,7 @@ Milestone 5 implementation is in progress: physical builds select the native MX+
 transport debug screen; Simulator retains the mock recorder. See
 [Milestone 5 status](docs/MILESTONE_5.md) and [signed iPhone setup](docs/IOS_DEVICE.md).
 Physical installation and accessory acceptance remain pending.
+
+The authorized [offline acquisition preparation](docs/OFFLINE_ACQUISITION.md) adds
+Go parser/scheduler/decoder tests and reproducible synthetic reports while enrollment
+is pending. It exposes no new physical transport command.

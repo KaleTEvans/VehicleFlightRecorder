@@ -39,7 +39,9 @@ Reference: [GitHub signing on macOS runners](https://docs.github.com/en/actions/
 The runner imports assets into a temporary keychain and cleans them afterward.
 Only the IPA, non-secret provenance and framework build manifest are retained.
 
-Run the workflow on the implementation branch with upload disabled first to
+GitHub requires a workflow-dispatch definition on the default branch before it
+appears as a runnable workflow. After this workflow definition is merged, select
+the implementation branch and run it with upload disabled first to
 verify signing/export. An App Store IPA is not directly sideloadable; choose
 upload on a subsequent run for App Store Connect/TestFlight processing. Add the
 owner as an internal tester, resolve Apple's processing/compliance prompts, and

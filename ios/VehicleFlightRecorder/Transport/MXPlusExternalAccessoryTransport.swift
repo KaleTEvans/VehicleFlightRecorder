@@ -83,7 +83,11 @@ final class MXPlusExternalAccessoryTransport: NSObject, VehicleTransport, Stream
         timer = Timer.scheduledTimer(withTimeInterval: 0.5, repeats: true) { [weak self] _ in
             guard let self else { return }
             self.overloadLock.lock(); let overflow = self.overloaded; self.overloaded = false; self.overloadLock.unlock()
-            if overflow { self.pump.fail("Native command mailbox overflow"); self.armed = false }
+            if overflow {
+                self.pump.fail("Native command mailbox overflow"); self.armed = false
+                self.directory?.stopObserving(); self.timer?.invalidate(); self.timer = nil
+                self.releaseSession(); return
+            }
             self.pump.tick()
             if self.pump.state == .failed { self.releaseSession() }
         }

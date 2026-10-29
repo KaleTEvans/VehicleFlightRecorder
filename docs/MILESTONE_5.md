@@ -108,7 +108,9 @@ behavior and every real lifecycle state remain pending acceptance.
 
 Native CI results and artifact links will be recorded after the source build.
 Signed workflow and installation instructions: [IOS_DEVICE.md](IOS_DEVICE.md).
-Only Appetize secrets currently exist. Signing/account setup and physical tests
+Only Appetize secrets currently exist. On October 29, 2026 the user confirmed
+that there is no Apple Developer membership yet. TestFlight enrollment,
+signing/account setup and physical tests
 remain pending; no unsigned compile proves a signed installation.
 
 | Physical case | Status |

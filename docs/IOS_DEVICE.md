@@ -2,7 +2,8 @@
 
 The separate `Signed iPhone build` workflow prepares an App Store distribution
 IPA and can explicitly upload it for TestFlight processing. It uses the accepted
-Go/Xcode pins and iOS ARM64 slice. Simulator ZIPs remain separate. This workflow
+Go/runtime pins and iOS ARM64 slice, with a separate Xcode 26.0.1 device
+profile in scripts/device_toolchain.env. The accepted preview stays Xcode 16.4. Simulator ZIPs remain separate. This workflow
 has not yet been executed with signing assets or installed on a phone.
 
 ## User setup
@@ -68,3 +69,11 @@ means interruption; do not edit it into a successful capture. No state is assume
 to support universal background wake or hands-off drive creation. Appetize cannot
 exercise physical Bluetooth/MFi. Milestone 6 adds controlled vehicle reads; M7
 owns automatic drive policy.
+
+## Upload SDK requirement
+
+[Apple requires Xcode 26 / iOS 26 SDK or later for App Store Connect uploads](https://developer.apple.com/news/upcoming-requirements/?id=04282026a)
+since April 28, 2026. The device profile inherits the fixed Go/mobile pins and iOS
+17 deployment floor, overriding only Xcode to 26.0.1 (SDK 26.0). Preview CI also
+compiles an unsigned Release archive with that profile. This separate compile
+checks source compatibility, while signing/processing/installation remain pending.

@@ -55,6 +55,8 @@ final class BridgeHardeningTests: XCTestCase {
         model.scenario = "unknown"
         await model.start()
         XCTAssertNotNil(model.error)
+        await model.refresh(advance: false)
+        XCTAssertNotNil(model.error, "A successful background refresh must not erase an action failure")
         model.scenario = "healthy_drive"
         await model.start()
         XCTAssertNil(model.error)
@@ -97,4 +99,26 @@ final class BridgeHardeningTests: XCTestCase {
             XCTAssertEqual(($0 as? BridgeFailure)?.category, "resource_limit")
         }
     }
+    @MainActor
+    func testRefreshRecoversStoppedAndFailedCoreStateWithoutHidingFailure() async throws {
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        let recorder = try service(at: directory)
+        let model = RecorderModel(service: recorder)
+        await model.start()
+        try await recorder.stop() // Core completes before the model consumes a queued tick.
+        await model.refresh(advance: true)
+        XCTAssertEqual(model.snapshot?.state, "complete")
+        await model.start()
+        let id = try XCTUnwrap(model.snapshot?.session?.id)
+        let session = directory.appendingPathComponent(id)
+        try FileManager.default.moveItem(at: session.appendingPathComponent("session.json"), to: session.appendingPathComponent("original-session.json"))
+        try FileManager.default.createDirectory(at: session.appendingPathComponent("session.json"), withIntermediateDirectories: false)
+        await model.stop() // Force the metadata rename to fail.
+        XCTAssertNotNil(model.error)
+        await model.refresh(advance: true)
+        XCTAssertEqual(model.snapshot?.state, "failed")
+        XCTAssertTrue(model.error?.localizedCaseInsensitiveContains("io failure") == true)
+        await model.shutdown()
+    }
+
 }

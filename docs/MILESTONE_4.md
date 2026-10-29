@@ -84,3 +84,9 @@ escaping inputs and injected metadata-finalization failure. The repeated workloa
 is 20 complete 12-minute logical healthy drives (four logical hours), not a
 four-hour physical or wall-clock run. Actual timing/race and native results will
 be added after final verification.
+
+Final state review also added a native regression for a stale recording snapshot
+after the core completes or encounters I/O failure. Refresh retrieves current
+state after an error without silently swallowing a secondary refresh failure.
+Action errors persist across successful background refreshes and clear on a
+successful deliberate action. The final native run must cover this correction.

@@ -14,6 +14,7 @@ final class RecorderModel: ObservableObject {
     private var revision: UInt64 = 0
     private var sceneActive = true
     private var closed = false
+    private var operationError: String?
     let service: RecorderService?
     let sessionLocation: String
     private var refreshCount = 0
@@ -74,26 +75,47 @@ final class RecorderModel: ObservableObject {
                 guard currentRevision == revision, !Task.isCancelled else { return }
                 applyHistory(page)
             }
-            error = value.error.isEmpty ? nil : BridgeFailure.translated(
+            error = value.error.isEmpty ? operationError : BridgeFailure.translated(
                 NSError(domain: "Recorder", code: 1, userInfo: [NSLocalizedDescriptionKey: value.error]), operation: "refresh").localizedDescription
         } catch {
             guard currentRevision == revision, !Task.isCancelled else { return }
-            self.error = error.localizedDescription
+            var message = operationError ?? error.localizedDescription
+            do {
+                let current = try await service.snapshot()
+                guard currentRevision == revision, !Task.isCancelled else { return }
+                snapshot = current
+                if !current.error.isEmpty {
+                    message = BridgeFailure.translated(NSError(domain: "Recorder", code: 1,
+                        userInfo: [NSLocalizedDescriptionKey: current.error]), operation: "refresh").localizedDescription
+                }
+            } catch {
+                guard currentRevision == revision, !Task.isCancelled else { return }
+                message += " · State refresh failed: " + error.localizedDescription
+            }
+            self.error = message
         }
+    }
+    private func recordActionFailure(_ failure: Error) {
+        operationError = failure.localizedDescription
+        error = operationError
+    }
+    private func clearActionError() {
+        operationError = nil
+        error = nil
     }
     func loadMoreSessions() async {
         guard !busy, !closed, hasMoreSessions, let service else { return }
         busy = true
         revision &+= 1
         defer { busy = false }
-        do { applyHistory(try await service.sessionPage(offset: nextHistoryOffset), append: true); error = nil }
-        catch { self.error = error.localizedDescription }
+        do { applyHistory(try await service.sessionPage(offset: nextHistoryOffset), append: true); clearActionError() }
+        catch { recordActionFailure(error) }
     }
     func shutdown() async {
         guard !closed, let service else { return }
         closed = true; revision &+= 1
         do { try await service.close() }
-        catch { self.error = error.localizedDescription }
+        catch { recordActionFailure(error) }
     }
     func start() async {
         guard !busy, !closed, let service else { return }
@@ -104,8 +126,8 @@ final class RecorderModel: ObservableObject {
             try await service.start(scenario)
             snapshot = try await service.snapshot()
             applyHistory(try await service.sessionPage())
-            notice = nil; error = nil
-        } catch { self.error = error.localizedDescription }
+            notice = nil; clearActionError()
+        } catch { recordActionFailure(error) }
     }
     func stop() async {
         guard !busy, !closed, let service else { return }
@@ -116,9 +138,9 @@ final class RecorderModel: ObservableObject {
             try await service.stop()
             snapshot = try await service.snapshot()
             applyHistory(try await service.sessionPage())
-            error = nil
+            clearActionError()
             notice = "Drive saved. Open Sessions to review or export."
-        } catch { self.error = error.localizedDescription }
+        } catch { recordActionFailure(error) }
     }
     func mark() async {
         guard canMark, let service else { return }
@@ -128,16 +150,16 @@ final class RecorderModel: ObservableObject {
         do {
             _ = try await service.mark()
             snapshot = try await service.snapshot()
-            error = nil
+            clearActionError()
             notice = "Incident marked. Capturing available evidence before and after this moment."
-        } catch { self.error = error.localizedDescription }
+        } catch { recordActionFailure(error) }
     }
     func export(_ id: String) async {
         guard !busy, !closed, let service else { return }
         busy = true
         revision &+= 1
         defer { busy = false }
-        do { shareURL = try await service.archive(id); error = nil }
-        catch { self.error = error.localizedDescription }
+        do { shareURL = try await service.archive(id); clearActionError() }
+        catch { recordActionFailure(error) }
     }
 }

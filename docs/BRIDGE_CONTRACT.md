@@ -136,3 +136,15 @@ uncertain partial writes must remain distinct. No hardware byte queue, command
 scheduler, EASession or speculative public byte API is implemented in M4.
 
 See [live timing design](LIVE_TIMING.md) for the M6 acquisition/schema migration.
+
+## Milestone 5 connection capture extension
+
+`NewConnectionCapture(root, metadataJSON, unixMS, nativeNS)` returns a separate
+one-generation owner. `Receive(bytes, ns)`, `IdentityRequest(ns)`,
+`Accepted(bytes, ns)`, `Event(kind, detail, ns)`, `Close(reason, ns)`, `Path()` and
+`Snapshot()` preserve transport-only evidence; none opens a drive or changes
+schema-1 mock files. This is additive to bridge 1. The native dedicated run loop
+calls Go synchronously; no Go call waits on native callbacks. IdentityRequest
+returns owned `STI\r` bytes once, and Accepted validates their pending prefix.
+Actual budgets and file/timing format supersede the earlier proposed queued-byte
+budgets: see [Milestone 5](MILESTONE_5.md). No diagnostic framing/polling API exists.

@@ -133,3 +133,8 @@ Authoritative plans (kept under their original names):
 
 The active milestone assignment takes priority over broader implementation suggestions
 in the plans. Enterprise services and expanded vehicle coverage remain future work.
+
+Milestone 5 implementation is in progress: physical builds select the native MX+
+transport debug screen; Simulator retains the mock recorder. See
+[Milestone 5 status](docs/MILESTONE_5.md) and [signed iPhone setup](docs/IOS_DEVICE.md).
+Physical installation and accessory acceptance remain pending.

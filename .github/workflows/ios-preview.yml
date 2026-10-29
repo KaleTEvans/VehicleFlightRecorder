@@ -104,6 +104,7 @@ jobs:
             --path build/ios-preview/NativeTests.xcresult \
             --output-path build/native-acceptance/ui-attachments
           cp -R "$APP_DATA/Documents/NativeAcceptance/Exports" build/native-acceptance/
+          cp -R "$APP_DATA/Documents/NativeAcceptance/Connections" build/native-acceptance/
           printf 'Simulator: %s\nCommit: %s\n' "$SIMULATOR_ID" "$GITHUB_SHA" > build/native-acceptance/provenance.txt
           xcrun simctl io "$SIMULATOR_ID" screenshot build/native-acceptance/simulator.png
 
@@ -116,6 +117,9 @@ jobs:
         run: |
           ./scripts/bootstrap.sh
           analytics/.venv/bin/python scripts/validate_native_exports.py build/native-acceptance
+          for capture in build/native-acceptance/Connections/*.jsonl; do
+            analytics/.venv/bin/python -m vehicle_flight_recorder validate-connection "$capture"
+          done
 
       - name: Publish native test and export evidence
         if: always()
@@ -194,7 +198,7 @@ jobs:
           platform: ios
           appFile: build/ios-preview/VehicleFlightRecorder-simulator.zip
           fileType: zip
-          note: Vehicle Flight Recorder - Milestone 4 hardened mock bridge
+          note: Vehicle Flight Recorder - Milestone 5 transport shell; mock-only simulator
           timeout: '120'
 
       - name: Report Appetize upload result

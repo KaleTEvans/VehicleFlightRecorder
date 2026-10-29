@@ -10,7 +10,7 @@ from .session import IncompleteSessionError, ValidationError, load_session
 def main(argv=None):
     parser = argparse.ArgumentParser(prog="python -m vehicle_flight_recorder")
     commands = parser.add_subparsers(dest="command", required=True)
-    for name in ("validate", "summarize", "incident", "validate-connection"):
+    for name in ("validate", "summarize", "incident", "validate-connection", "validate-acquisition"):
         command = commands.add_parser(name)
         command.add_argument("session_directory")
         if name == "incident":
@@ -18,7 +18,10 @@ def main(argv=None):
         command.add_argument("--allow-incomplete", action="store_true", help="inspect well-formed unfinalized logs without repairing them")
     args = parser.parse_args(argv)
     try:
-        if args.command == "validate-connection":
+        if args.command == "validate-acquisition":
+            from .acquisition import validate_acquisition
+            summary = validate_acquisition(args.session_directory, allow_incomplete=args.allow_incomplete)
+        elif args.command == "validate-connection":
             from .connection import validate_connection
             summary = validate_connection(args.session_directory, allow_incomplete=args.allow_incomplete)
         elif args.command == "incident":

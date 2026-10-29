@@ -181,3 +181,43 @@ x/mobile, approved identity and deployment floor remain pinned. No M6 polling,
 initialization, vehicle decoding or automatic drive policy was introduced.
 
 Milestone 6 not started.
+
+## Approved offline preparation extension — October 29, 2026
+
+While awaiting Apple Developer enrollment approval, the user authorized bounded
+preparation from M6 inside this milestone. `core/obd` now supplies prompt framing,
+a fixed documented catalog (support block 00, coolant, RPM and STVR voltage),
+11-bit single-frame response decoding and per-ECU capability states.
+`core/acquisition` supplies explicit-clock serialized scheduling, bounded history,
+priorities/fairness, backoff, partial-write deadlines, timeout draining, reconnect
+generations and a standalone synthetic report. The offline CLI wires those to a
+scripted adapter; Python independently validates raw references, decoded values,
+capability advertisements, timing and derived rate/gap/latency populations.
+
+Full contract, references, limits and reproduction:
+[OFFLINE_ACQUISITION.md](OFFLINE_ACQUISITION.md). Healthy and timeout/reconnect
+runs each cover 12 logical seconds with no real-time waiting. Healthy produces
+37 transactions and 51 observations; edge cases produce 36 transactions and 46
+observations across two generations. Timeout/late replies and cancellation remain
+explicit. Both reports are byte-reproducible and passed independent Python checks.
+These are synthetic fixture outcomes, not physical acquisition rates.
+
+Portable verification passed: all ten Go packages/tests and vet, focused
+OBD/acquisition race checks, 98 Python tests (28 acquisition tests), 22 script
+tests, actionlint and diff/format checks. A bounded five-second framing/parser
+fuzz run completed 170,017 executions with two workers, zero failures. Resource
+checks include bounded actual file reads during growth and stopping at the
+transaction-history limit without silently discarding evidence.
+
+The native dependency closure was checked: neither new package is imported by
+`core/mobile`. No Swift, binding surface, native command allowlist, toolchain or
+app behavior changed in this extension, so no new native build or Appetize upload
+was needed. Prior native evidence remains tied to its recorded implementation
+commit; it is not relabeled as testing these offline packages.
+
+Physical acceptance is still pending. No adapter initialization, vehicle polling,
+production live-drive schema migration, real capability/reference measurements,
+automatic-drive policy or notification feature was enabled. The initial profile
+and catalog are deliberately narrow; expanded definitions/formats and live
+integration remain in the detailed M6 handoff. Offline M6 preparation is now
+implemented within the approved M5 extension; **M6 live integration not started.**

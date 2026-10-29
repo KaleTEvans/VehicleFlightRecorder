@@ -71,3 +71,71 @@ final class TransportTests: XCTestCase {
         XCTAssertTrue(FileManager.default.fileExists(atPath: capture.core.path()))
     }
 }
+
+private final class DirectoryFixture: AccessoryDirectory {
+    var accessories: [AccessoryDescriptor] = []
+    var changed: (() -> Void)?
+    var registrations = 0
+    var removals = 0
+    var opens = 0
+    var failOpen = false
+    var last: NativeStreamChannel?
+    func observe(_ changed: @escaping () -> Void) { registrations += 1; self.changed = changed }
+    func stopObserving() { if changed != nil { removals += 1 }; changed = nil }
+    func open(_ id: UInt) -> NativeStreamChannel? {
+        opens += 1
+        if failOpen { return nil }
+        let value = NativeStreamChannel(input: InputStream(data: Data()), output: OutputStream.toMemory())
+        last = value; return value
+    }
+}
+extension TransportTests {
+    func testAccessoryEnumerationFailureAndObserverCleanup() throws {
+        let executor = TransportExecutor(), directory = DirectoryFixture()
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        let transport = MXPlusExternalAccessoryTransport(root: root, executor: executor, directory: directory)
+        defer { transport.disconnect(); try? FileManager.default.removeItem(at: root) }
+        try transport.connect(); XCTAssertEqual(directory.opens, 0)
+        directory.accessories = [AccessoryDescriptor(id: 1, protocols: ["unsupported"], metadata: [:])]
+        try transport.connect(); XCTAssertEqual(directory.opens, 0)
+        let match = AccessoryDescriptor(id: 2, protocols: ["com.obdlink"], metadata: ["name": "Fixture"])
+        directory.accessories = [match, match]
+        try transport.connect(); XCTAssertEqual(directory.opens, 0); XCTAssertTrue(transport.notice.contains("Multiple"))
+        directory.accessories = [match]; directory.failOpen = true
+        try transport.connect(); XCTAssertEqual(transport.state, .failed)
+        XCTAssertEqual(directory.registrations, 1)
+        XCTAssertTrue(transport.capture!.core.snapshot().contains("\"closed\":true"))
+        transport.disconnect(); transport.disconnect(); XCTAssertEqual(directory.removals, 1)
+    }
+    func testLaterNotificationDisconnectReconnectAndStaleStream() async throws {
+        let executor = TransportExecutor(), directory = DirectoryFixture()
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        let transport = MXPlusExternalAccessoryTransport(root: root, executor: executor, directory: directory)
+        await withCheckedContinuation { continuation in
+            executor.submit {
+                do {
+                    try transport.connect()
+                    directory.accessories = [AccessoryDescriptor(id: 1, protocols: ["com.obdlink"], metadata: ["source": "fixture"])]
+                    directory.changed?()
+                    // The notification enqueues discovery before this barrier.
+                    executor.submit {
+                        XCTAssertEqual(transport.state, .connecting)
+                        let old = directory.last!
+                        transport.stream(old.input, handle: .openCompleted); transport.stream(old.output, handle: .openCompleted)
+                        XCTAssertEqual(transport.state, .ready)
+                        let generation = transport.pump.generation
+                        transport.disconnect()
+                        try? transport.connect()
+                        XCTAssertGreaterThan(transport.pump.generation, generation)
+                        transport.stream(old.output, handle: .errorOccurred)
+                        XCTAssertEqual(transport.state, .connecting)
+                        transport.disconnect()
+                        XCTAssertEqual(directory.registrations, 2); XCTAssertEqual(directory.removals, 2)
+                        try? FileManager.default.removeItem(at: root)
+                        continuation.resume()
+                    }
+                } catch { XCTFail(error.localizedDescription); transport.disconnect(); continuation.resume() }
+            }
+        }
+    }
+}

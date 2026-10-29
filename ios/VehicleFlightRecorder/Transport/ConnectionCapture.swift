@@ -14,7 +14,8 @@ final class GoConnectionCapture: TransportCapture {
         let json = String(decoding: try JSONSerialization.data(withJSONObject: metadata), as: UTF8.self)
         var error: NSError?
         guard let value = MobileNewConnectionCapture(root.path, json, Int64(Date().timeIntervalSince1970 * 1000), Self.clock(), &error) else {
-            throw error ?? VehicleTransportError.failed("Could not create connection capture")
+            if let error { throw error }
+            throw VehicleTransportError.failed("Could not create connection capture")
         }
         core = value
     }

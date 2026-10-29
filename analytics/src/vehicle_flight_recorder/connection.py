@@ -1,9 +1,8 @@
 """Validate version-1 transport-only captures independently of drive sessions."""
 import base64
 import binascii
-import json
 from pathlib import Path
-from .session import ValidationError
+from .session import ValidationError, _decode
 
 
 def validate_connection(path, *, allow_incomplete=False):
@@ -22,11 +21,11 @@ def validate_connection(path, *, allow_incomplete=False):
             while line := source.readline(128 * 1024 + 1):
                 if len(line) > 128 * 1024 or not line.endswith(b"\n"):
                     raise ValidationError("oversized or truncated connection row")
-                row = json.loads(line)
+                row = _decode(line, f"connection row {sequence + 1}")
                 if not isinstance(row, dict) or set(row) - fields:
                     raise ValidationError("unknown connection row fields")
                 for key in ["capture_version", "sequence", "native_monotonic_ns", "mapped_unix_ms"]:
-                    if type(row.get(key)) is not int:
+                    if type(row.get(key)) is not int or not 0 <= row[key] <= 2**63 - 1:
                         raise ValidationError(f"invalid {key}")
                 if row["capture_version"] != 1 or row["sequence"] != sequence + 1 or closed:
                     raise ValidationError("unsupported version, sequence gap or data after close")

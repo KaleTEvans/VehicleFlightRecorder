@@ -13,11 +13,18 @@ import Foundation
         let root = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0].appendingPathComponent("ConnectionCaptures", isDirectory: true)
         transport = MXPlusExternalAccessoryTransport(root: root, executor: executor)
     }
+    deinit {
+        let transport = self.transport
+        executor.submit { transport.disconnect() }
+    }
     func refresh() async { await run { _ in } }
     func connect() async { await run { try $0.connect() } }
     func disconnect() async { await run { $0.disconnect() } }
     func identify() async { await run { try $0.requestIdentity() } }
-    func lifecycle(_ phase: String) async { await run { $0.pump.lifecycle(phase) } }
+    func lifecycle(_ phase: String) async {
+        let transport = self.transport
+        if !executor.submit({ transport.pump.lifecycle(phase) }) { error = "Lifecycle event mailbox overflow" }
+    }
     func share() async {
         await run { transport in
             guard transport.state != .ready, transport.state != .connecting, let capture = transport.capture else { throw VehicleTransportError.failed("Disconnect before exporting the current capture.") }

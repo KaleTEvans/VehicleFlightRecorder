@@ -101,9 +101,10 @@ file budgets and disk failure. Python tests cover identity/sequence/version/comm
 encoding/clock validation and interrupted captures. Native tests cover fragmented/
 coalesced reads, partial/zero/error writes, deadlines, stale generations, overflow,
 idempotent close and actual Swift-to-Go capture files. Existing recorder/UI tests
-remain required. Discovery/session creation/observer behavior is implemented but
-not yet covered by an injected accessory-manager test seam; physical verification
-and additional lifecycle seam coverage remain open acceptance items.
+remain required. An injected accessory directory exercises existing/later enumeration, unsupported
+and multiple matches, failed session creation, notification delivery, repeated
+connect/disconnect, observer cleanup and stale stream objects. Physical framework
+behavior and every real lifecycle state remain pending acceptance.
 
 Native CI results and artifact links will be recorded after the source build.
 Signed workflow and installation instructions: [IOS_DEVICE.md](IOS_DEVICE.md).

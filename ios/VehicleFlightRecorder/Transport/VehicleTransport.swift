@@ -48,7 +48,7 @@ final class TransportPump {
     private var receivedSinceIdentity = false
     private var nextConnect: TimeInterval = 0
     private var failures = 0
-    var now: () -> TimeInterval = { ProcessInfo.processInfo.systemUptime }
+    var now: () -> TimeInterval = { TimeInterval(TransportClock.nanoseconds()) / 1_000_000_000 }
 
     var reconnectReady: Bool { now() >= nextConnect }
 
@@ -78,6 +78,7 @@ final class TransportPump {
     }
     func flush(generation: Int) {
         guard generation == self.generation, state == .ready, let channel else { return }
+        if !pending.isEmpty && now() >= deadline { fail("Write deadline exceeded; partial delivery uncertain"); return }
         // Bounded iterations; zero progress waits for a later space event/deadline.
         for _ in 0..<16 {
             guard !pending.isEmpty, channel.hasSpace else { return }
@@ -114,7 +115,7 @@ final class TransportPump {
     func disconnect() { end("disconnected"); state = .disconnected }
     private func end(_ reason: String) {
         channel?.close(); channel = nil; pending.removeAll(); identityDeadline = nil
-        do { try capture?.close(reason) } catch { failure = error.localizedDescription }
+        do { try capture?.close(reason) } catch { failure = [failure, error.localizedDescription].compactMap { $0 }.joined(separator: "; ") }
         capture = nil
     }
 }

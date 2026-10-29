@@ -2,13 +2,17 @@ import Foundation
 import Darwin
 import VehicleFlightRecorderCore
 
-final class GoConnectionCapture: TransportCapture {
-    let core: MobileConnectionCapture
-    static func clock() -> Int64 {
+enum TransportClock {
+    static func nanoseconds() -> Int64 {
         var info = mach_timebase_info_data_t()
         mach_timebase_info(&info)
         return Int64(Double(mach_continuous_time()) * Double(info.numer) / Double(info.denom))
     }
+}
+
+final class GoConnectionCapture: TransportCapture {
+    let core: MobileConnectionCapture
+    static func clock() -> Int64 { TransportClock.nanoseconds() }
     init(root: URL, metadata: [String: String]) throws {
         guard MobileBridgeVersion() == 1 else { throw VehicleTransportError.failed("Incompatible bridge") }
         let json = String(decoding: try JSONSerialization.data(withJSONObject: metadata), as: UTF8.self)

@@ -42,7 +42,9 @@ inbound application queue or AsyncThrowingStream. Kernel/accessory buffering is
 outside this guarantee. Stream errors and preservation failures stop the pump.
 Outbound storage is one Go-owned buffer, limited to 64 KiB; the actual permitted
 command is four bytes. Partial acceptance is recorded, zero progress waits for a
-space event, and a five-second write deadline ends uncertain writes. Buffers are
+space event, and a five-second continuous-clock write deadline ends uncertain writes.
+The deadline is checked before every resumed write as well as by the timer,
+so suspension cannot allow a stale queued command to be sent first. Buffers are
 cleared at close and never replayed on reconnect. Maximum capture file: 64 MiB,
 with 8 KiB reserved for explicit error/close records. No retention/deletion policy
 has been added. Disk-full can prevent the final error record; UI reports that

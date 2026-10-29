@@ -46,7 +46,8 @@ final class TransportTests: XCTestCase {
         XCTAssertEqual(pump.state, .connecting)
         pump.ready(generation: pump.generation)
         pump.receive(Data([255]), generation: old); XCTAssertTrue(next.rows.isEmpty)
-        nextChannel.hasSpace = false; try pump.identify(); time = 20; pump.tick()
+        nextChannel.hasSpace = false; try pump.identify(); time = 20
+        nextChannel.hasSpace = true; pump.flush(generation: pump.generation)
         XCTAssertEqual(pump.state, .failed); XCTAssertTrue(pump.pending.isEmpty)
         XCTAssertTrue(nextChannel.sent.isEmpty)
     }

@@ -1,8 +1,13 @@
 # Milestone 4 — bridge, lifecycle and native build hardening
 
-Status: **IN PROGRESS**. Local implementation and checks pass. Clean macOS
-framework/device/simulator builds, native unit/UI tests, actual export validation
-and renewed interactive acceptance remain to be recorded. Milestone 5 not started.
+Status: **PARTIALLY COMPLETE**. Implementation and automated acceptance pass,
+including clean device/simulator framework builds, unsigned device compilation,
+11 hosted unit tests, two native UI tests, actual native export validation and
+Appetize publication. The only remaining acceptance item is the requested fresh
+Appetize user smoke check; browser control is blocked by the WSL helper-path
+error recorded below. The PR remains draft pending that observation.
+**Milestone 5 not started.** Earlier progress statements below are historical;
+the final native evidence section records the current tested source.
 
 ## Scope and ownership
 
@@ -58,7 +63,11 @@ log deletion. Archive limits are MVP resource limits, not retention policy.
 
 Native scene revisions invalidate obsolete refresh results; cancellation is
 checked before actor operations. Mock time pauses while inactive and does not
-catch up on resume. Export/history work and all Go calls stay off the UI actor.
+catch up on resume. Runtime recording, export and history calls run on RecorderService's actor.
+Service construction still performs synchronous, bounded compatibility/initial
+pack/path setup; this is not an asynchronous transport bootstrap. No live hardware
+I/O is introduced. The default bundled pack remains small; larger/live startup
+work must not be moved onto the UI actor in later milestones.
 
 ## Native build
 
@@ -92,6 +101,77 @@ Action errors persist across successful background refreshes and clear on a
 successful deliberate action. The final native run must cover this correction.
 
 A related history-error regression prevents a successful snapshot-only tick from
-erasing a failed history-read message. Poll errors persist until a full refresh
-actually succeeds, while recovered history clears the error. The fixture repairs
+erasing a failed history-read message. Across background polling, errors persist until a full refresh
+actually succeeds, while recovered history clears the error. Successful deliberate
+actions can also dismiss previous messages; persistent faults are reported again
+on the next applicable refresh. The fixture repairs
 corrupt bytes explicitly in the test; the application still performs no repair.
+
+## Recorded pre-final native evidence
+
+Implementation source `86dabbe` passed clean device+simulator framework validation,
+unsigned device compilation, nine hosted unit tests, two native UI tests,
+native-generated ZIP validation/reconstruction, packaging and Appetize upload in
+[run 40770251975](https://github.com/KaleTEvans/VehicleFlightRecorder/actions/runs/40770251975).
+Xcode 16.4 (16F6), Go 1.26.10 darwin/arm64, iOS SDKs 18.5; actual framework
+identifiers are ios-arm64 and ios-arm64-simulator. Source hashes were checked
+against the downloaded manifest. Source `d35def2` additionally passed the new
+completion/failure recovery regression: ten hosted tests and two UI tests in
+[run 40801000337](https://github.com/KaleTEvans/VehicleFlightRecorder/actions/runs/40801000337).
+The final history-error regression source will be recorded separately below.
+
+Final Go race coverage (Go sources unchanged by the later Swift-only fixes):
+`go test -race ./mobile -count=1 -v` passed in 61.421 s. Within it, 20 healthy
+12-minute logical drives completed in 26.512 s wall time, with sampled heap
+358,000 bytes before and 975,136 after GC at the end. That includes retained
+current-session state; these samples are not a peak-memory or long-duration phone
+measurement. Every producer was joined. No physical reliability claim follows.
+
+The computer-use skill was read and the current helper was attempted. It failed
+before Windows initialization with `sandboxCwd is not a local file URI:
+file:///home/kaletevans/dev/VehicleFlightRecorder`. No Windows/browser action or
+new Appetize observation is claimed. A short fresh-session user check has been
+requested; prior Milestone 3 acceptance is not relabeled as new M4 observation.
+
+## Final native evidence — October 28, 2026
+
+[Run 40802263720](https://github.com/KaleTEvans/VehicleFlightRecorder/actions/runs/40802263720)
+passed for implementation source `f82ef4d2c9c4f316ca735be671b82737352d514e`.
+Actual tools: Go **1.26.10 darwin/arm64**, Xcode **16.4 / 16F6**, device and
+simulator SDKs **18.5**, deployment floor **17.0**. Both framework slices passed
+metadata/ARM64 checks; the unsigned device app compiled and its retained plist
+identifies `iPhoneOS`, separately from simulator packaging.
+
+Eleven hosted unit tests passed with zero failures (3.077 s execution), covering
+compatibility/missing pack, stable error categories, terminal close, cancelled/
+stale ticks, scene pause/resume, incomplete relaunch, decoding/archive bounds,
+completion/I/O state recovery and persistent history errors. Both native UI tests
+passed (84.560 s execution): both trigger jumps/repeat tap still reveal the
+canonical heading, and background/resume followed by termination/relaunch leaves
+the unfinished drive honestly labeled interrupted. Exported UI screenshots were
+visually reviewed. These are native simulator observations, not Appetize or physical
+phone/background-accessory evidence.
+
+Two real native-generated ZIPs were copied from the tested app container. The
+runner validated and reconstructed them; the downloaded copies independently
+passed local Python `validate`, `summarize` and `incident` commands by actual ID:
+
+| Native session / scenario | Evidence | ZIP SHA256 |
+| --- | --- | --- |
+| `mock-1793238595719029000` / healthy + manual | 30,966 observations, 12 events, one captured manual trigger | `9ffcf82885b8b315ae73b84029d32827e0714dcc40c5e89bf599935fcbe9a995` |
+| `mock-1793238597104378000` / voltage + TCM | 38,167 observations, 17 events, one captured incident with two ordered triggers | `7999d7b119bff868a26a97bf6809f34f1e1b835351c51da77f3e776f87d64888` |
+
+[Native evidence artifact](https://github.com/KaleTEvans/VehicleFlightRecorder/actions/runs/40802263720/artifacts/12867265523),
+[simulator ZIP artifact](https://github.com/KaleTEvans/VehicleFlightRecorder/actions/runs/40802263720/artifacts/12867265536).
+Artifacts retain 14 days. Local copies, source-hash verification and independent
+CLI outputs are under ignored `build/milestone-4-native-evidence-f82ef4d`.
+Native manifest hashes match the current Go/framework inputs. Both Linux CI
+checks for the implementation commit passed. Appetize upload passed to the
+[existing preview](https://appetize.io/app/nrnzclustneju2ltjppkozdkta).
+
+Remaining: start a fresh browser session; run a healthy drive, mark at or after
+01:00 logical time, allow 120 more logical seconds, stop, inspect the saved
+incident/evidence jump, and confirm Export presents the native share sheet.
+Actual exported data already has independent native/Python evidence; browser
+file-download limitations remain documented. No signed installation, accessory
+connection, real background logging, or Milestone 5 work is claimed.

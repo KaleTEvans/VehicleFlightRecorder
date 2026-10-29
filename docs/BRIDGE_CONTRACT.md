@@ -42,6 +42,8 @@ The generator goroutine owns immutable inputs, writes a 64-record channel and
 never accesses recorder state. Stop/close/error cancels and joins it; one pending
 record can sit beyond the current tick. The recorder itself remains single-owner.
 
+RecorderService construction performs bounded initial compatibility/pack/path
+setup synchronously. Runtime recording/read/export operations are actor-isolated.
 RecorderService owns the native MobileController and performs each actor operation
 without suspension while calling Go. Refresh combines session-checked advance
 and snapshot. Native cancellation is checked before an operation is admitted;
@@ -73,7 +75,13 @@ is `VFR|category|operation|detail`; details can contain further separators. Nati
 BridgeFailure extracts the prefix, preserves operation/detail and supplies a
 readable localized description. CancellationError, native decoding and packaging
 errors also become categorized native failures. Validation errors do not silently
-poison a healthy active recorder; storage failures do.
+poison a healthy active recorder; storage failures do. Action failures remain
+visible across background polling. Polling failures remain visible across
+snapshot-only successes until a full refresh succeeds; a successful deliberate
+user action also dismisses previous messages. An underlying persistent failure
+is reported again on the next applicable refresh. Failed ticks retrieve current
+core state so completion/I/O failure cannot leave the UI stuck on recording;
+a secondary state-read failure is reported too.
 
 | Category | Examples |
 | --- | --- |

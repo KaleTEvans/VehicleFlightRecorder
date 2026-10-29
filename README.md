@@ -115,7 +115,8 @@ writes. Active reads must be isolated, logged, rate-limited, and fail closed.
 manual/automatic incidents, evidence navigation and finalized export passed native
 validation and user acceptance. The minimal UI is accepted for initial testing;
 Appetize file-retrieval limits are documented.
-**Milestone 4 is in progress:** [bridge/build/lifecycle hardening](docs/MILESTONE_4.md).
+**Milestone 4 implementation and automated checks pass:**
+[bridge/build/lifecycle report](docs/MILESTONE_4.md); renewed preview smoke check pending.
 Milestone 5 not started.
 
 Authoritative plans (kept under their original names):

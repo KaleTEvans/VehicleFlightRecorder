@@ -202,7 +202,7 @@ observations across two generations. Timeout/late replies and cancellation remai
 explicit. Both reports are byte-reproducible and passed independent Python checks.
 These are synthetic fixture outcomes, not physical acquisition rates.
 
-Portable verification passed: all ten Go packages/tests and vet, focused
+Portable verification passed: all Go packages/tests and vet, focused
 OBD/acquisition race checks, 98 Python tests (28 acquisition tests), 22 script
 tests, actionlint and diff/format checks. A bounded five-second framing/parser
 fuzz run completed 170,017 executions with two workers, zero failures. Resource

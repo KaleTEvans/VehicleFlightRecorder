@@ -78,3 +78,35 @@ since April 28, 2026. The device profile inherits the fixed Go/mobile pins and i
 17 deployment floor, overriding only Xcode to 26.0.1 (SDK 26.0). Preview CI also
 compiles an unsigned Release archive with that profile. This separate compile
 checks source compatibility, while signing/processing/installation remain pending.
+
+## Preparing the certificate from WSL
+
+Once the account is enrolled, these commands let the account holder prepare
+signing material without owning a Mac. Run from the project root. OpenSSL asks
+for passwords interactively; retain them locally and use GitHub's secret editor.
+Upload only `distribution.csr` to Apple's certificate-creation page, selecting an
+Apple Distribution certificate. Download that certificate as `distribution.cer`
+into `.cache/signing`, then run the conversion/export commands below.
+
+```bash
+umask 077
+mkdir -p .cache/signing
+openssl genpkey -algorithm RSA -aes-256-cbc -pkeyopt rsa_keygen_bits:2048 \
+  -out .cache/signing/distribution.key
+openssl req -new -key .cache/signing/distribution.key \
+  -out .cache/signing/distribution.csr
+# After downloading the issued Apple certificate:
+openssl x509 -inform DER -in .cache/signing/distribution.cer \
+  -out .cache/signing/distribution.pem
+openssl pkcs12 -export -inkey .cache/signing/distribution.key \
+  -in .cache/signing/distribution.pem -out .cache/signing/distribution.p12
+```
+
+Create the matching App Store Connect distribution profile in Apple's portal
+using this certificate and the approved explicit app ID. Download the profile
+locally. Encode the .p12 and .mobileprovision with `base64 -w0` when populating the
+corresponding GitHub environment secrets. Keep these values out of chat and
+tracked files. Do not regenerate a private key after issuing a certificate; a
+new key would require a new certificate. The .cache folder is ignored.
+
+Apple enrollment: [Enroll in the Apple Developer Program](https://developer.apple.com/programs/enroll/).

@@ -1,7 +1,7 @@
 # Milestone 5 — MX+ transport shell
 
-Status: PARTIALLY COMPLETE. Implementation/native verification is in progress;
-no signing, installation or physical accessory acceptance has been observed.
+Status: PARTIALLY COMPLETE. Independent implementation and automated verification
+passed. Signing, installation and physical accessory acceptance remain pending.
 
 ## Ownership and lifecycle
 
@@ -109,7 +109,7 @@ and multiple matches, failed session creation, notification delivery, repeated
 connect/disconnect, observer cleanup and stale stream objects. Physical framework
 behavior and every real lifecycle state remain pending acceptance.
 
-Native CI results and artifact links will be recorded after the source build.
+Native CI results and artifact links are recorded below.
 Signed workflow and installation instructions: [IOS_DEVICE.md](IOS_DEVICE.md).
 Only Appetize secrets currently exist. On October 29, 2026 the user confirmed
 that there is no Apple Developer membership yet. TestFlight enrollment,
@@ -129,5 +129,55 @@ Do not intentionally disrupt ECUs. Use a parked setup and stop transmissions if
 unexpected vehicle warnings occur. Retain local raw evidence, but do not publish
 real accessory/vehicle identifiers in public CI artifacts. Native CI uploads only
 synthetic connection fixtures. Appetize remains a mock regression tool.
+
+Milestone 6 not started.
+
+
+## Verified implementation — October 29, 2026
+
+Implementation commit `ad7f4c7f7294b55ac5ebd4b9b24f0cd88ea52698` passed
+[run 40924929254](https://github.com/KaleTEvans/VehicleFlightRecorder/actions/runs/40924929254).
+Both source-built framework slices passed checks. Go was 1.26.10 darwin/arm64.
+The accepted preview path used Xcode 16.4 / iOS 18.5 SDK; the separate device
+Release archive used Xcode 26.0.1 (17A400) / iOS 26.0 SDK. Downloaded device plist
+confirms the approved bundle/version, iPhoneOS platform, iOS 17 floor and compiled
+AppIcon. The framework input hashes matched the local checkout. Neither archive
+was signed or installed.
+
+Eighteen hosted unit tests passed with zero failures (3.855 s), including seven
+new transport tests (0.058 s). Both UI regression tests passed with zero failures
+(141.974 s), retaining evidence scrolling and interrupted mock-session behavior.
+Native-created healthy/manual and voltage/TCM ZIPs passed Python validation and
+reconstruction in CI and again after download. These remain synthetic scenarios.
+The native fixture capture independently passed local Python validation:
+
+- File: `connection-3352e6060314f371695127d4300bec5d.jsonl`.
+- Nine ordered rows; four requested bytes, four stream-accepted bytes, 21 received
+  fixture bytes, zero unsent bytes; closed, transport-only, adapter delivery unproven.
+- SHA256: `eb43e91db4678ce86833774e44fc931d1d7b299f0a0e5a1efaf3fd5c69c78517`.
+- This is an exact native Swift/Go synthetic transcript, not a physical response.
+
+Portable checks passed: all eight Go packages and vet, focused connection race
+checks including concurrent receive/close (1.135 s), 70 Python tests, 22 script
+tests, actionlint, shell syntax and diff/format checks. No measured vehicle
+throughput, battery, background reliability or real engine/module behavior is
+claimed. Browser automation/Appetize observation was not required to substitute
+for the physical matrix; this run intentionally skipped Appetize upload.
+
+Artifacts (14-day retention):
+[native tests/exports/capture](https://github.com/KaleTEvans/VehicleFlightRecorder/actions/runs/40924929254/artifacts/12921220881),
+[simulator ZIP](https://github.com/KaleTEvans/VehicleFlightRecorder/actions/runs/40924929254/artifacts/12919389929),
+[device SDK compile provenance](https://github.com/KaleTEvans/VehicleFlightRecorder/actions/runs/40924929254/artifacts/12918679472).
+Local copies are in ignored `build/milestone-5-native-evidence` and
+`build/milestone-5-device-evidence`. The existing Appetize preview remains at
+https://appetize.io/app/nrnzclustneju2ltjppkozdkta and continues to represent the
+previous accepted mock build.
+
+The signed pipeline is prepared, not executed. The user's confirmed lack of an
+Apple Developer membership leaves TestFlight enrollment/assets, signed delivery,
+installation and every physical/lifecycle row pending. The SDK split is a
+necessary delivery adjustment for Apple's April 2026 upload requirement; Go,
+x/mobile, approved identity and deployment floor remain pinned. No M6 polling,
+initialization, vehicle decoding or automatic drive policy was introduced.
 
 Milestone 6 not started.

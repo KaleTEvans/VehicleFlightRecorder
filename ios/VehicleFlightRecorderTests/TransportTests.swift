@@ -139,3 +139,30 @@ extension TransportTests {
         }
     }
 }
+
+extension TransportTests {
+    func testStreamEndErrorAndPendingWriteDisconnect() throws {
+        for event: Stream.Event in [.endEncountered, .errorOccurred] {
+            let executor = TransportExecutor(), directory = DirectoryFixture()
+            directory.accessories = [AccessoryDescriptor(id: 1, protocols: ["com.obdlink"], metadata: ["source": "fixture"])]
+            let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+            let transport = MXPlusExternalAccessoryTransport(root: root, executor: executor, directory: directory)
+            try transport.connect()
+            let streams = try XCTUnwrap(directory.last)
+            transport.stream(streams.input, handle: .openCompleted); transport.stream(streams.output, handle: .openCompleted)
+            transport.stream(streams.input, handle: event)
+            XCTAssertEqual(transport.state, .failed)
+            XCTAssertTrue(transport.capture!.core.snapshot().contains("\"closed\":true"))
+            transport.disconnect(); try FileManager.default.removeItem(at: root)
+        }
+        let pump = TransportPump(), capture = CaptureFixture(), channel = ChannelFixture()
+        try pump.begin(channel: channel, capture: capture); pump.ready(generation: pump.generation)
+        channel.counts = [1, 0]; try pump.identify(); XCTAssertEqual(pump.pending.count, 3)
+        let old = pump.generation; pump.disconnect()
+        let next = ChannelFixture()
+        try pump.begin(channel: next, capture: CaptureFixture()); pump.ready(generation: pump.generation)
+        pump.flush(generation: old); pump.flush(generation: pump.generation)
+        XCTAssertTrue(pump.pending.isEmpty); XCTAssertTrue(next.sent.isEmpty)
+        XCTAssertEqual(capture.writes, Data("S".utf8)); pump.disconnect()
+    }
+}

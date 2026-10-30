@@ -11,11 +11,11 @@ vehicle packs. The diagnostic MVP takes priority over the later Driver Companion
 
 ## Current status
 
-**October 29, 2026:** Milestones 0–4 are complete and merged into `master`.
+**October 30, 2026:** Milestones 0–4 are complete and merged into `master`.
 [Milestone 5 is in draft PR #3](https://github.com/KaleTEvans/VehicleFlightRecorder/pull/3):
 transport implementation and automated checks passed, including the authorized
-offline acquisition preparation. Apple Developer enrollment approval, signing,
-iPhone installation and actual MX+ acceptance remain pending.
+offline acquisition preparation. Apple Developer enrollment is approved and the signing secrets are configured;
+the first signed build, iPhone installation and actual MX+ acceptance remain pending.
 
 | Milestone | Scope | Status / details |
 | --- | --- | --- |
@@ -167,8 +167,8 @@ Appetize cannot exercise the physical scanner. Full details:
 
 The separate **Signed iPhone build** workflow prepares a signed device IPA and
 optionally uploads it for TestFlight processing. Its definition must first be
-available on the default branch to use manual dispatch. Enrollment approval,
-signing assets, App Store Connect setup, installation and physical acceptance
+available on the default branch to use manual dispatch. Enrollment is approved and signing assets are configured. App Store Connect
+upload setup, the first signed build, installation and physical acceptance
 are still pending; [follow the device setup guide](docs/IOS_DEVICE.md).
 
 The shared native configuration pins Go/x/mobile and the iOS 17 deployment floor.

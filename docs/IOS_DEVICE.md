@@ -8,13 +8,16 @@ has not yet been executed with signing assets or installed on a phone.
 
 ## User setup
 
-Status update — October 29, 2026: the user has applied for Apple Developer
-enrollment and is awaiting approval. Signing and installation remain pending;
-no credentials have been requested in chat.
+Status update — October 30, 2026: Apple Developer enrollment is approved. The
+matching distribution certificate/PKCS#12 and App Store profile have been verified
+locally and their three signing secrets configured in GitHub's `ios-device`
+environment with explicit user approval. The API .p8 file has passed local format
+validation; Issuer ID and separate authorization to upload API credentials are
+pending. No signed installation or physical acceptance has been observed.
 
 An active Apple Developer Program account, App Store Connect app record and
 approved bundle `com.kaleevans.vehicleflightrecorder` are required. Use marketing
-version 0.1.0; build numbers come from workflow run/attempt. Manufacturer approval
+version 0.1.0; build numbers use workflow run.attempt (for example, 1.1). Manufacturer approval
 has already been reported complete; do not recreate it. Keep PPID 221699-0001 in
 submission metadata when Apple requires it.
 
@@ -46,7 +49,8 @@ Only the IPA, non-secret provenance and framework build manifest are retained.
 
 GitHub requires a workflow-dispatch definition on the default branch before it
 appears as a runnable workflow. After this workflow definition is merged, select
-the implementation branch and run it with upload disabled first to
+the workflow ref and set `source_ref` to the Milestone 5 branch or exact commit.
+A blank source uses the selected workflow ref. Run with upload disabled first to
 verify signing/export. An App Store IPA is not directly sideloadable; choose
 upload on a subsequent run for App Store Connect/TestFlight processing. Add the
 owner as an internal tester, resolve Apple's processing/compliance prompts, and
@@ -114,3 +118,10 @@ tracked files. Do not regenerate a private key after issuing a certificate; a
 new key would require a new certificate. The .cache folder is ignored.
 
 Apple enrollment: [Enroll in the Apple Developer Program](https://developer.apple.com/programs/enroll/).
+
+
+The device workflow records the actual checked-out source commit separately from
+the dispatching workflow ref. Its bootstrap can therefore be available on master
+while building the unmerged M5 branch for hardware acceptance. It fails early if
+the selected source lacks the device-profile/signing scripts. Making a workflow
+available is not completion of Milestone 5 or authorization for a public release.

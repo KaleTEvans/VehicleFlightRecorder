@@ -2,6 +2,11 @@ name: Signed iPhone build
 on:
   workflow_dispatch:
     inputs:
+      source_ref:
+        description: Source branch, tag or commit to build (blank uses the selected workflow ref)
+        type: string
+        required: false
+        default: ''
       upload_testflight:
         description: Upload signed build to App Store Connect for TestFlight processing
         type: boolean
@@ -25,6 +30,16 @@ jobs:
       - uses: actions/checkout@v6
         with:
           persist-credentials: false
+          ref: ${{ inputs.source_ref || github.ref }}
+      - name: Verify source and record provenance
+        run: |
+          test -f scripts/device_toolchain.env && test -f scripts/device_signing.py || {
+            echo 'Select a source ref containing the Milestone 5 signed-device implementation.'
+            exit 1
+          }
+          SOURCE_COMMIT=$(git rev-parse HEAD)
+          echo "SOURCE_COMMIT=$SOURCE_COMMIT" >> "$GITHUB_ENV"
+          echo "Building source commit: $SOURCE_COMMIT"
       - name: Verify signing prerequisites
         env:
           CERT: ${{ secrets.IOS_DISTRIBUTION_P12_BASE64 }}
@@ -82,11 +97,11 @@ jobs:
             -archivePath build/ios-device/VehicleFlightRecorder.xcarchive \
             CODE_SIGN_STYLE=Manual CODE_SIGN_IDENTITY='Apple Distribution' \
             DEVELOPMENT_TEAM="$SIGN_TEAM" PROVISIONING_PROFILE_SPECIFIER="$SIGN_PROFILE" \
-            CURRENT_PROJECT_VERSION="${GITHUB_RUN_NUMBER}${GITHUB_RUN_ATTEMPT}" archive
+            CURRENT_PROJECT_VERSION="${GITHUB_RUN_NUMBER}.${GITHUB_RUN_ATTEMPT}" archive
           xcodebuild -exportArchive -archivePath build/ios-device/VehicleFlightRecorder.xcarchive \
             -exportPath build/ios-device/export -exportOptionsPlist "$RUNNER_TEMP/ExportOptions.plist"
           codesign --verify --deep --strict build/ios-device/VehicleFlightRecorder.xcarchive/Products/Applications/VehicleFlightRecorder.app
-          printf 'Commit: %s\nBuild: %s%s\nSigned device artifact; installation and hardware checks pending.\n' "$GITHUB_SHA" "$GITHUB_RUN_NUMBER" "$GITHUB_RUN_ATTEMPT" > build/ios-device/provenance.txt
+          printf 'Commit: %s\nBuild: %s.%s\nSigned device artifact; installation and hardware checks pending.\n' "$SOURCE_COMMIT" "$GITHUB_RUN_NUMBER" "$GITHUB_RUN_ATTEMPT" > build/ios-device/provenance.txt
       - name: Retain signed artifact (private signing inputs excluded)
         uses: actions/upload-artifact@v4
         with:

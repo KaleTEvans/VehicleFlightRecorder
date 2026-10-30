@@ -1147,6 +1147,48 @@ user action explicitly. Simulator tests cannot establish this requirement.
 
 Do not implement automatic ignition inference until real adapter behavior can be observed.
 
+## 15.1 Automatic recording confirmation
+
+**Approved requirement — October 29, 2026:** Confirm an automatically started
+drive with a user-facing notification. This is separate from internal accessory
+connection notifications and belongs to Milestone 7.
+
+Example wording:
+
+> Drive recording started
+> Giulia Quadrifoglio · Recording automatically
+> Tap to open the cockpit.
+
+Use the selected vehicle's actual display name, with a generic fallback. Trigger
+only after session startup succeeds and the recorder begins accepting telemetry.
+Adapter connection, a start attempt, or a failed session must never produce a
+successful-recording confirmation. A degraded start must not imply full coverage.
+
+Requirements:
+
+- Issue at most one start confirmation per automatically started session. Use
+  session identity to deduplicate across reconnects and app lifecycle transitions.
+- Brief adapter loss, engine stop/start, cockpit switching and recovery of the
+  same session must not generate another start confirmation.
+- While the app is visible, show a brief in-app confirmation instead of a duplicate
+  system alert. In supported background states, request a local system notification.
+- Tapping opens the active drive/cockpit; if that session has ended, open its
+  summary. In the MVP use the existing dashboard/session screens for these routes.
+- Explain and request notification permission during setup. Provide an enable/
+  disable preference; default to quiet delivery without sound when authorized.
+- Permission denial, disabled notifications or delivery failure must not prevent
+  recording. Retain visible in-app recording state without repeatedly prompting.
+- Respect system notification and Focus settings. Record submission/failure for
+  debugging without claiming the user saw the notification or guaranteeing display.
+
+Acceptance: verify successful auto-start, failed start, foreground/background
+presentation, permission denial, disabled preference, reconnect/relaunch
+deduplication and tapping before/after session end. Use physical-device evidence
+for supported background lifecycle behavior. Notification work does not itself
+establish automatic wake or recording support in additional iOS lifecycle states.
+
+Reference: [Apple notification authorization](https://developer.apple.com/documentation/usernotifications/asking-permission-to-use-notifications).
+
 ---
 
 # 16. OBDLink transport abstraction
@@ -1546,6 +1588,9 @@ Deliverables:
 - EASession stream management.
 - raw send/receive debug view.
 - no vehicle polling yet.
+- approved offline preparation while enrollment is pending: bounded response parsing,
+  a simulated-clock scheduler, verified initial decoders and synthetic provenance/
+  capability exports; keep this isolated from the physical transport (see milestone_5.md).
 
 Acceptance:
 - app reliably opens/closes the MX+ session and records raw adapter responses.
@@ -1580,6 +1625,7 @@ Deliverables:
 - hands-off session start/stop using validated engine/drivetrain activity, as defined in §15; scanner connection alone must not start a drive.
 - tested background, locked-screen and reconnect lifecycle with documented wake/launch limitations.
 - real drive export.
+- automatic recording confirmation with permission handling and session-level deduplication (§15.1).
 - capability report under the actual combined road-logging workload.
 - physical-device reliability matrix and measured battery/storage impact (§20.4).
 - comparison against MultiECUScan/known values.
@@ -1595,6 +1641,7 @@ Acceptance:
 - retrieved exports pass Python validation and preserve timing/source provenance.
 - measured acquisition rates and coverage are sufficient for the selected diagnostic objectives; unresolved deficiencies are documented rather than hidden.
 - tested battery/storage budgets and lifecycle limitations are recorded.
+- auto-start notifications satisfy §15.1 without duplicate alerts or false recording-success claims; recording works when notifications are unavailable.
 
 ## Milestone 8 — Giulia-specific drivetrain expansion
 
@@ -1620,10 +1667,11 @@ Acceptance:
 
 Use the validated capability reports and reliable diagnostic recordings to decide
 which trip/performance features are supportable. The diagnostic objective and
-Alfa package work above retain priority. V2 will have a separate reviewed plan;
-its feature list, GPS/motion requirements, metric-quality contracts and visual
-design are not authorized by this MVP update. Enterprise infrastructure remains
-conditional on demonstrated needs.
+Alfa package work above retain priority. The reviewed
+[Driver Companion V2 plan](driver_companion_v2_plan.md) records the subsequent
+product direction, staged releases, metric-quality contracts and cockpit design.
+It does not expand current MVP implementation scope. Enterprise infrastructure
+remains conditional on demonstrated needs.
 
 ---
 

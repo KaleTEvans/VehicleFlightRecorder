@@ -1,18 +1,28 @@
 """Read/validate the single native toolchain contract without needing Go or Xcode."""
 import argparse
+import os
 from pathlib import Path
 import re
 
 ROOT = Path(__file__).resolve().parents[1]
 
 
-def load_config(root=ROOT):
+def load_config(root=ROOT, profile=None):
     config = {}
     for line in (root / 'scripts/mobile_toolchain.env').read_text().splitlines():
         if not line or line.startswith('#'):
             continue
         key, value = line.split('=', 1)
         config[key] = value
+    profile = profile if profile is not None else os.environ.get('MOBILE_BUILD_PROFILE', 'preview')
+    if profile not in ('preview', 'device'):
+        raise ValueError('Unknown native build profile')
+    if profile == 'device':
+        overlay = (root / 'scripts/device_toolchain.env').read_text().splitlines()
+        values = dict(line.split('=', 1) for line in overlay if line and not line.startswith('#'))
+        if set(values) != {'MOBILE_XCODE_VERSION'} or not re.fullmatch(r'26\.\d+(?:\.\d+)?', values['MOBILE_XCODE_VERSION']):
+            raise ValueError('Invalid signed-device Xcode contract')
+        config.update(values)
     formats = {
         'MOBILE_GO_VERSION': r'go1\.\d+\.\d+',
         'MOBILE_VERSION': r'v\d+\.\d+\.\d+-\d{14}-[0-9a-f]{12}',

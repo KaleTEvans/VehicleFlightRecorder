@@ -14,8 +14,10 @@ vehicle packs. The diagnostic MVP takes priority over the later Driver Companion
 **October 30, 2026:** Milestones 0–4 are complete and merged into `master`.
 [Milestone 5 is in draft PR #3](https://github.com/KaleTEvans/VehicleFlightRecorder/pull/3):
 transport implementation and automated checks passed, including the authorized
-offline acquisition preparation. Apple Developer enrollment is approved and the signing secrets are configured;
-the first signed build, iPhone installation and actual MX+ acceptance remain pending.
+offline acquisition preparation. Apple Developer enrollment and signing setup
+are complete, and the first signed IPA passed archive/export verification.
+Version `0.1.0 (4.1)` uploaded successfully for TestFlight processing; Apple
+processing, iPhone installation and actual MX+ acceptance remain pending.
 
 | Milestone | Scope | Status / details |
 | --- | --- | --- |
@@ -166,10 +168,12 @@ Appetize cannot exercise the physical scanner. Full details:
 ## Install on the physical iPhone
 
 The separate **Signed iPhone build** workflow prepares a signed device IPA and
-optionally uploads it for TestFlight processing. Its definition must first be
-available on the default branch to use manual dispatch. Enrollment is approved and signing assets are configured. App Store Connect
-upload setup, the first signed build, installation and physical acceptance
-are still pending; [follow the device setup guide](docs/IOS_DEVICE.md).
+optionally uploads it for TestFlight processing. The workflow-only bootstrap is
+merged on master; it can build the unmerged M5 source using an explicit full commit
+SHA. Enrollment is approved, and signing assets and App Store Connect credentials
+are configured. The first signed IPA passed archive/export and signature
+verification, and `0.1.0 (4.1)` uploaded successfully for TestFlight processing.
+Apple processing, installation and physical acceptance remain pending; [follow the device setup guide](docs/IOS_DEVICE.md).
 
 The shared native configuration pins Go/x/mobile and the iOS 17 deployment floor.
 Preview uses Xcode 16.4; the separate device profile uses Xcode 26.0.1 / iOS 26 SDK.

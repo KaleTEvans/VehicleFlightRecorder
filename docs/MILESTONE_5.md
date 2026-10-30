@@ -1,7 +1,8 @@
 # Milestone 5 — MX+ transport shell
 
 Status: PARTIALLY COMPLETE. Independent implementation and automated verification
-passed. Signing, installation and physical accessory acceptance remain pending.
+passed. Signed archive/export and TestFlight upload also passed; Apple processing,
+installation and physical accessory acceptance remain pending.
 
 ## Ownership and lifecycle
 
@@ -111,10 +112,12 @@ behavior and every real lifecycle state remain pending acceptance.
 
 Native CI results and artifact links are recorded below.
 Signed workflow and installation instructions: [IOS_DEVICE.md](IOS_DEVICE.md).
-Only Appetize secrets currently exist. On October 29, 2026 the user confirmed
-that there is no Apple Developer membership yet. TestFlight enrollment,
-signing/account setup and physical tests
-remain pending; no unsigned compile proves a signed installation.
+As of October 30, 2026, Apple Developer enrollment is approved. The matching
+distribution certificate/profile and App Store Connect API credentials are
+configured in the GitHub `ios-device` environment with explicit user approval.
+Workflow-only PR #4 is merged; the app remains unmerged in draft PR #3. Signed
+archive/export and TestFlight upload passed. Apple processing, installation and
+physical tests remain pending.
 
 | Physical case | Status |
 | --- | --- |
@@ -173,10 +176,10 @@ Local copies are in ignored `build/milestone-5-native-evidence` and
 https://appetize.io/app/nrnzclustneju2ltjppkozdkta and continues to represent the
 previous accepted mock build.
 
-The signed pipeline is prepared, not executed. The user's confirmed lack of an
-Apple Developer membership leaves TestFlight enrollment/assets, signed delivery,
-installation and every physical/lifecycle row pending. The SDK split is a
-necessary delivery adjustment for Apple's April 2026 upload requirement; Go,
+At the time of this October 29 run, the signed pipeline had not been executed
+and Apple Developer enrollment was still pending. The October 30 delivery status
+is recorded above; installation and every physical/lifecycle row remain pending.
+The SDK split is a necessary delivery adjustment for Apple's April 2026 upload requirement; Go,
 x/mobile, approved identity and deployment floor remain pinned. No M6 polling,
 initialization, vehicle decoding or automatic drive policy was introduced.
 
@@ -223,3 +226,70 @@ automatic-drive policy or notification feature was enabled. The initial profile
 and catalog are deliberately narrow; expanded definitions/formats and live
 integration remain in the detailed M6 handoff. Offline M6 preparation is now
 implemented within the approved M5 extension; **M6 live integration not started.**
+
+## Signed delivery verification — October 30, 2026
+
+Workflow-only [PR #4](https://github.com/KaleTEvans/VehicleFlightRecorder/pull/4)
+is merged as `b1a036f4e3e8b8fcc70c34508452de652e86a3c8`. It enables manual
+builds from the unmerged Milestone 5 source without merging the app implementation.
+The initial dispatch used an abbreviated SHA and stopped at checkout; subsequent
+dispatches use the full 40-character source SHA.
+
+[Signing-only run 41093880633](https://github.com/KaleTEvans/VehicleFlightRecorder/actions/runs/41093880633)
+passed against `81c8fbf4429c41bcb5294d265afae355466adbc3`: pinned framework/project
+build, certificate/profile import, signed Release archive, IPA export, native
+`codesign --verify --deep --strict`, artifact retention and signing cleanup.
+Its TestFlight upload step was intentionally skipped.
+
+The downloaded IPA also passed local ZIP integrity and metadata checks:
+
+- App identity `com.kaleevans.vehicleflightrecorder`, version `0.1.0 (2.1)`.
+- `MinimumOSVersion` 17.0; SDK `iphoneos26.0`.
+- Embedded distribution profile and code resources present.
+- IPA size 2,077,928 bytes; SHA-256
+  `a53b37957da52d035005bca7842ccb8a442e2846c4853d9578a3b5dd8ee6ad2c`.
+
+Local ZIP checks do not replace native signature verification; the runner supplied
+that verification. Evidence is retained in ignored
+`build/milestone-5-signing-evidence/signing-only`. The signed artifact has seven-day
+GitHub retention. The successful TestFlight upload is recorded below. Apple
+processing, installation and all physical accessory rows remain pending.
+
+### Apple validation correction
+
+[Upload attempt 41094417474](https://github.com/KaleTEvans/VehicleFlightRecorder/actions/runs/41094417474)
+produced signed build `0.1.0 (3.1)` but **was not accepted by Apple**. Its altool log
+reports validation error 409: missing upside-down orientation for iPad multitasking.
+The upload tool returned zero, so the old workflow misleadingly reported success.
+Do not treat that run's green status as delivery evidence.
+
+Commit `9aa6e9a9b0d0e70e29be966af4d394a0247931a7` adds the iPad-specific four-orientation
+array, retaining the existing iPhone orientations, and replaces the bare upload
+command with `scripts/upload_testflight.sh`. The wrapper rejects a nonzero exit,
+an explicit rejection, or output without an affirmative upload receipt. Its
+transient log is removed on exit. All 29 script tests passed, including the
+observed zero-exit rejection and upload receipt/error combinations; actionlint and
+`git diff --check` passed.
+
+The retry uses the corrected workflow from the M5 branch, not the old bootstrap
+on master. Apple processing and installed-phone checks still require observation.
+
+### Confirmed TestFlight upload
+
+[Run 41095225007](https://github.com/KaleTEvans/VehicleFlightRecorder/actions/runs/41095225007)
+passed the corrected upload guard and signing cleanup. Apple returned
+`UPLOAD SUCCEEDED with no errors` and delivery UUID
+`6640b095-9372-43d3-9c4a-392ec13d33a1`.
+
+- Source: `9aa6e9a9b0d0e70e29be966af4d394a0247931a7`.
+- Uploaded version: **0.1.0 (4.1)**, bundle `com.kaleevans.vehicleflightrecorder`.
+- Downloaded IPA: 2,077,955 bytes; SHA-256
+  `6e4d9a7ca1f5c1d69674b0a729662c3cf41801eb14ca2d0be160132a7392c5a5`.
+- Local archive integrity, exact identity/build and four iPad orientations passed.
+- Local evidence: ignored `build/milestone-5-signing-evidence/testflight`.
+
+This confirms submission transport to Apple, not completed processing, an
+invitation, installation, or any physical MX+ behavior. The account holder should
+open the matching TestFlight build, complete account prompts, add themselves to
+an internal test group and install on the phone using [IOS_DEVICE.md](IOS_DEVICE.md).
+Milestone 5 stays partially complete until its physical acceptance matrix passes.

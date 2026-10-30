@@ -17,9 +17,10 @@ transport implementation and automated checks passed, including the authorized
 offline acquisition preparation. Apple Developer enrollment and signing setup
 are complete, and the first signed IPA passed archive/export verification.
 Version `0.1.0 (4.1)` processed successfully, is installed on the user’s iPhone,
-and passed its first real MX+ identity round trip. The button-flicker fix passed
-native tests and uploaded as `0.1.0 (5.1)`; its phone confirmation and remaining
-physical lifecycle edge cases are open.
+and passed its first real MX+ identity round trip. The user confirmed the flicker
+is resolved after build `0.1.0 (5.1)`. Initial later attachment also passed; an
+automatic-recovery defect after physical unplug/replug is under verification,
+along with remaining physical lifecycle edge cases.
 
 | Milestone | Scope | Status / details |
 | --- | --- | --- |

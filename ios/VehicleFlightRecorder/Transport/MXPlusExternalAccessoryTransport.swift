@@ -61,6 +61,9 @@ final class MXPlusExternalAccessoryTransport: NSObject, VehicleTransport, Stream
     private var outputOpened = false
     private var channel: NativeStreamChannel?
     private var selectedID: Int?
+    private var observedCandidates = Set<Int>()
+    private var attemptsRemaining = 3
+    private var nextDiscovery: TimeInterval = 0
     init(root: URL, executor: TransportExecutor, directory: AccessoryDirectory? = nil) {
         self.root = root; self.executor = executor
         #if targetEnvironment(simulator)
@@ -72,8 +75,11 @@ final class MXPlusExternalAccessoryTransport: NSObject, VehicleTransport, Stream
     }
     func connect() throws {
         guard let directory else { throw VehicleTransportError.unavailableInBootstrap }
+        // An explicit user action rearms exhausted retries, but honors backoff.
+        attemptsRemaining = 3
         guard !armed else { discover(); return }
         armed = true
+        nextDiscovery = pump.now() + 2
         directory.observe { [weak self] in
             guard let self else { return }
             if !self.executor.submit({ [weak self] in self?.discover() }) {
@@ -81,35 +87,54 @@ final class MXPlusExternalAccessoryTransport: NSObject, VehicleTransport, Stream
             }
         }
         timer = Timer.scheduledTimer(withTimeInterval: 0.5, repeats: true) { [weak self] _ in
-            guard let self else { return }
-            self.overloadLock.lock(); let overflow = self.overloaded; self.overloaded = false; self.overloadLock.unlock()
-            if overflow {
-                self.pump.fail("Native command mailbox overflow"); self.armed = false
-                self.directory?.stopObserving(); self.timer?.invalidate(); self.timer = nil
-                self.releaseSession(); return
-            }
-            self.pump.tick()
-            if self.pump.state == .failed { self.releaseSession() }
+            self?.tick()
         }
         discover()
     }
     private let overloadLock = NSLock()
     private var overloaded = false
+    // Same owner-run-loop entry point used by the timer and deterministic tests.
+    func tick() {
+        guard armed else { return }
+        overloadLock.lock(); let overflow = overloaded; overloaded = false; overloadLock.unlock()
+        if overflow {
+            pump.fail("Native command mailbox overflow"); armed = false
+            directory?.stopObserving(); timer?.invalidate(); timer = nil
+            releaseSession(); return
+        }
+        pump.tick()
+        if pump.state == .failed { releaseSession() }
+        if pump.now() >= nextDiscovery {
+            nextDiscovery = pump.now() + 2
+            discover()
+        }
+    }
     private func discover() {
         guard armed, let directory else { return }
         let all = directory.accessories
-        if let selectedID, !all.contains(where: { $0.id == selectedID }) {
+        let matches = all.filter { $0.protocols.contains("com.obdlink") }
+        let candidates = Set(matches.map { $0.id })
+        if candidates != observedCandidates {
+            observedCandidates = candidates
+            attemptsRemaining = 3
+        }
+        if let selectedID, !candidates.contains(selectedID) {
             pump.fail("Accessory disconnected"); releaseSession()
         }
         guard state != .connecting && state != .ready else { return }
-        let matches = all.filter { $0.protocols.contains("com.obdlink") }
         guard matches.count == 1 else {
             notice = matches.isEmpty ? "No com.obdlink accessory (\(all.count) connected accessories)" : "Multiple com.obdlink accessories; disconnect all but the test adapter"
             return
         }
-        guard pump.reconnectReady else { notice = "Reconnect backoff is active; try again shortly"; return }
+        guard attemptsRemaining > 0 else {
+            notice = "Automatic connection retries paused after three failed attempts; tap Discover / Connect to retry"
+            return
+        }
+        guard pump.reconnectReady else { notice = "Reconnect backoff is active; automatic retry is pending"; return }
         let accessory = matches[0]
+        attemptsRemaining -= 1
         do {
+            try pump.prepareConnectionAttempt()
             var metadata = accessory.metadata
             metadata["protocol"] = "com.obdlink"; metadata["app_version"] = "0.1.0"
             metadata["build"] = Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "unknown"
@@ -133,6 +158,7 @@ final class MXPlusExternalAccessoryTransport: NSObject, VehicleTransport, Stream
     func requestIdentity() throws { try pump.identify() }
     func disconnect() {
         armed = false; timer?.invalidate(); timer = nil
+        attemptsRemaining = 0; observedCandidates.removeAll(); nextDiscovery = 0
         directory?.stopObserving()
         pump.disconnect(); releaseSession()
     }
@@ -148,7 +174,10 @@ final class MXPlusExternalAccessoryTransport: NSObject, VehicleTransport, Stream
         }
         if eventCode.contains(.openCompleted) {
             if stream === channel.input { inputOpened = true } else { outputOpened = true }
-            if inputOpened && outputOpened { pump.ready(generation: generation) }
+            if inputOpened && outputOpened {
+                pump.ready(generation: generation)
+                if pump.state == .ready { attemptsRemaining = 3 }
+            }
         }
         if eventCode.contains(.hasBytesAvailable) {
             var bytes = [UInt8](repeating: 0, count: 4096)

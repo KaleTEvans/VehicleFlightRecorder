@@ -3,8 +3,9 @@
 Status: PARTIALLY COMPLETE. Independent implementation and automated verification
 passed. Signed delivery, Apple processing, phone installation and the first physical
 MX+ identity round trip passed. The flicker fix passed native regression tests and
-is uploaded as build 5.1; phone visual acceptance and remaining physical lifecycle
-edge cases are still open.
+is uploaded as build 5.1; the user confirmed the flicker is gone. Physical
+unplug/replug testing exposed a post-disconnect automatic-recovery bug, now under
+verification; remaining lifecycle edge cases stay open.
 
 ## Ownership and lifecycle
 
@@ -32,8 +33,14 @@ re-enumeration; zero/multiple matches are explicitly reported. Selection require
 `com.obdlink`; reported name/model/firmware are retained as evidence. Disconnect
 removes observers, unregisters notifications, unschedules/closes streams and closes
 the capture. Old stream objects and pump generations cannot feed replacement work.
-Reconnect attempts occur only on a notification or explicit Connect action, with
-2–16 second exponential backoff (30-second cap); no timer-driven reconnect storm.
+While discovery is armed, notifications trigger immediate reconciliation and a
+two-second directory check recovers missed/early notifications and stream failures.
+Session-open attempts honor 2, 4, 8, then 16-second backoff and stop after three
+unsuccessful opens for an unchanged candidate set. A real candidate-set change,
+a successful streams-ready connection, or explicit Connect rearms the budget.
+Unchanged notifications cannot bypass the retry cap. Idle checks only enumerate
+accessories; they send no commands. Explicit Disconnect cancels observation and
+periodic recovery, including late queued notifications.
 Foreground/background events are logged while a connection exists. No automatic
 drive creation, polling or engine-running inference is implemented.
 
@@ -126,8 +133,8 @@ with a successful identity round trip; details and remaining gaps are below.
 | Physical case | Status |
 | --- | --- |
 | Signed build installed; device/iOS/build/adapter recorded | Passed: user screenshots/capture, iPhone 16 Pro / iOS 26.6.2 / 0.1.0 (4.1) / MX201 |
-| Accessory discovery and stream open | Passed for the supplied connected MX+; later attachment / multiple accessories not separately established |
-| Repeated open/close and actual identity round trip | One raw round trip validated; two reconnect repetitions passed per user report |
+| Accessory discovery and stream open | Startup-connected and launch-before-attachment passed per user report; multiple accessories not physically tested |
+| Repeated open/close and actual identity round trip | Raw round trip and explicit reconnect passed; automatic recovery after physical unplug/replug failed in build 5.1, fix verification pending |
 | Disconnect during write / reconnect without replay | No resend after reconnect per user report; physical mid-write interruption not tested |
 | Foreground / background / locked / unlock | Scene transitions recorded; separate lock/unlock and app switching passed per user report |
 | Suspended / OS terminated / user force quit | Not separately tested; no wake guarantee |
@@ -351,9 +358,10 @@ passed Python validation/reconstruction, and both Xcode 16.4 unsigned device
 compile and Xcode 26.0.1 Release archive passed. The signed corrected build is recorded below; its visual acceptance on the
 physical phone remains pending.
 
-Remaining physical gaps are later accessory attachment, multiple-accessory
-ambiguity, interruption during a partially accepted command, and separately
-identified suspension/OS-termination/user-force-quit behavior. No universal wake
+Later accessory attachment subsequently passed per user report. Remaining
+physical gaps are automatic recovery after an established session is unplugged,
+multiple-accessory ambiguity, interruption during a partially accepted command,
+and separately identified suspension/OS-termination/user-force-quit behavior. No universal wake
 or continuity guarantee is claimed. M5 is not closed by the single supplied log.
 
 **Milestone 6 not started.**
@@ -375,5 +383,56 @@ build 5.1 and confirm the blue controls no longer pulse during idle refreshes.
 The source retains the current encryption metadata; Apple may request the same
 app-encryption questionnaire for this build before internal testing is available.
 No compliance declaration or tester configuration was changed through the API.
+
+**Milestone 6 not started.**
+
+## Physical replug recovery correction — October 30, 2026
+
+After the build 5.1 delivery, the user confirmed the blue-button flicker is gone.
+They also reported these separate lifecycle observations:
+
+- Unplugging MX+ while the app is open changes the displayed connection state
+  after approximately five seconds (human observation, not an exported timing).
+- Plugging it back in and reconnecting through iOS Bluetooth does not restore the
+  existing app session automatically. Restarting the app does restore it.
+- Starting the app while MX+ is unplugged, then plugging/pairing it, does connect
+  automatically. This later-attachment path passed.
+
+The earlier successful reconnect report covered a different recovery path; it
+must not be treated as evidence that physical replug recovery works.
+
+Code inspection found that a notification received during backoff simply returns;
+when backoff expires, nothing re-runs discovery. A stream failure after the last
+notification can leave the same gap. Apple's
+[connection notification documentation](https://developer.apple.com/documentation/foundation/nsnotification/name-swift.struct/eaaccessorydidconnect)
+also documents notifications before authentication completes, with empty protocol
+strings. These are reproducible software failure paths, not proof of the precise
+notification order on the user's phone.
+
+The owner-thread timer now reconciles the directory every two seconds while
+armed. It closes a session if its required protocol disappears, checks protocol
+readiness again, and honors pump backoff before creating a new capture/session.
+No files or sessions are created for absent/unsupported/ambiguous candidates.
+At most three unsuccessful open attempts are allowed for an unchanged candidate
+set; duplicate notifications do not replenish them. A new candidate set, a
+successful ready connection or an explicit Discover / Connect rearms the budget.
+Failure before stream creation now starts a fresh attempt state so each failure
+advances backoff rather than reusing an old failed state indefinitely.
+
+Each recovered session gets a fresh capture/generation; old stream callbacks and
+pending identity bytes are discarded. Explicit Disconnect disarms all recovery.
+The view model separately retains explicit action errors and current pump errors,
+allowing successful recovery to clear an obsolete transport error without polling
+hiding a failed user action. The existing no-flicker command gating remains.
+
+New native regressions exercise a replug notification inside backoff with no
+second notification, stale callbacks and zero replay, explicit Disconnect with a
+late callback, permanent session-open failure/backoff/three-attempt exhaustion,
+manual retry, and empty/restored protocol lists without notifications. A view-model
+regression checks error persistence until a successful action clears it. The app
+metadata now carries the user’s existing non-exempt-encryption answer (`NO`) so
+unchanged future builds do not require the repeated questionnaire. No new data
+encryption or command types were introduced. Native execution, corrected signed
+delivery and physical replug confirmation are pending.
 
 **Milestone 6 not started.**

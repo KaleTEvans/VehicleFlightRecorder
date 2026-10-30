@@ -29,4 +29,19 @@ final class TransportDebugModelTests: XCTestCase {
         XCTAssertTrue(busyChanges.isEmpty)
         XCTAssertFalse(model.busy)
     }
+
+    #if targetEnvironment(simulator)
+    @MainActor func testActionFailurePersistsUntilSuccessfulCommandClearsIt() async {
+        let model = TransportDebugModel()
+        await model.connect() // Physical discovery is unavailable in Simulator.
+        XCTAssertNotNil(model.error)
+        let failure = model.error
+        await model.refresh()
+        XCTAssertEqual(model.error, failure, "Polling must preserve explicit action failures")
+        await model.disconnect()
+        XCTAssertNil(model.error, "A successful recovery action clears the stale error")
+        await model.refresh()
+        XCTAssertNil(model.error)
+    }
+    #endif
 }

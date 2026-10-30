@@ -52,6 +52,15 @@ final class TransportPump {
 
     var reconnectReady: Bool { now() >= nextConnect }
 
+    // Mark attempts that can fail before streams exist (for example EASession
+    // creation). Each such failure must advance backoff, even after a prior fail.
+    func prepareConnectionAttempt() throws {
+        guard state != .connecting && state != .ready else { throw VehicleTransportError.failed("A connection is already active.") }
+        guard reconnectReady else { throw VehicleTransportError.failed("Reconnect backoff is active.") }
+        state = .discovering
+        failure = nil
+    }
+
     func begin(channel: TransportChannel, capture: TransportCapture) throws {
         guard state != .connecting && state != .ready else { channel.close(); try capture.close("duplicate connection rejected"); return }
         guard now() >= nextConnect else { channel.close(); try capture.close("reconnect backoff"); throw VehicleTransportError.failed("Reconnect backoff is active.") }

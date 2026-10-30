@@ -7,6 +7,7 @@ import Foundation
     @Published var error: String?
     @Published var export: URL?
     @Published var busy = false
+    private var actionFailure: String?
     private let executor = TransportExecutor()
     private let transport: MXPlusExternalAccessoryTransport
     init() {
@@ -25,7 +26,10 @@ import Foundation
     func identify() async { await run { try $0.requestIdentity() } }
     func lifecycle(_ phase: String) async {
         let transport = self.transport
-        if !executor.submit({ transport.pump.lifecycle(phase) }) { error = "Lifecycle event mailbox overflow" }
+        if !executor.submit({ transport.pump.lifecycle(phase) }) {
+            actionFailure = "Lifecycle event mailbox overflow"
+            error = actionFailure
+        }
     }
     func share() async {
         export = nil
@@ -53,7 +57,8 @@ import Foundation
                 Task { @MainActor [weak self] in
                     if let self {
                         self.state = state; self.notice = notice; self.raw = raw
-                        if let failure = failure ?? pumpFailure { self.error = failure }
+                        if marksBusy { self.actionFailure = failure }
+                        self.error = self.actionFailure ?? pumpFailure
                         // A pending refresh must not clear a command's busy state.
                         if marksBusy { self.busy = false }
                     }
@@ -61,7 +66,8 @@ import Foundation
                 }
             }
             if !admitted {
-                error = "Transport command mailbox is full"
+                actionFailure = "Transport command mailbox is full"
+                error = actionFailure
                 if marksBusy { busy = false }
                 continuation.resume()
             }

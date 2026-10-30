@@ -7,8 +7,8 @@ profile in scripts/device_toolchain.env. The accepted preview stays Xcode 16.4.
 Simulator ZIPs remain separate. The first signed archive/export passed on October
 30, 2026. Phone installation and the first real identity exchange are now verified;
 the milestone report separates the remaining physical edge cases. Build 5.1 contains the
-verified button-flicker fix and has uploaded for Apple processing; its phone
-visual acceptance remains open.
+verified button-flicker fix, now accepted visually by the user. A subsequent
+physical unplug/replug test exposed a recovery issue tracked in the M5 report.
 
 ## User setup
 
@@ -169,3 +169,27 @@ the dispatching workflow ref. Its bootstrap can therefore be available on master
 while building the unmerged M5 branch for hardware acceptance. It fails early if
 the selected source lacks the device-profile/signing scripts. Making a workflow
 available is not completion of Milestone 5 or authorization for a public release.
+
+## Focused replug recovery check
+
+The user accepted the flicker correction and initial later attachment in build
+5.1, but its automatic recovery after unplugging an established connection failed.
+For the corrected recovery build, keep the vehicle parked, establish `ready`,
+unplug MX+, then reconnect it through iOS Bluetooth while leaving the app running.
+Allow the configured backoff plus up to one two-second discovery interval once
+`com.obdlink` is available. Expect a fresh capture, zero requested/accepted bytes,
+no automatic identity resend, and no need to restart or press Connect. Export the
+old closed capture before replacing it if possible; retained files are also in
+Files → On My iPhone → Vehicle Flight Recorder → ConnectionCaptures.
+
+Also verify that pressing the app's Disconnect intentionally leaves it disconnected
+until Discover / Connect is pressed. Three failed opens produce an explicit retry-
+paused notice; a new candidate set or explicit Connect permits another attempt.
+These checks do not establish OS wake or execution during suspension/termination.
+
+The recovery build also encodes the user's existing “None of the algorithms
+mentioned above” answer as `ITSAppUsesNonExemptEncryption = NO`. No cryptography
+behavior was added by these transport fixes. Reassess this metadata when shipped
+app/dependency encryption functionality changes; signing/API credentials are build
+inputs and are not bundled as app encryption functionality. Build 5.1 predates
+this metadata and still required its own questionnaire.

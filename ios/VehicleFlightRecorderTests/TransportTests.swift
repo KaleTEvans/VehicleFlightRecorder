@@ -90,6 +90,151 @@ private final class DirectoryFixture: AccessoryDirectory {
         last = value; return value
     }
 }
+
+private func onTransport(_ executor: TransportExecutor, _ body: @escaping () throws -> Void) async throws {
+    try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
+        let admitted = executor.submit {
+            do { try body(); continuation.resume() }
+            catch { continuation.resume(throwing: error) }
+        }
+        if !admitted { continuation.resume(throwing: VehicleTransportError.failed("Fixture mailbox full")) }
+    }
+}
+
+extension TransportTests {
+    func testPhysicalReplugDuringBackoffRecoversWithoutAnotherNotification() async throws {
+        let executor = TransportExecutor(), directory = DirectoryFixture()
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        let transport = MXPlusExternalAccessoryTransport(root: root, executor: executor, directory: directory)
+        var time: TimeInterval = 0
+        var old: NativeStreamChannel?
+        var original: GoConnectionCapture?
+        var generation = 0
+        defer { executor.submit { transport.disconnect(); try? FileManager.default.removeItem(at: root) } }
+        try await onTransport(executor) {
+            transport.pump.now = { time }
+            directory.accessories = [AccessoryDescriptor(id: 1, protocols: ["com.obdlink"], metadata: ["source": "fixture"])]
+            try transport.connect()
+            let streams = try XCTUnwrap(directory.last)
+            old = streams; original = transport.capture
+            transport.stream(streams.input, handle: .openCompleted)
+            transport.stream(streams.output, handle: .openCompleted)
+            XCTAssertEqual(transport.state, .ready)
+            generation = transport.pump.generation
+            try transport.requestIdentity()
+            XCTAssertTrue(transport.capture!.core.snapshot().contains("\"accepted_bytes\":4"))
+            time = 1
+            directory.accessories = []
+            directory.changed?()
+        }
+        // Notification callbacks enqueue onto the same owner before this barrier.
+        try await onTransport(executor) {
+            XCTAssertEqual(transport.state, .failed)
+            XCTAssertTrue(original!.core.snapshot().contains("\"closed\":true"))
+            time = 1.25
+            directory.accessories = [AccessoryDescriptor(id: 2, protocols: ["com.obdlink"], metadata: ["source": "fixture"])]
+            directory.changed?()
+        }
+        try await onTransport(executor) {
+            XCTAssertEqual(directory.opens, 1, "A reconnect notification must honor backoff")
+            XCTAssertEqual(transport.state, .failed)
+            time = 5
+            transport.tick() // No second connect notification or user action.
+            XCTAssertEqual(directory.opens, 2)
+            XCTAssertEqual(transport.state, .connecting)
+            XCTAssertGreaterThan(transport.pump.generation, generation)
+            XCTAssertNotEqual(original!.core.path(), transport.capture!.core.path())
+            let streams = try XCTUnwrap(directory.last)
+            transport.stream(old!.input, handle: .errorOccurred)
+            XCTAssertEqual(transport.state, .connecting, "Old streams cannot fail the replacement")
+            transport.stream(streams.input, handle: .openCompleted)
+            transport.stream(streams.output, handle: .openCompleted)
+            XCTAssertEqual(transport.state, .ready)
+            XCTAssertNil(transport.pump.failure)
+            let snapshot = transport.capture!.core.snapshot()
+            XCTAssertTrue(snapshot.contains("\"requested_bytes\":0"))
+            XCTAssertTrue(snapshot.contains("\"accepted_bytes\":0"))
+            let lateNotification = directory.changed
+            transport.disconnect()
+            time = 100
+            transport.tick()
+            lateNotification?()
+        }
+        try await onTransport(executor) {
+            XCTAssertEqual(directory.opens, 2, "Explicit Disconnect cancels periodic and queued recovery")
+            XCTAssertEqual(transport.state, .disconnected)
+            XCTAssertEqual(directory.registrations, 1)
+            XCTAssertEqual(directory.removals, 1)
+        }
+    }
+
+    func testFailedSessionCreationBacksOffStopsAndAllowsExplicitRetry() async throws {
+        let executor = TransportExecutor(), directory = DirectoryFixture()
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        let transport = MXPlusExternalAccessoryTransport(root: root, executor: executor, directory: directory)
+        var time: TimeInterval = 0
+        defer { executor.submit { transport.disconnect(); try? FileManager.default.removeItem(at: root) } }
+        try await onTransport(executor) {
+            transport.pump.now = { time }
+            directory.accessories = [AccessoryDescriptor(id: 1, protocols: ["com.obdlink"], metadata: ["source": "fixture"])]
+            directory.failOpen = true
+            try transport.connect()
+            XCTAssertEqual(transport.state, .failed)
+            for (instant, expectedOpens) in [(1.0, 1), (2, 2), (4, 2), (6, 3), (20, 3), (100, 3)] {
+                time = instant
+                transport.tick()
+                XCTAssertEqual(directory.opens, expectedOpens)
+                XCTAssertEqual(transport.state, .failed)
+            }
+            XCTAssertTrue(transport.notice.contains("retries paused"))
+            directory.changed?() // An unchanged notification cannot replenish retries.
+        }
+        try await onTransport(executor) {
+            XCTAssertEqual(directory.opens, 3)
+            XCTAssertTrue(transport.capture!.core.snapshot().contains("\"closed\":true"))
+            directory.failOpen = false
+            try transport.connect()
+            XCTAssertEqual(directory.opens, 4)
+            let streams = try XCTUnwrap(directory.last)
+            transport.stream(streams.input, handle: .openCompleted)
+            transport.stream(streams.output, handle: .openCompleted)
+            XCTAssertEqual(transport.state, .ready)
+            XCTAssertNil(transport.pump.failure)
+        }
+    }
+
+    func testProtocolReadinessAndPhysicalRemovalAreReconciledWithoutNotifications() async throws {
+        let executor = TransportExecutor(), directory = DirectoryFixture()
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        let transport = MXPlusExternalAccessoryTransport(root: root, executor: executor, directory: directory)
+        var time: TimeInterval = 0
+        defer { executor.submit { transport.disconnect(); try? FileManager.default.removeItem(at: root) } }
+        try await onTransport(executor) {
+            transport.pump.now = { time }
+            let waiting = AccessoryDescriptor(id: 7, protocols: [], metadata: ["source": "fixture"])
+            let ready = AccessoryDescriptor(id: 7, protocols: ["com.obdlink"], metadata: ["source": "fixture"])
+            directory.accessories = [waiting]
+            try transport.connect()
+            XCTAssertEqual(directory.opens, 0, "Never open an unauthenticated protocol")
+            directory.accessories = [ready]; time = 2; transport.tick()
+            XCTAssertEqual(directory.opens, 1)
+            let first = try XCTUnwrap(directory.last)
+            transport.stream(first.input, handle: .openCompleted)
+            transport.stream(first.output, handle: .openCompleted)
+            XCTAssertEqual(transport.state, .ready)
+            let previous = try XCTUnwrap(transport.capture)
+            directory.accessories = [waiting]; time = 4; transport.tick()
+            XCTAssertEqual(transport.state, .failed)
+            XCTAssertTrue(previous.core.snapshot().contains("\"closed\":true"))
+            directory.accessories = [ready]; time = 6; transport.tick()
+            XCTAssertEqual(directory.opens, 2)
+            XCTAssertEqual(transport.state, .connecting)
+            XCTAssertNotEqual(previous.core.path(), transport.capture!.core.path())
+            XCTAssertTrue(transport.capture!.core.snapshot().contains("\"requested_bytes\":0"))
+        }
+    }
+}
+
 extension TransportTests {
     func testAccessoryEnumerationFailureAndObserverCleanup() throws {
         let executor = TransportExecutor(), directory = DirectoryFixture()

@@ -17,7 +17,9 @@ import Foundation
         let transport = self.transport
         executor.submit { transport.disconnect() }
     }
-    func refresh() async { await run { _ in } }
+    // A snapshot read must not disable controls on every half-second refresh.
+    // The dedicated executor still serializes it with all transport commands.
+    func refresh() async { await run(marksBusy: false) { _ in } }
     func connect() async { await run { try $0.connect() } }
     func disconnect() async { await run { $0.disconnect() } }
     func identify() async { await run { try $0.requestIdentity() } }
@@ -36,8 +38,9 @@ import Foundation
             Task { @MainActor [weak self] in self?.export = output }
         }
     }
-    private func run(_ action: @escaping (MXPlusExternalAccessoryTransport) throws -> Void) async {
-        guard !busy else { return }; busy = true
+    private func run(marksBusy: Bool = true, _ action: @escaping (MXPlusExternalAccessoryTransport) throws -> Void) async {
+        guard !busy else { return }
+        if marksBusy { busy = true }
         let transport = self.transport
         await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
             let admitted = executor.submit {
@@ -51,12 +54,17 @@ import Foundation
                     if let self {
                         self.state = state; self.notice = notice; self.raw = raw
                         if let failure = failure ?? pumpFailure { self.error = failure }
-                        self.busy = false
+                        // A pending refresh must not clear a command's busy state.
+                        if marksBusy { self.busy = false }
                     }
                     continuation.resume()
                 }
             }
-            if !admitted { error = "Transport command mailbox is full"; busy = false; continuation.resume() }
+            if !admitted {
+                error = "Transport command mailbox is full"
+                if marksBusy { busy = false }
+                continuation.resume()
+            }
         }
     }
 }

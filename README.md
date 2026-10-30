@@ -16,8 +16,9 @@ vehicle packs. The diagnostic MVP takes priority over the later Driver Companion
 transport implementation and automated checks passed, including the authorized
 offline acquisition preparation. Apple Developer enrollment and signing setup
 are complete, and the first signed IPA passed archive/export verification.
-Version `0.1.0 (4.1)` uploaded successfully for TestFlight processing; Apple
-processing, iPhone installation and actual MX+ acceptance remain pending.
+Version `0.1.0 (4.1)` processed successfully, is installed on the user’s iPhone,
+and passed its first real MX+ identity round trip. A button-flicker fix and
+remaining physical lifecycle edge cases are under verification.
 
 | Milestone | Scope | Status / details |
 | --- | --- | --- |
@@ -173,7 +174,8 @@ merged on master; it can build the unmerged M5 source using an explicit full com
 SHA. Enrollment is approved, and signing assets and App Store Connect credentials
 are configured. The first signed IPA passed archive/export and signature
 verification, and `0.1.0 (4.1)` uploaded successfully for TestFlight processing.
-Apple processing, installation and physical acceptance remain pending; [follow the device setup guide](docs/IOS_DEVICE.md).
+Apple processing, installation and the first physical MX+ identity exchange have
+passed; remaining physical cases are tracked in the milestone report; [follow the device setup guide](docs/IOS_DEVICE.md).
 
 The shared native configuration pins Go/x/mobile and the iOS 17 deployment floor.
 Preview uses Xcode 16.4; the separate device profile uses Xcode 26.0.1 / iOS 26 SDK.

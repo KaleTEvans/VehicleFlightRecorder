@@ -22,8 +22,11 @@ After correcting an iPad orientation validation rejection,
 [run 41095225007](https://github.com/KaleTEvans/VehicleFlightRecorder/actions/runs/41095225007)
 uploaded version `0.1.0 (4.1)` from source
 `9aa6e9a9b0d0e70e29be966af4d394a0247931a7`. Apple returned `UPLOAD SUCCEEDED with
-no errors`. Apple processing, phone installation and physical acceptance have not
-been observed.
+no errors`. Subsequent read-only API inspection confirmed upload COMPLETE and
+build VALID; the user installed build 4.1 on an iPhone 16 Pro / iOS 26.6.2 and
+supplied a valid MX+ identity exchange and closed capture. Reconnect and lock/
+unlock passed per user report. Remaining physical edge cases are tracked in
+[MILESTONE_5.md](MILESTONE_5.md).
 
 An active Apple Developer Program account, App Store Connect app record and
 approved bundle `com.kaleevans.vehicleflightrecorder` are required. Use marketing
@@ -74,7 +77,7 @@ processing and installation remain user-observed checks, not inferred from uploa
 
 ## Install the first TestFlight build
 
-For the uploaded `0.1.0 (4.1)` build, open App Store Connect → Apps → Vehicle
+For an uploaded build (the first accepted installation is `0.1.0 (4.1)`), open App Store Connect → Apps → Vehicle
 Flight Recorder → TestFlight → iOS. Wait for Apple to finish processing the build; a
 successful transport upload alone is not confirmation that Apple accepted it.
 Open the matching version/build and resolve any processing or compliance prompts
@@ -121,8 +124,9 @@ owns automatic drive policy.
 since April 28, 2026. The device profile inherits the fixed Go/mobile pins and iOS
 17 deployment floor, overriding only Xcode to 26.0.1 (SDK 26.0). Preview CI also
 compiles an unsigned Release archive with that profile. This separate compile
-checks source compatibility. Signing/export are now verified separately; Apple
-processing and phone installation remain pending.
+checks source compatibility. Signing/export, Apple processing and the first phone
+installation are now verified separately; physical coverage is tracked in the M5
+report.
 
 ## Preparing the certificate from WSL
 

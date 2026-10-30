@@ -1,8 +1,9 @@
 # Milestone 5 — MX+ transport shell
 
 Status: PARTIALLY COMPLETE. Independent implementation and automated verification
-passed. Signed archive/export and TestFlight upload also passed; Apple processing,
-installation and physical accessory acceptance remain pending.
+passed. Signed delivery, Apple processing, phone installation and the first physical
+MX+ identity round trip passed. The button-flicker fix and remaining physical
+lifecycle edge cases are still under verification.
 
 ## Ownership and lifecycle
 
@@ -108,7 +109,8 @@ idempotent close and actual Swift-to-Go capture files. Existing recorder/UI test
 remain required. An injected accessory directory exercises existing/later enumeration, unsupported
 and multiple matches, failed session creation, notification delivery, repeated
 connect/disconnect, observer cleanup and stale stream objects. Physical framework
-behavior and every real lifecycle state remain pending acceptance.
+behavior is now confirmed for the real identity round trip below. Other physical
+cases remain separated from fixture/native test evidence.
 
 Native CI results and artifact links are recorded below.
 Signed workflow and installation instructions: [IOS_DEVICE.md](IOS_DEVICE.md).
@@ -116,17 +118,18 @@ As of October 30, 2026, Apple Developer enrollment is approved. The matching
 distribution certificate/profile and App Store Connect API credentials are
 configured in the GitHub `ios-device` environment with explicit user approval.
 Workflow-only PR #4 is merged; the app remains unmerged in draft PR #3. Signed
-archive/export and TestFlight upload passed. Apple processing, installation and
-physical tests remain pending.
+archive/export and TestFlight upload passed. Apple reports the upload COMPLETE
+and build VALID. The user installed build 4.1 and supplied real MX+ capture evidence
+with a successful identity round trip; details and remaining gaps are below.
 
 | Physical case | Status |
 | --- | --- |
-| Signed build installed; device/iOS/build/adapter recorded | Pending |
-| Already connected / later connect / multiple accessories | Pending |
-| Repeated open/close and actual identity round trip | Pending |
-| Disconnect during write / reconnect without replay | Pending |
-| Foreground / background / locked / unlock | Each pending |
-| Suspended / OS terminated / user force quit | Each pending; no wake guarantee |
+| Signed build installed; device/iOS/build/adapter recorded | Passed: user screenshots/capture, iPhone 16 Pro / iOS 26.6.2 / 0.1.0 (4.1) / MX201 |
+| Accessory discovery and stream open | Passed for the supplied connected MX+; later attachment / multiple accessories not separately established |
+| Repeated open/close and actual identity round trip | One raw round trip validated; two reconnect repetitions passed per user report |
+| Disconnect during write / reconnect without replay | No resend after reconnect per user report; physical mid-write interruption not tested |
+| Foreground / background / locked / unlock | Scene transitions recorded; separate lock/unlock and app switching passed per user report |
+| Suspended / OS terminated / user force quit | Not separately tested; no wake guarantee |
 
 Do not intentionally disrupt ECUs. Use a parked setup and stop transmissions if
 unexpected vehicle warnings occur. Retain local raw evidence, but do not publish
@@ -293,3 +296,57 @@ invitation, installation, or any physical MX+ behavior. The account holder shoul
 open the matching TestFlight build, complete account prompts, add themselves to
 an internal test group and install on the phone using [IOS_DEVICE.md](IOS_DEVICE.md).
 Milestone 5 stays partially complete until its physical acceptance matrix passes.
+
+## First physical MX+ acceptance — October 30, 2026
+
+The user supplied two phone screenshots and a closed JSONL capture from an iPhone
+16 Pro, iOS 26.6.2 (23G90), installed TestFlight build 0.1.0 (4.1). The screenshots
+show `Transport: ready` and zero outbound counters before the firmware read. The
+later exported capture contains the explicit read and clean disconnect.
+
+Independent Python `validate-connection` passed: 32 contiguous records, four
+requested bytes, four stream-accepted bytes, 21 received bytes, zero unsent bytes,
+closed state, no error or identity-timeout records. The exact exchange was:
+
+```text
+Requested: STI\r
+Received:  STI\rSTN2255 v5.8.1\r\r>
+```
+
+The response demonstrates the controlled adapter identity round trip; it does not
+verify ECU communication. The generic validator still labels adapter delivery
+`unproven`, since stream acceptance alone is insufficient; the preserved reply
+provides the additional identity evidence in this particular capture.
+
+Both streams opened in 18.027 ms. First received bytes arrived 69.329 ms after the
+request record (62.357 ms after stream acceptance); these are native host timing
+observations for one identity command, not vehicle throughput or ECU timing.
+Capture duration: 95.720 seconds, including five background and seven foreground
+events. The raw data alone does not identify which transitions were phone locks,
+app switching or other OS presentation. The user separately confirmed two
+successful disconnect/reconnect repetitions and lock/unlock testing with no
+errors or automatic identity resend. This is human evidence, not additional
+exported captures or proof of execution while suspended.
+
+Accessory metadata reports OBDLink MX+, manufacturer OBD Solutions LLC, model
+MX201, hardware 1.0.0 and firmware 2.0.0. The STI response reports STN2255 v5.8.1;
+retain both identity sources as observed rather than substituting one for the
+other. The public report omits the native accessory ID and original capture ID.
+Raw evidence and screenshots stay in ignored `.cache/physical-tests/2026-10-30`;
+original JSONL SHA-256:
+`71011a6b417f5ddb1d49e738553e61e67b121259ef4dfc5177df8298884c87dd`.
+They must not be uploaded as public synthetic CI artifacts.
+
+The user observed button flicker. The half-second snapshot refresh used the same
+`busy` flag as explicit commands, briefly disabling the blue controls. Snapshot
+reads now leave that flag alone; commands still gate controls, and a pending
+snapshot cannot clear a command's flag. Two native regressions check busy-state
+publications across repeated refreshes and an explicit disconnect. Native test
+execution and the corrected phone build are pending at this report revision.
+
+Remaining physical gaps are later accessory attachment, multiple-accessory
+ambiguity, interruption during a partially accepted command, and separately
+identified suspension/OS-termination/user-force-quit behavior. No universal wake
+or continuity guarantee is claimed. M5 is not closed by the single supplied log.
+
+**Milestone 6 not started.**

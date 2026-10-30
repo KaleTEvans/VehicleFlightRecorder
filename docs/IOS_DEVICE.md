@@ -5,7 +5,10 @@ IPA and can explicitly upload it for TestFlight processing. It uses the accepted
 Go/runtime pins and iOS ARM64 slice, with a separate Xcode 26.0.1 device
 profile in scripts/device_toolchain.env. The accepted preview stays Xcode 16.4.
 Simulator ZIPs remain separate. The first signed archive/export passed on October
-30, 2026; phone installation and accessory acceptance remain pending.
+30, 2026. Phone installation and the first real identity exchange are now verified;
+the milestone report separates the remaining physical edge cases. Build 5.1 contains the
+verified button-flicker fix and has uploaded for Apple processing; its phone
+visual acceptance remains open.
 
 ## User setup
 

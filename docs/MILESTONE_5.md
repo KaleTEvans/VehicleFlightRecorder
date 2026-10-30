@@ -2,8 +2,9 @@
 
 Status: PARTIALLY COMPLETE. Independent implementation and automated verification
 passed. Signed delivery, Apple processing, phone installation and the first physical
-MX+ identity round trip passed. The button-flicker fix and remaining physical
-lifecycle edge cases are still under verification.
+MX+ identity round trip passed. The flicker fix passed native regression tests and
+is uploaded as build 5.1; phone visual acceptance and remaining physical lifecycle
+edge cases are still open.
 
 ## Ownership and lifecycle
 
@@ -181,7 +182,8 @@ previous accepted mock build.
 
 At the time of this October 29 run, the signed pipeline had not been executed
 and Apple Developer enrollment was still pending. The October 30 delivery status
-is recorded above; installation and every physical/lifecycle row remain pending.
+is recorded in the later delivery/physical sections; those checks were pending
+at the time of the October 29 run.
 The SDK split is a necessary delivery adjustment for Apple's April 2026 upload requirement; Go,
 x/mobile, approved identity and deployment floor remain pinned. No M6 polling,
 initialization, vehicle decoding or automatic drive policy was introduced.
@@ -341,12 +343,37 @@ The user observed button flicker. The half-second snapshot refresh used the same
 `busy` flag as explicit commands, briefly disabling the blue controls. Snapshot
 reads now leave that flag alone; commands still gate controls, and a pending
 snapshot cannot clear a command's flag. Two native regressions check busy-state
-publications across repeated refreshes and an explicit disconnect. Native test
-execution and the corrected phone build are pending at this report revision.
+publications across repeated refreshes and an explicit disconnect.
+[Native run 41128764873](https://github.com/KaleTEvans/VehicleFlightRecorder/actions/runs/41128764873)
+passed for source `c847638b82da40ac34a7912846457e281a85c4e0`: 20 hosted tests
+(including both new regressions) and two UI tests, zero failures. Native exports
+passed Python validation/reconstruction, and both Xcode 16.4 unsigned device
+compile and Xcode 26.0.1 Release archive passed. The signed corrected build is recorded below; its visual acceptance on the
+physical phone remains pending.
 
 Remaining physical gaps are later accessory attachment, multiple-accessory
 ambiguity, interruption during a partially accepted command, and separately
 identified suspension/OS-termination/user-force-quit behavior. No universal wake
 or continuity guarantee is claimed. M5 is not closed by the single supplied log.
+
+**Milestone 6 not started.**
+
+### Flicker-fix delivery — October 30, 2026
+
+[Signed run 41129982462](https://github.com/KaleTEvans/VehicleFlightRecorder/actions/runs/41129982462)
+passed for `c847638b82da40ac34a7912846457e281a85c4e0`, version **0.1.0 (5.1)**.
+Apple returned `UPLOAD SUCCEEDED with no errors`, delivery UUID
+`13a45210-570a-4042-a592-bfa23e2a4ec7`; runner cleanup passed. Local IPA integrity
+and identity/build checks passed: 2,078,579 bytes, SHA-256
+`1b8a9ddb27704b6327640db3f1a6aa5c7acf2e392aa0e978f7aae013a3d2c9db`.
+Evidence is in ignored `build/milestone-5-signing-evidence/flicker-fix`.
+
+Read-only Apple API status at 21:20:48 UTC: upload PROCESSING, no errors or warnings.
+The processed build/testing resources were not available yet. This does not
+invalidate the upload, and is not phone acceptance. After processing, install
+build 5.1 and confirm the blue controls no longer pulse during idle refreshes.
+The source retains the current encryption metadata; Apple may request the same
+app-encryption questionnaire for this build before internal testing is available.
+No compliance declaration or tester configuration was changed through the API.
 
 **Milestone 6 not started.**

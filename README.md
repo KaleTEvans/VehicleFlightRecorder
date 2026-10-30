@@ -17,8 +17,9 @@ transport implementation and automated checks passed, including the authorized
 offline acquisition preparation. Apple Developer enrollment and signing setup
 are complete, and the first signed IPA passed archive/export verification.
 Version `0.1.0 (4.1)` processed successfully, is installed on the user’s iPhone,
-and passed its first real MX+ identity round trip. A button-flicker fix and
-remaining physical lifecycle edge cases are under verification.
+and passed its first real MX+ identity round trip. The button-flicker fix passed
+native tests and uploaded as `0.1.0 (5.1)`; its phone confirmation and remaining
+physical lifecycle edge cases are open.
 
 | Milestone | Scope | Status / details |
 | --- | --- | --- |
@@ -38,8 +39,8 @@ remaining physical lifecycle edge cases are under verification.
   automatic synthetic triggers, session history, evidence timelines and ZIP export.
 - **Physical transport implementation:** discovery of `com.obdlink` accessories,
   bounded ExternalAccessory streams, connection generations, deadlines and raw
-  connection captures. Its debug screen is selected on device builds; physical
-  behavior still needs acceptance on the installed app.
+  connection captures. Its device screen has passed a real MX+ identity exchange,
+  reconnect and lock/unlock checks; remaining physical cases are in the M5 report.
 - **Offline acquisition:** prompt/response parsing, supported-parameter bits,
   RPM/coolant/adapter-voltage decoding, bounded scheduling and simulated failure
   scenarios, with independently validated raw/timing/capability reports.

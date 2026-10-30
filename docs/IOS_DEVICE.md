@@ -8,7 +8,9 @@ Simulator ZIPs remain separate. The first signed archive/export passed on Octobe
 30, 2026. Phone installation and the first real identity exchange are now verified;
 the milestone report separates the remaining physical edge cases. Build 5.1 contains the
 verified button-flicker fix, now accepted visually by the user. A subsequent
-physical unplug/replug test exposed a recovery issue tracked in the M5 report.
+physical unplug/replug test exposed a recovery issue. The corrected build 6.1
+passed native verification and uploaded at 17:20:58 CDT on October 30; phone
+confirmation remains open in the M5 report.
 
 ## User setup
 
@@ -174,7 +176,7 @@ available is not completion of Milestone 5 or authorization for a public release
 
 The user accepted the flicker correction and initial later attachment in build
 5.1, but its automatic recovery after unplugging an established connection failed.
-For the corrected recovery build, keep the vehicle parked, establish `ready`,
+For corrected recovery build **0.1.0 (6.1)**, keep the vehicle parked, establish `ready`,
 unplug MX+, then reconnect it through iOS Bluetooth while leaving the app running.
 Allow the configured backoff plus up to one two-second discovery interval once
 `com.obdlink` is available. Expect a fresh capture, zero requested/accepted bytes,

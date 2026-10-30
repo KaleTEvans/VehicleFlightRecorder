@@ -19,12 +19,15 @@ accepted mock dashboard. There is no fallback to synthetic readings on device.
 
 ```mermaid
 stateDiagram-v2
-  disconnected --> connecting: startup or explicit discovery / one matching protocol
+  disconnected --> discovering: one authenticated matching accessory
+  failed --> discovering: bounded retry or explicit Connect after backoff
+  discovering --> connecting: fresh capture and session created
+  discovering --> failed: capture or session creation error
   connecting --> ready: both stream open events
   connecting --> failed: open error / 10 second deadline
   ready --> failed: stream loss / preservation error / write deadline
   ready --> disconnected: explicit close
-  failed --> connecting: new connection after backoff
+  failed --> disconnected: explicit close
 ```
 
 On physical-screen startup, observers register and existing accessories are
@@ -394,7 +397,9 @@ They also reported these separate lifecycle observations:
 - Unplugging MX+ while the app is open changes the displayed connection state
   after approximately five seconds (human observation, not an exported timing).
 - Plugging it back in and reconnecting through iOS Bluetooth does not restore the
-  existing app session automatically. Restarting the app does restore it.
+  existing app session automatically. Restarting the app does restore it. The
+  user subsequently confirmed Discover / Connect also restores it without a
+  restart, narrowing the failure to automatic recovery scheduling.
 - Starting the app while MX+ is unplugged, then plugging/pairing it, does connect
   automatically. This later-attachment path passed.
 
@@ -432,7 +437,41 @@ manual retry, and empty/restored protocol lists without notifications. A view-mo
 regression checks error persistence until a successful action clears it. The app
 metadata now carries the user’s existing non-exempt-encryption answer (`NO`) so
 unchanged future builds do not require the repeated questionnaire. No new data
-encryption or command types were introduced. Native execution, corrected signed
-delivery and physical replug confirmation are pending.
+encryption or command types were introduced.
+
+[Native run 41135972554](https://github.com/KaleTEvans/VehicleFlightRecorder/actions/runs/41135972554)
+passed for `6d0e1da818b3b5c0db867f691e3373eb91d49693`: **24 hosted tests and two
+UI tests**, zero failures. All three new transport regressions and the new
+action-error regression passed, along with the prior flicker tests. Both device
+compile profiles, native export validation and reconstruction passed. Corrected
+signed delivery is recorded below; physical unplug/replug confirmation is pending.
+
+**Milestone 6 not started.**
+
+### Recovery-build delivery — October 30, 2026
+
+[Signed run 41137176123](https://github.com/KaleTEvans/VehicleFlightRecorder/actions/runs/41137176123)
+passed for `6d0e1da818b3b5c0db867f691e3373eb91d49693`, version **0.1.0 (6.1)**.
+Apple returned `UPLOAD SUCCEEDED with no errors`, delivery UUID
+`43d90f52-3720-4ae7-a022-bf47da0d0e52`, at **17:20:58 America/Chicago (CDT)**.
+Signing cleanup passed. The downloaded IPA passed archive integrity, exact
+bundle/build and `ITSAppUsesNonExemptEncryption = false` checks: 2,082,498 bytes,
+SHA-256 `74e6bc064f10e9bee36bea114368bdfcb68e889e777203b055c88debdcaaa3cd`.
+Evidence is in ignored `build/milestone-5-signing-evidence/replug-fix`.
+
+At 17:23 CDT, read-only Apple API inspection reported upload/build/testing
+PROCESSING, no upload errors/warnings, and `usesNonExemptEncryption: false`.
+Processing is separate from transport submission. No declaration or tester-group
+mutation was performed through the API. Physical acceptance of automatic replug
+recovery remains open after build 6.1 becomes available.
+
+Retest while parked: establish `ready`, unplug MX+, plug it back in and reconnect
+through iOS Bluetooth, leaving the app running. Watch for up to 30 seconds and
+record state/timing without pressing Discover / Connect or restarting. Expect a
+new capture/generation with zero requested/accepted bytes until an explicit
+identity read. Also check explicit Disconnect remains intentional: no reconnection
+until Discover / Connect is pressed. If recovery still fails, preserve the exact
+status/notice/error and closed captures; the three-attempt paused notice is an
+explicit failure outcome, not a passed automatic-recovery test.
 
 **Milestone 6 not started.**

@@ -19,8 +19,9 @@ are complete, and the first signed IPA passed archive/export verification.
 Version `0.1.0 (4.1)` processed successfully, is installed on the user’s iPhone,
 and passed its first real MX+ identity round trip. The user confirmed the flicker
 is resolved after build `0.1.0 (5.1)`. Initial later attachment also passed; an
-automatic-recovery defect after physical unplug/replug is under verification,
-along with remaining physical lifecycle edge cases.
+automatic-recovery correction passed 24 native tests plus two UI tests and
+uploaded as `0.1.0 (6.1)`. Its physical replug confirmation and remaining lifecycle
+edge cases are open.
 
 | Milestone | Scope | Status / details |
 | --- | --- | --- |

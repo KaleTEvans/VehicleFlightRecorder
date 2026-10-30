@@ -89,6 +89,7 @@ jobs:
           python3 scripts/device_signing.py "$RUNNER_TEMP/profile.plist" "$RUNNER_TEMP/ExportOptions.plist" "$GITHUB_ENV"
           mkdir -p "$HOME/Library/MobileDevice/Provisioning Profiles"
           PROFILE_UUID=$(/usr/libexec/PlistBuddy -c 'Print UUID' "$RUNNER_TEMP/profile.plist")
+          echo "PROFILE_UUID=$PROFILE_UUID" >> "$GITHUB_ENV"
           cp "$RUNNER_TEMP/profile.mobileprovision" "$HOME/Library/MobileDevice/Provisioning Profiles/$PROFILE_UUID.mobileprovision"
       - name: Archive and export signed device app
         run: |
@@ -128,6 +129,6 @@ jobs:
         if: always()
         run: |
           if [[ -n "${SIGN_KEYCHAIN:-}" ]]; then security delete-keychain "$SIGN_KEYCHAIN" || true; fi
-          if [[ -n "${SIGN_PROFILE:-}" ]]; then rm -f "$HOME/Library/MobileDevice/Provisioning Profiles/$SIGN_PROFILE.mobileprovision"; fi
+          if [[ -n "${PROFILE_UUID:-}" ]]; then rm -f "$HOME/Library/MobileDevice/Provisioning Profiles/$PROFILE_UUID.mobileprovision"; fi
           rm -f "$RUNNER_TEMP/distribution.p12" "$RUNNER_TEMP/profile.mobileprovision" "$RUNNER_TEMP/profile.plist" "$RUNNER_TEMP/ExportOptions.plist"
           rm -rf "$RUNNER_TEMP/private_keys"

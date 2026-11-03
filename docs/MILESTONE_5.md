@@ -1,11 +1,16 @@
 # Milestone 5 — MX+ transport shell
 
-Status: PARTIALLY COMPLETE. Independent implementation and automated verification
-passed. Signed delivery, Apple processing, phone installation and the first physical
-MX+ identity round trip passed. The flicker fix passed native regression tests and
-is uploaded as build 5.1; the user confirmed the flicker is gone. Physical
-unplug/replug testing exposed a post-disconnect automatic-recovery bug, now under
-verification; remaining lifecycle edge cases stay open.
+Status: COMPLETE for the Milestone 5 transport scope — accepted November 3, 2026.
+The user confirmed the build 6.1 physical unplug/replug test passes, with automatic
+app reconnection approximately 1–2 seconds after reconnecting MX+ through iOS
+Bluetooth. Signed installation, raw identity evidence, open/close, later attachment,
+manual reconnect, lock/unlock and flicker correction have passed as recorded below.
+PR #3 is awaiting merge; Milestone 6 implementation has not started.
+
+This acceptance does not certify every iOS lifecycle state or real vehicle polling.
+The physical coverage gaps in the table remain unverified and carry into stationary
+acquisition/reliability qualification. Dated pending statements below describe
+intermediate states; this acceptance update supersedes them.
 
 ## Ownership and lifecycle
 
@@ -137,7 +142,7 @@ with a successful identity round trip; details and remaining gaps are below.
 | --- | --- |
 | Signed build installed; device/iOS/build/adapter recorded | Passed: user screenshots/capture, iPhone 16 Pro / iOS 26.6.2 / 0.1.0 (4.1) / MX201 |
 | Accessory discovery and stream open | Startup-connected and launch-before-attachment passed per user report; multiple accessories not physically tested |
-| Repeated open/close and actual identity round trip | Raw round trip and explicit reconnect passed; automatic recovery after physical unplug/replug failed in build 5.1, fix verification pending |
+| Repeated open/close and actual identity round trip | Raw round trip and explicit reconnect passed; build 6.1 automatic physical replug recovery passed per November 3 user report, approximately 1–2 seconds after iOS Bluetooth reconnection |
 | Disconnect during write / reconnect without replay | No resend after reconnect per user report; physical mid-write interruption not tested |
 | Foreground / background / locked / unlock | Scene transitions recorded; separate lock/unlock and app switching passed per user report |
 | Suspended / OS terminated / user force quit | Not separately tested; no wake guarantee |
@@ -473,5 +478,36 @@ identity read. Also check explicit Disconnect remains intentional: no reconnecti
 until Discover / Connect is pressed. If recovery still fails, preserve the exact
 status/notice/error and closed captures; the three-attempt paused notice is an
 explicit failure outcome, not a passed automatic-recovery test.
+
+**Milestone 6 not started.**
+
+## Transport acceptance — November 3, 2026
+
+The user confirmed the instructed physical recovery test works after the build 6.1
+correction. The app automatically reconnects in approximately **1–2 seconds after
+iOS Bluetooth reconnects to MX+**, with no manual app reconnect/restart needed for
+that tested path. This is user-observed timing, not an instrumented latency
+measurement. No new JSONL capture accompanied this confirmation; the previously
+validated raw identity capture and native no-replay/generation tests remain the
+byte-level evidence. The report does not infer any unreported counters or tests.
+
+The diagnostic MVP's M5 acceptance is reliable MX+ session open/close and raw
+adapter responses. That scope is now met by the physical identity exchange,
+closed exported capture, repeated/manual reconnect and latest automatic replug
+confirmation, together with signed-device delivery and automated regression
+results. The confirmed flicker correction also closes the reported UI defect.
+No further blocking hardware test is needed before M6 implementation.
+
+Known physical coverage gaps remain: multiple compatible accessories, interruption
+during a partly accepted write, and separately identified OS suspension,
+OS-termination and force-quit behavior. These are not relabeled as passing. Native
+fixtures cover transport failure/retry/cancellation invariants; M6 must recheck
+recovery with actual stationary acquisition traffic, and M7 owns the full physical
+lifecycle/reliability matrix and hands-off operation in supported states. Locking
+the phone alone does not establish OS suspension or termination behavior.
+
+Repository closeout: merge PR #3 after its documentation checks pass, then start
+M6 from the merged foundation. This report accepts M5 transport behavior; it does
+not merge the PR, start M6, validate ECU reads or certify background recording.
 
 **Milestone 6 not started.**

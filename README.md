@@ -11,17 +11,15 @@ vehicle packs. The diagnostic MVP takes priority over the later Driver Companion
 
 ## Current status
 
-**October 30, 2026:** Milestones 0–4 are complete and merged into `master`.
-[Milestone 5 is in draft PR #3](https://github.com/KaleTEvans/VehicleFlightRecorder/pull/3):
-transport implementation and automated checks passed, including the authorized
-offline acquisition preparation. Apple Developer enrollment and signing setup
-are complete, and the first signed IPA passed archive/export verification.
-Version `0.1.0 (4.1)` processed successfully, is installed on the user’s iPhone,
-and passed its first real MX+ identity round trip. The user confirmed the flicker
-is resolved after build `0.1.0 (5.1)`. Initial later attachment also passed; an
-automatic-recovery correction passed 24 native tests plus two UI tests and
-uploaded as `0.1.0 (6.1)`. Its physical replug confirmation and remaining lifecycle
-edge cases are open.
+**November 3, 2026:** Milestones 0–4 are complete and merged into `master`.
+[Milestone 5 is accepted; PR #3 awaits merge](https://github.com/KaleTEvans/VehicleFlightRecorder/pull/3).
+The installed iPhone/MX+ path passed the real firmware identity exchange, exported
+raw evidence, reconnect and lock/unlock checks. The user confirmed the flicker fix
+and build `0.1.0 (6.1)` automatic recovery in approximately 1–2 seconds after iOS
+Bluetooth reconnects. The recovery source passed 24 hosted native tests, two UI
+tests, device compile/signing and portable CI. Authorized offline acquisition
+foundations are included; live M6 integration has not started. Unverified physical
+edge cases remain documented in the milestone report.
 
 | Milestone | Scope | Status / details |
 | --- | --- | --- |
@@ -30,7 +28,7 @@ edge cases are open.
 | 2 | Incident detection, capture windows and reconstruction | Complete; [report](docs/MILESTONE_2.md) |
 | 3 | Native dashboard, sessions, incidents and export | Complete and merged; [report](docs/MILESTONE_3.md) |
 | 4 | Bridge, lifecycle and device/simulator build hardening | Complete and merged; [report](docs/MILESTONE_4.md) |
-| 5 | MX+ byte transport, connection evidence and offline preparation | Partially complete; [report](docs/MILESTONE_5.md) |
+| 5 | MX+ byte transport, connection evidence and offline preparation | Complete and accepted; PR #3 awaiting merge; [report](docs/MILESTONE_5.md) |
 | 6 | Adapter initialization, standard OBD and live acquisition | Offline foundations prepared within M5; live integration pending; [handoff](planning/milestone_6.md) |
 | 7 | Hands-off road logging, start confirmations and reliability | Planned; [handoff](planning/milestone_7.md) |
 | 8 | Verified Giulia drivetrain signals and incident correlation | Planned; [handoff](planning/milestone_8.md) |

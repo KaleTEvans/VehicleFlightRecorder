@@ -18,12 +18,21 @@ acceptance using only mocks.
 
 ## Preparation status and current M5 boundary
 
-Planning update — October 29, 2026: M5 implementation passed portable checks,
-18 native unit tests, two UI tests and unsigned device builds. Its physical
-acceptance remains pending; the user has applied for Apple Developer enrollment
-and is awaiting approval. Enrollment, provisioning, installation and actual MX+
-stream evidence must be rechecked before claiming M6 physical prerequisites.
-This status note does not activate M6.
+Prerequisite update — November 3, 2026: M5 transport acceptance is complete.
+Apple Developer enrollment, provisioning and TestFlight installation are verified.
+The user supplied a valid real MX+ identity capture from iPhone 16 Pro / iOS 26.6.2,
+and confirmed build 6.1 automatic physical replug recovery in approximately 1–2
+seconds after iOS Bluetooth reconnects. The recovery source passed 24 native hosted
+tests, two UI tests, portable CI, both device compile profiles and signed delivery.
+See `docs/MILESTONE_5.md` for actual source/run/capture evidence and its limits.
+PR #3 still awaits merge; start M6 from that merged foundation after repository
+closeout. This update does not activate M6.
+
+Multiple-accessory and physical mid-write cases, plus separately identified OS
+suspension/termination/force-quit behavior, remain unverified on the phone. Preserve
+those limits. M6 must qualify reconnect/failure behavior with actual stationary
+acquisition traffic; M7 owns the full physical reliability/wake-state matrix. M5
+identity-only success is not ECU, background-recording or hands-off-drive proof.
 
 The implemented M5 byte seam is synchronous on a dedicated native run loop,
 with Go-owned version-1 standalone connection captures and one explicitly enabled

@@ -9,8 +9,10 @@ Simulator ZIPs remain separate. The first signed archive/export passed on Octobe
 the milestone report separates the remaining physical edge cases. Build 5.1 contains the
 verified button-flicker fix, now accepted visually by the user. A subsequent
 physical unplug/replug test exposed a recovery issue. The corrected build 6.1
-passed native verification and uploaded at 17:20:58 CDT on October 30; phone
-confirmation remains open in the M5 report.
+passed native verification and uploaded at 17:20:58 CDT on October 30. On November
+3, the user confirmed automatic recovery takes approximately 1–2 seconds after iOS
+Bluetooth reconnects; M5 transport acceptance is complete. Unverified physical
+edge cases remain listed in the M5 report.
 
 ## User setup
 
@@ -173,6 +175,10 @@ the selected source lacks the device-profile/signing scripts. Making a workflow
 available is not completion of Milestone 5 or authorization for a public release.
 
 ## Focused replug recovery check
+
+Accepted November 3, 2026 for build 6.1: the user reports automatic app reconnection
+in approximately 1–2 seconds after iOS Bluetooth reconnects. The procedure below
+is retained for future regression checks; it is not an outstanding M5 gate.
 
 The user accepted the flicker correction and initial later attachment in build
 5.1, but its automatic recovery after unplugging an established connection failed.

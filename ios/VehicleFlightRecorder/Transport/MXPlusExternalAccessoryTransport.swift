@@ -195,6 +195,12 @@ final class MXPlusExternalAccessoryTransport: NSObject, VehicleTransport, Stream
         _ = live.core.mark("Manual stationary incident", nativeNS: TransportClock.nanoseconds(), error: &error)
         if let error { throw error }
     }
+    func lifecycle(_ phase: String) {
+        if liveAcquisitionEnabled, let live {
+            do { try live.core.lifecycle(phase, nativeNS: TransportClock.nanoseconds()) }
+            catch { pump.fail(error.localizedDescription); notice = error.localizedDescription }
+        } else { pump.lifecycle(phase) }
+    }
     func requestIdentity() throws { try pump.identify() }
     func disconnect() {
         armed = false; timer?.invalidate(); timer = nil

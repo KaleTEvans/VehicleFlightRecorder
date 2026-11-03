@@ -324,6 +324,9 @@ extension TransportTests {
             directory.accessories = [AccessoryDescriptor(id: 1, protocols: ["com.obdlink"], metadata: ["source": "fixture"])]
             try transport.startLive(operatingState: "ignition_on_engine_off", workload: "rpm_only", reference: "Synthetic native owner test")
             let live = try XCTUnwrap(transport.live)
+            transport.lifecycle("background") // Also retained before streams are ready.
+            let events = try String(contentsOf: URL(fileURLWithPath: live.core.path()).appendingPathComponent("events.jsonl"), encoding: .utf8)
+            XCTAssertTrue(events.contains("native_background"))
             let streams = try XCTUnwrap(directory.last)
             transport.tick()
             let before = try decodeCore(LiveSnapshot.self, live.core.snapshot())

@@ -32,7 +32,7 @@ import Foundation
     func identify() async { await run { try $0.requestIdentity() } }
     func lifecycle(_ phase: String) async {
         let transport = self.transport
-        if !executor.submit({ transport.pump.lifecycle(phase) }) {
+        if !executor.submit({ transport.lifecycle(phase) }) {
             actionFailure = "Lifecycle event mailbox overflow"
             error = actionFailure
         }

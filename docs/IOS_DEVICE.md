@@ -22,8 +22,11 @@ Build `0.1.0 (7.1)` uploaded on November 3, 2026 at 1:44:51 p.m. CST from
 The exact source passed 26 hosted native tests, two UI tests, both device compile
 profiles and real native ZIP reconstruction. Apple confirmed VALID /
 IN_BETA_TESTING at 1:45 p.m. CST; see [the M6 report](MILESTONE_6.md). Update from transport-only build 6.1 before testing
-parked live controls. Begin with the report's short individual workloads; physical
-M6 acceptance and road/background qualification remain pending.
+parked live controls. Use the [single M6 test-visit checklist](../planning/milestone_6_test_session.md):
+run short individual checks and conditional combined/reconnect cases in one parked
+visit, with history/export and one evidence handoff afterward indoors. Per-case
+chat review is not required. Physical M6 acceptance and road/background
+qualification remain pending.
 
 ## User setup
 

@@ -61,6 +61,15 @@ pending stationary acceptance. Automatic trip start/stop, user-facing recording
 confirmations and road/background qualification belong to Milestone 7. An uploaded
 simulator build or unsigned device compile does not establish these behaviors.
 
+## Human acceptance sessions
+
+Use the [M6 one-visit parked checklist](planning/milestone_6_test_session.md).
+Short individual recordings, combined capture and reconnect are grouped into one
+20–30 minute target visit, with reference-tool time extra. Do saved history,
+evidence navigation and exports afterward indoors, then return one evidence set.
+The [shared workflow](planning/physical_test_sessions.md) applies to later
+milestones and targeted retests; physical acceptance remains evidence-based.
+
 ## Develop and test in WSL
 
 Keep this checkout and generated work under:

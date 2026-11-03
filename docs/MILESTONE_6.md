@@ -105,27 +105,20 @@ history/evidence and ZIP packaging. Simulator root remains the accepted mock UI.
 
 ## Stationary physical acceptance plan (pending)
 
-Do not perform a prolonged test until short initialization/individual checks pass.
-Close competing scanner apps, park safely and use the approved TestFlight build.
-Capture ignition-on/engine-off separately from stationary engine-running. Verify
-no new dashboard warnings; stop if behavior changes. First test voltage-only,
-RPM-only and coolant-only in separate short sessions (about 45 s each), exporting
-all three. Check RPM zero versus unavailable honestly; compare values to a trusted
-reference separately, recording tool/version, conditions, timestamps and units.
-Do not run a competing diagnostic app concurrently on the same adapter.
+Use the single [M6 parked test-visit checklist](../planning/milestone_6_test_session.md)
+under the [shared physical test-session workflow](../planning/physical_test_sessions.md).
+It supersedes the earlier isolated 45-second test request and per-case review
+cadence. Target one 20–30 minute parked visit, with extra time for any prepared
+reference comparison. Short checks, combined manual capture and reconnect run
+back-to-back when their written visible gates pass; each uses a distinct recording
+where state/workload must be preserved. No chat approval or per-case upload is
+needed between those listed parked checks.
 
-Then run a combined five-minute stationary session: mark after at least 90 s and
-continue at least 120 s afterward. Check session/incident history, evidence jump,
-and ZIP export. Separately unplug/replug/reconnect during a short combined test;
-verify a new generation, initialization/discovery, explicit gap and no replay.
-No complete coverage should be claimed across that interruption.
-
-Retrieve private phone ZIPs for Python replay and incident reconstruction. Record
-adapter/STN firmware, iOS/app build, operating state, requested versus achieved
-rate, latency, maximum gaps, timeouts/decode errors and unresolved reference
-comparison. M6 remains incomplete until actual stationary results and evidence
-are accepted. Road logging, automatic start/stop, notifications and full lifecycle
-qualification remain Milestone 7.
+Saved history, evidence navigation, individual ZIP exports and one evidence
+handoff follow indoors. Agent raw/provenance/reference analysis still determines
+final acceptance; failed prerequisites stop dependent tests and actual defects
+may need a targeted follow-up. M6 remains partially complete. Road logging,
+automatic start/stop, notifications and full lifecycle qualification remain M7.
 
 ## Accepted automated evidence — November 3, 2026
 

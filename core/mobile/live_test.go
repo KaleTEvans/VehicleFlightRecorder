@@ -2,11 +2,13 @@ package mobile
 
 import (
 	"encoding/json"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 
+	"vehicleflightrecorder.local/core/acquisition"
 	"vehicleflightrecorder.local/core/obd"
 )
 
@@ -211,5 +213,21 @@ func TestLiveBridgeCommandEnvelopePreservesIdleAndExactBytes(t *testing.T) {
 	encoded, err = l.NextCommandBase64(fixtureNative, 1700000000000)
 	if err != nil || encoded != "U1RQQw0=" {
 		t.Fatalf("command envelope %q %v", encoded, err)
+	}
+}
+
+func TestLiveRawPreservationFailureStopsWithoutRecovery(t *testing.T) {
+	l := newLiveFixture(t, "voltage_only")
+	connectLive(t, l, 0)
+	l.scheduler.SetRawSink(func(_ acquisition.Raw) error { return fmt.Errorf("injected full disk") })
+	data, err := l.NextCommand(fixtureNative, 1700000000000)
+	if err == nil || len(data) != 0 || l.RequiresReconnect() || !l.failed {
+		t.Fatalf("failed evidence must not send/reconnect: %q %v", data, err)
+	}
+	if _, err = l.NextCommand(fixtureNative+1000000000, 1700000001000); err == nil {
+		t.Fatal("failed session resumed")
+	}
+	if err = l.Stop(fixtureNative + 1000000000); err == nil {
+		t.Fatal("failed session finalized")
 	}
 }

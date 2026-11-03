@@ -41,7 +41,7 @@ type LiveRecorder struct {
 	path                                                     string
 	baseNS, anchorMS, elapsed, lastOffset, lastTick          int64
 	pending                                                  []byte
-	observationCursor, transactionCursor, marks, resyncs     int
+	observationCursor, marks, resyncs                        int
 	connected, ready, connectedOnce, reconnectNeeded, failed bool
 	failure                                                  string
 	cached                                                   map[string]acquisition.Observation
@@ -308,7 +308,7 @@ func (l *LiveRecorder) NextCommand(nativeNS, wallMS int64) (data []byte, err err
 		report := l.scheduler.Report()
 		resource := false
 		for _, issue := range report.Issues {
-			if issue == "raw_budget_exhausted" || issue == "raw_preservation_failed" || issue == "transaction_budget_exhausted" {
+			if issue == "raw_budget_exhausted" || issue == "raw_preservation_failed" || issue == "transaction_budget_exhausted" || issue == "observation_budget_exhausted" {
 				resource = true
 			}
 		}

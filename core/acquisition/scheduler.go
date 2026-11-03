@@ -501,6 +501,7 @@ func (s *Scheduler) Receive(generation int, now int64, data []byte) error {
 		}
 		if response.Value != nil {
 			if len(s.report.Observations) >= s.maxObservations {
+				s.issue("observation_budget_exhausted")
 				s.finish(now, "resource_limit")
 				s.report.State = "blocked"
 				return fmt.Errorf("observation budget exhausted")

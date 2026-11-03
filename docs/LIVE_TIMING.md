@@ -1,6 +1,8 @@
 # Live timing and provenance migration design
 
-Status: design for Milestones 5–6; **not live acquisition implemented in M4**.
+Status: the original M4 migration design is retained below. Milestone 6 now
+implements the bounded live contract described in the final section; physical
+stationary acceptance remains pending. **M4 itself did not implement live polling**.
 No GPS, Core Motion, source fusion or asynchronous ingestion engine is introduced.
 
 ## Current recording contract
@@ -86,3 +88,46 @@ provenance/clock mapping, uncertainty and late-arrival semantics. Revisit the
 single-source ordering contract before admitting asynchronous producers. This
 extension path reserves concepts only, not speculative implementation or a V2
 feature commitment.
+
+## Implemented Milestone 6 live timing and freshness
+
+The dedicated native ExternalAccessory executor owns stream callbacks, bounded UI
+commands and a 100 ms timer. The timer asks Go for the next allowlisted request;
+SwiftUI's 500 ms refresh only reads a snapshot. Timers may be delayed or suspended
+by iOS, and no dispatch cadence is represented as a measurement rate.
+
+At explicit session Start, the app captures Unix milliseconds and native
+`mach_continuous_time` nanoseconds. Go retains both anchors. All subsequent native
+clocks must be nondecreasing; transaction offsets are native time minus its
+anchor. Canonical receipt time is Unix anchor plus elapsed whole milliseconds.
+Equal milliseconds retain canonical record sequence order.
+
+`request_start_ns` records Go admission, `stream_accepted_ns` the complete native
+write acceptance, and `receive_ns` the final response-framing chunk. Latency is
+response completion minus stream acceptance. Native acceptance is not adapter or
+ECU acknowledgement. ECU measurement time is unknown/null. Raw fragmented chunks
+retain their actual native offsets; no value is timestamped by UI refresh.
+
+Wall-clock offset changes above one second produce a `wall_clock_adjusted` event
+without remapping old or future canonical receipt times. Observed owner gaps over
+three seconds produce `acquisition_pause_observed` with unknown cause; scene
+foreground/background/inactive transitions are separate evidence, not proof of
+OS suspension. Disconnect/reconnect have their own events and generations.
+
+Snapshots retain the last decoded value and show age. After 15 seconds it is
+stale; disconnected or currently unavailable capability states show unavailable.
+No missing value becomes numeric zero. Reconnection clears the displayed old
+values and capability scope, repeats setup and re-discovers support. Historical
+observations remain unchanged with their original transaction/decoder identity.
+
+Capability statistics count successfully decoded observations per signal/ECU over
+the full elapsed session, including setup and interruptions. Maximum gap includes
+initial and terminal uncovered spans; latency includes min and p95. Nominal
+intervals, actual receipts, equal/changing values and internal sensor refresh are
+distinct concepts. Sensor refresh stays unknown; physical rates require actual
+phone exports and a reference comparison.
+
+The first live contract remains a single ordered OBD source. GPS/motion must define
+source clocks, alignment, late-arrival admission and provenance before changing
+that invariant. They are not implemented here. Hands-off sessions, reliable
+background behavior and wake limitations remain Milestone 7 acceptance work.

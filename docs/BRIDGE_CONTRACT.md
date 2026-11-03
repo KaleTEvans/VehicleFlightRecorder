@@ -148,3 +148,18 @@ calls Go synchronously; no Go call waits on native callbacks. IdentityRequest
 returns owned `STI\r` bytes once, and Accepted validates their pending prefix.
 Actual budgets and file/timing format supersede the earlier proposed queued-byte
 budgets: see [Milestone 5](MILESTONE_5.md). No diagnostic framing/polling API exists.
+
+## Milestone 6 additive live facade
+
+Bridge version 1 retains all existing mock/controller and connection-capture
+methods. `NewLiveRecorder` adds a separate explicit live owner with bounded JSON
+options, native/wall anchors, connection-generation registration, native stream
+readiness/errors, next Go-owned command, partial write acceptance, raw receive,
+lifecycle events, manual marking, Stop, snapshot and path. It has no arbitrary
+command argument. Callers serialize all transport/clock operations on the native
+owner; snapshots are locked and do not admit work. `NewHistoryController` opens
+canonical history without loading a mock/Alfa pack and cannot start mock recording.
+
+Session schema 2 is independent of bridge version 1 and incident journal schema 1.
+See [live timing](LIVE_TIMING.md), [session format](DATA_SCHEMA.md) and
+[Milestone 6](MILESTONE_6.md) for exact bounds and physical acceptance status.

@@ -12,7 +12,7 @@ final class LiveRecorderTests: XCTestCase {
         var generation: Int64 = 0
         try core.connected("{\"protocol\":\"com.obdlink\",\"name\":\"Native scripted fixture\"}", nativeNS: base, generation: &generation)
         // No request before native stream readiness.
-        XCTAssertTrue(try core.nextCommand(base, wallMS: anchor)?.isEmpty ?? true)
+        XCTAssertTrue(try core.nextCommand(base, wallMS: anchor).isEmpty)
         try core.nativeEvent(generation, nativeNS: base, kind: "streams_ready", detail: "Native fixture")
         let replies = ["STPC\r": "OK\r>", "ATD\r": "ATD\rOK\r>", "ATE0\r": "ATE0\rOK\r>", "ATL0\r": "OK\r>", "ATM0\r": "OK\r>", "ATS1\r": "OK\r>", "ATH1\r": "OK\r>", "ATD0\r": "OK\r>", "ATCAF1\r": "OK\r>", "ATCFC1\r": "OK\r>", "ATR1\r": "OK\r>", "ATAT0\r": "OK\r>", "STP33\r": "OK\r>", "STPTO500\r": "OK\r>", "STPR\r": "33\r>", "STI\r": "STN2255 v5.8.1\r>", "0100\r": "7E8 06 41 00 08 10 00 00\r7E9 06 41 00 00 10 00 00\r>", "010C\r": "7E8 04 41 0C 0C 80\r7E9 04 41 0C 0F A0\r>", "0105\r": "7E8 03 41 05 7B\r>", "STVR\r": "13.45\r>"]
         var incidentID = ""
@@ -23,7 +23,8 @@ final class LiveRecorderTests: XCTestCase {
                 incidentID = core.mark("Native manual evidence", nativeNS: base + now, error: &error)
                 if let error { throw error }
             }
-            guard let command: Data = try core.nextCommand(base + now, wallMS: anchor + now / 1_000_000), !command.isEmpty else { continue }
+            let command: Data = try core.nextCommand(base + now, wallMS: anchor + now / 1_000_000)
+            guard !command.isEmpty else { continue }
             let request = String(decoding: command, as: UTF8.self)
             let response = Data(try XCTUnwrap(replies[request], "Unreviewed request: \(request)").utf8)
             try core.accepted(generation, nativeNS: base + now + 1000, data: Data(command.prefix(1)))

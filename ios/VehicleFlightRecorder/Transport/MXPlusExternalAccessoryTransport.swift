@@ -107,8 +107,8 @@ final class MXPlusExternalAccessoryTransport: NSObject, VehicleTransport, Stream
         if let live {
             do {
                 // Advance Go deadlines even while disconnected; UI reads do not poll.
-                let bytes: Data? = try live.core.nextCommand(TransportClock.nanoseconds(), wallMS: GoLiveSession.wall())
-                if let bytes, !bytes.isEmpty { try pump.enqueueLive(bytes) }
+                let bytes = try GoLiveSession.command(live.core, nativeNS: TransportClock.nanoseconds(), wallMS: GoLiveSession.wall())
+                if !bytes.isEmpty { try pump.enqueueLive(bytes) }
                 let snapshot = try decodeCore(LiveSnapshot.self, live.core.snapshot())
                 if !snapshot.active { disconnect(); return }
             } catch {

@@ -3,6 +3,7 @@ package mobile
 import (
 	"bytes"
 	"crypto/rand"
+	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
@@ -332,6 +333,17 @@ func (l *LiveRecorder) NextCommand(nativeNS, wallMS int64) (data []byte, err err
 		return nil, l.fail(err)
 	}
 	return append([]byte(nil), work.Bytes...), nil
+}
+
+// NextCommandBase64 avoids gomobile's nullable NSData/NSError import: Swift
+// treats nil bytes as a throwing-method failure even when Go means no work.
+// Empty string means idle; nonempty text encodes the exact Go-owned command.
+func (l *LiveRecorder) NextCommandBase64(nativeNS, wallMS int64) (string, error) {
+	data, err := l.NextCommand(nativeNS, wallMS)
+	if err != nil {
+		return "", err
+	}
+	return base64.StdEncoding.EncodeToString(data), nil
 }
 func (l *LiveRecorder) Accepted(generation, nativeNS int64, data []byte) (err error) {
 	l.mu.Lock()

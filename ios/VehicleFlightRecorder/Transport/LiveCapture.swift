@@ -15,6 +15,17 @@ final class GoLiveSession {
         core = value
     }
     static func wall() -> Int64 { Int64(Date().timeIntervalSince1970 * 1000) }
+    static func command(_ core: MobileLiveRecorder, nativeNS: Int64, wallMS: Int64) throws -> Data {
+        // gomobile imports NSData+NSError as throwing nonoptional Data; a nil
+        // idle result is ambiguous. The Go string envelope preserves empty work.
+        var error: NSError?
+        let encoded = core.nextCommandBase64(nativeNS, wallMS: wallMS, error: &error)
+        if let error { throw error }
+        guard let bytes = Data(base64Encoded: encoded), bytes.count <= 65536 else {
+            throw VehicleTransportError.failed("Invalid Go command envelope")
+        }
+        return bytes
+    }
     func connect(metadata: [String: String]) throws -> GoLiveCapture {
         let json = String(decoding: try JSONSerialization.data(withJSONObject: metadata), as: UTF8.self)
         var generation: Int64 = 0

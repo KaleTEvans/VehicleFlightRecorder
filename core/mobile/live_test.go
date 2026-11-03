@@ -200,3 +200,16 @@ func TestLiveSnapshotDoesNotAcquireAndClockChangesAreEvidence(t *testing.T) {
 		t.Fatal("native clock regression admitted")
 	}
 }
+
+func TestLiveBridgeCommandEnvelopePreservesIdleAndExactBytes(t *testing.T) {
+	l := newLiveFixture(t, "voltage_only")
+	encoded, err := l.NextCommandBase64(fixtureNative, 1700000000000)
+	if err != nil || encoded != "" {
+		t.Fatalf("idle envelope %q %v", encoded, err)
+	}
+	connectLive(t, l, 0)
+	encoded, err = l.NextCommandBase64(fixtureNative, 1700000000000)
+	if err != nil || encoded != "U1RQQw0=" {
+		t.Fatalf("command envelope %q %v", encoded, err)
+	}
+}

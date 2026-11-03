@@ -163,3 +163,9 @@ canonical history without loading a mock/Alfa pack and cannot start mock recordi
 Session schema 2 is independent of bridge version 1 and incident journal schema 1.
 See [live timing](LIVE_TIMING.md), [session format](DATA_SCHEMA.md) and
 [Milestone 6](MILESTONE_6.md) for exact bounds and physical acceptance status.
+
+Swift uses `NextCommandBase64` with an explicit NSError pointer: empty string means
+no work; nonempty Base64 decodes to the exact Go allowlist bytes. This avoids the
+nullable NSData/NSError import convention treating an idle nil-byte result as a
+failure. The direct Go byte method remains for Go transcript tests. No native
+command strings or null-as-measurement convention is introduced.

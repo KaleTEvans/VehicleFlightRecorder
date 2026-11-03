@@ -8,28 +8,33 @@ enum SessionExporter {
     static let maximumArchiveBytes: UInt64 = 128 * 1024 * 1024
     static func archive(directory: URL, output: URL) throws -> URL {
         let root = directory.standardizedFileURL.resolvingSymlinksInPath()
+        var total: UInt64 = 0
+        func preflight(_ names: [String]) throws {
+            for name in names {
+                let file = root.appendingPathComponent(name)
+                let attributes = try FileManager.default.attributesOfItem(atPath: file.path)
+                guard attributes[.type] as? FileAttributeType == .typeRegular,
+                      file.resolvingSymlinksInPath().path == file.path else {
+                    throw BridgeFailure(category: "corrupt_data", operation: "archive", detail: "Export requires local regular evidence files")
+                }
+                let size = (attributes[.size] as? NSNumber)?.uint64Value ?? UInt64.max
+                guard size <= maximumArchiveBytes - total else {
+                    throw BridgeFailure(category: "resource_limit", operation: "archive", detail: "Session exceeds the 128 MiB export limit; original evidence is preserved")
+                }
+                total += size
+            }
+        }
+        try preflight(Self.files)
         let metadataURL = root.appendingPathComponent("session.json")
         let metadataSize = try metadataURL.resourceValues(forKeys: [.fileSizeKey]).fileSize ?? Int.max
-        guard metadataSize <= 1024 * 1024 else { throw VehicleTransportError.failed("Session metadata exceeds limit") }
+        guard metadataSize <= 1024 * 1024 else { throw BridgeFailure(category: "resource_limit", operation: "archive", detail: "Session metadata exceeds 1 MiB") }
         let metadata = try JSONSerialization.jsonObject(with: Data(contentsOf: metadataURL)) as? [String: Any]
         guard let version = metadata?["schema_version"] as? Int, [1, 2].contains(version) else {
             throw VehicleTransportError.failed("Unsupported session export schema")
         }
-        let files = Self.files + (version == 2 ? ["capability.json"] : [])
-        var total: UInt64 = 0
-        for name in files {
-            let file = root.appendingPathComponent(name)
-            let attributes = try FileManager.default.attributesOfItem(atPath: file.path)
-            guard attributes[.type] as? FileAttributeType == .typeRegular,
-                  file.resolvingSymlinksInPath().path == file.path else {
-                throw BridgeFailure(category: "corrupt_data", operation: "archive", detail: "Export requires local regular evidence files")
-            }
-            let size = (attributes[.size] as? NSNumber)?.uint64Value ?? UInt64.max
-            guard size <= maximumArchiveBytes - total else {
-                throw BridgeFailure(category: "resource_limit", operation: "archive", detail: "Session exceeds the 128 MiB export limit; original evidence is preserved")
-            }
-            total += size
-        }
+        let extra = version == 2 ? ["capability.json"] : []
+        try preflight(extra)
+        let files = Self.files + extra
         var data = Data()
         var central = Data()
         for name in files {

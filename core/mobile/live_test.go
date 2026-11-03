@@ -231,3 +231,16 @@ func TestLiveRawPreservationFailureStopsWithoutRecovery(t *testing.T) {
 		t.Fatal("failed session finalized")
 	}
 }
+
+func TestLiveEmptySnapshotCollectionsAreArraysForNativeDecoder(t *testing.T) {
+	l := newLiveFixture(t, "combined")
+	var snapshot map[string]json.RawMessage
+	if err := json.Unmarshal([]byte(l.Snapshot()), &snapshot); err != nil {
+		t.Fatal(err)
+	}
+	for _, key := range []string{"readings", "capabilities", "incidents"} {
+		if string(snapshot[key]) != "[]" {
+			t.Fatalf("%s must be an empty array, got %s", key, snapshot[key])
+		}
+	}
+}

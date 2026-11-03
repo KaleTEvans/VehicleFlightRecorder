@@ -80,4 +80,10 @@ func (s *Scheduler) AddConnection(now int64, metadata map[string]string) error {
 	s.report.Configuration.Connections = append(s.report.Configuration.Connections, Connection{s.report.Generation, now, copy})
 	return nil
 }
-func (s *Scheduler) CapabilityRows() []obd.Capability { return s.capabilities.Rows() }
+func (s *Scheduler) CapabilityRows() []obd.Capability {
+	rows := s.capabilities.Rows()
+	if rows == nil {
+		return []obd.Capability{}
+	}
+	return rows
+}

@@ -9,6 +9,10 @@ final class LiveRecorderTests: XCTestCase {
         let base: Int64 = 1_000_000_000_000, anchor: Int64 = 1_700_000_000_000
         let session = try GoLiveSession(root: root, operatingState: "stationary_running", workload: "combined", reference: "Native scripted transcript, not physical measurements", origin: "native-fixture", wallMS: anchor, nativeNS: base)
         let core = session.core
+        let initial = try decodeCore(LiveSnapshot.self, core.snapshot())
+        XCTAssertEqual(initial.state, "waiting_for_adapter")
+        XCTAssertTrue(initial.capabilities.isEmpty)
+        XCTAssertTrue(initial.readings.isEmpty)
         var generation: Int64 = 0
         try core.connected("{\"protocol\":\"com.obdlink\",\"name\":\"Native scripted fixture\"}", nativeNS: base, generation: &generation)
         // No request before native stream readiness.

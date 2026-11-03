@@ -21,7 +21,8 @@ matching distribution certificate/PKCS#12 and App Store profile have been verifi
 locally and their three signing secrets configured in GitHub's `ios-device`
 environment with explicit user approval. The API key, Key ID and Issuer ID are
 also configured as encrypted environment secrets with separate user approval.
-Workflow-only PR #4 is merged on master; the M5 app remains in draft PR #3.
+Workflow-only PR #4 and M5 app PR #3 are merged on master. M5 was accepted
+on November 3, 2026; M6 live acquisition is under implementation.
 Signed archive/export and native signature verification passed in
 [run 41093880633](https://github.com/KaleTEvans/VehicleFlightRecorder/actions/runs/41093880633)
 for source `81c8fbf4429c41bcb5294d265afae355466adbc3`, version `0.1.0 (2.1)`.

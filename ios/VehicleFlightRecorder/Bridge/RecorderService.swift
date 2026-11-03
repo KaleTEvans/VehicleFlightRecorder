@@ -21,6 +21,13 @@ actor RecorderService {
         core = controller
         sessionsDirectory = sessions
     }
+    init(history sessions: URL) throws {
+        var error: NSError?
+        guard let controller = MobileNewHistoryController(sessions.path, &error) else {
+            throw error ?? VehicleTransportError.failed("Could not open local session history")
+        }
+        core = controller; sessionsDirectory = sessions
+    }
     deinit { try? core.close() }
 
     private func perform<T>(_ operation: String, _ body: () throws -> T) throws -> T {

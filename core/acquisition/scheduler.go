@@ -27,6 +27,7 @@ type Raw struct {
 	Kind        string `json:"kind"`
 	NS          int64  `json:"monotonic_ns"`
 	Bytes       []byte `json:"bytes_base64"`
+	SessionID   string `json:"session_id,omitempty"`
 }
 type Transaction struct {
 	ID            string   `json:"id"`
@@ -61,25 +62,48 @@ type Statistics struct {
 	LatencyMinNS int64   `json:"latency_min_ns"`
 	LatencyP95NS int64   `json:"latency_p95_ns"`
 }
+type LiveConfiguration struct {
+	AppVersion         string       `json:"app_version"`
+	BridgeVersion      int64        `json:"bridge_version"`
+	ReferenceNote      string       `json:"reference_note"`
+	SensorRefresh      string       `json:"sensor_refresh_rate"`
+	EnhancedPack       string       `json:"enhanced_pack"`
+	MaximumDurationNS  int64        `json:"maximum_duration_ns"`
+	MinimumAdmissionNS int64        `json:"minimum_admission_ns"`
+	SessionID          string       `json:"session_id"`
+	Origin             string       `json:"origin"`
+	OperatingState     string       `json:"operating_state"`
+	Workload           string       `json:"workload"`
+	NativeAnchorNS     int64        `json:"native_anchor_ns"`
+	Initialization     string       `json:"initialization_version"`
+	Protocol           string       `json:"selected_protocol"`
+	Connections        []Connection `json:"connections"`
+}
+type Connection struct {
+	Generation int               `json:"generation"`
+	StartNS    int64             `json:"start_ns"`
+	Metadata   map[string]string `json:"metadata"`
+}
 type Report struct {
-	Version      int              `json:"report_version"`
-	Kind         string           `json:"kind"`
-	Source       string           `json:"source"`
-	Profile      string           `json:"protocol_profile"`
-	Catalog      string           `json:"catalog_version"`
-	AnchorMS     int64            `json:"anchor_unix_ms"`
-	DurationNS   int64            `json:"duration_ns"`
-	Generation   int              `json:"generation"`
-	State        string           `json:"state"`
-	Vehicle      string           `json:"vehicle_identity"`
-	Reference    string           `json:"reference_comparison"`
-	Schedule     []Schedule       `json:"schedule"`
-	Raw          []Raw            `json:"raw"`
-	Transactions []Transaction    `json:"transactions"`
-	Observations []Observation    `json:"observations"`
-	Capabilities []obd.Capability `json:"capabilities"`
-	Statistics   []Statistics     `json:"statistics"`
-	Issues       []string         `json:"issues"`
+	Configuration *LiveConfiguration `json:"configuration,omitempty"`
+	Version       int                `json:"report_version"`
+	Kind          string             `json:"kind"`
+	Source        string             `json:"source"`
+	Profile       string             `json:"protocol_profile"`
+	Catalog       string             `json:"catalog_version"`
+	AnchorMS      int64              `json:"anchor_unix_ms"`
+	DurationNS    int64              `json:"duration_ns"`
+	Generation    int                `json:"generation"`
+	State         string             `json:"state"`
+	Vehicle       string             `json:"vehicle_identity"`
+	Reference     string             `json:"reference_comparison"`
+	Schedule      []Schedule         `json:"schedule"`
+	Raw           []Raw              `json:"raw"`
+	Transactions  []Transaction      `json:"transactions"`
+	Observations  []Observation      `json:"observations"`
+	Capabilities  []obd.Capability   `json:"capabilities"`
+	Statistics    []Statistics       `json:"statistics"`
+	Issues        []string           `json:"issues"`
 }
 type entry struct {
 	spec     Schedule
@@ -93,13 +117,17 @@ type Work struct {
 	Bytes      []byte
 }
 type Scheduler struct {
-	entries                                   []entry
-	report                                    Report
-	capabilities                              *obd.Capabilities
-	framer                                    obd.Framer
-	active, drain                             int
-	deadline, drainDeadline, lastNS, nextSend int64
-	rawBytes                                  int
+	entries                                              []entry
+	report                                               Report
+	capabilities                                         *obd.Capabilities
+	framer                                               obd.Framer
+	active, drain                                        int
+	deadline, drainDeadline, lastNS, nextSend            int64
+	rawBytes                                             int
+	live                                                 bool
+	initIndex                                            int
+	maxTransactions, maxRaw, maxRawRows, maxObservations int
+	rawSink                                              func(Raw) error
 }
 
 func New(anchorMS int64, specs []Schedule) (*Scheduler, error) {
@@ -107,6 +135,7 @@ func New(anchorMS int64, specs []Schedule) (*Scheduler, error) {
 		return nil, fmt.Errorf("invalid anchor or schedule size")
 	}
 	s := &Scheduler{active: -1, drain: -1, report: Report{Version: 1, Kind: "offline-acquisition", Source: "synthetic", Profile: obd.Profile, Catalog: obd.CatalogVersion, AnchorMS: anchorMS, Generation: 1, State: "ready", Vehicle: "unknown", Reference: "unmeasured", Schedule: append([]Schedule(nil), specs...)}}
+	s.maxTransactions, s.maxRaw, s.maxRawRows, s.maxObservations = MaxTransactions, MaxRawBytes, 4096, 2048
 	seen := map[string]bool{}
 	for _, spec := range specs {
 		if _, err := obd.Lookup(spec.Key); err != nil {
@@ -139,14 +168,27 @@ func (s *Scheduler) issue(detail string) {
 }
 
 func (s *Scheduler) raw(kind, id string, now int64, data []byte) error {
-	if len(data) > 65536 || s.rawBytes+len(data) > MaxRawBytes || len(s.report.Raw) >= 4096 {
+	if len(data) > 65536 || s.rawBytes+len(data) > s.maxRaw || len(s.report.Raw) >= s.maxRawRows {
 		s.report.State = "blocked"
 		s.issue("raw_budget_exhausted")
 		return fmt.Errorf("raw evidence budget exhausted")
 	}
 	s.rawBytes += len(data)
 	seq := len(s.report.Raw) + 1
-	s.report.Raw = append(s.report.Raw, Raw{seq, s.report.Generation, id, kind, now, append([]byte(nil), data...)})
+	row := Raw{Sequence: seq, Generation: s.report.Generation, Transaction: id, Kind: kind, NS: now, Bytes: append([]byte(nil), data...)}
+	if s.live {
+		row.SessionID = s.report.Configuration.SessionID
+	}
+	if s.rawSink != nil {
+		copy := row
+		copy.Bytes = append([]byte(nil), row.Bytes...)
+		if err := s.rawSink(copy); err != nil {
+			s.report.State = "blocked"
+			s.issue("raw_preservation_failed")
+			return err
+		}
+	}
+	s.report.Raw = append(s.report.Raw, row)
 	for i := range s.report.Transactions {
 		if s.report.Transactions[i].ID == id {
 			s.report.Transactions[i].RawRefs = append(s.report.Transactions[i].RawRefs, seq)
@@ -156,11 +198,17 @@ func (s *Scheduler) raw(kind, id string, now int64, data []byte) error {
 	return nil
 }
 func (s *Scheduler) eligible(key string) bool {
+	if s.live && obd.IsInitialization(key) {
+		return s.initIndex < len(obd.Initialization()) && obd.Initialization()[s.initIndex].Key == key
+	}
+	if s.live && s.initIndex < len(obd.Initialization()) {
+		return false
+	}
 	if key == "support" || key == "adapter_voltage" {
 		return true
 	}
 	for _, row := range s.capabilities.Rows() {
-		if row.Key == key && (row.Observed || (row.Advertised != nil && *row.Advertised)) {
+		if row.Key == key && (row.Observed || (row.Advertised != nil && *row.Advertised)) && (!s.live || row.Advertised == nil || *row.Advertised) {
 			return true
 		}
 	}
@@ -188,13 +236,13 @@ func (s *Scheduler) Poll(now int64) (*Work, error) {
 	if selected < 0 {
 		return nil, nil
 	}
-	if len(s.report.Transactions) >= MaxTransactions {
+	if len(s.report.Transactions) >= s.maxTransactions {
 		s.report.State = "blocked"
 		s.issue("transaction_budget_exhausted")
 		return nil, fmt.Errorf("transaction budget exhausted")
 	}
-	d, _ := obd.Lookup(s.entries[selected].spec.Key)
-	if s.rawBytes+len(d.Command) > MaxRawBytes || len(s.report.Raw) >= 4096 {
+	d, _ := s.lookup(s.entries[selected].spec.Key)
+	if s.rawBytes+len(d.Command) > s.maxRaw || len(s.report.Raw) >= s.maxRawRows {
 		s.issue("raw_budget_exhausted")
 		s.report.State = "blocked"
 		return nil, fmt.Errorf("no evidence budget for request admission")
@@ -226,7 +274,7 @@ func (s *Scheduler) Accepted(generation int, id string, now int64, n int) error 
 		return fmt.Errorf("no matching write")
 	}
 	tx := &s.report.Transactions[s.active]
-	d, _ := obd.Lookup(tx.Key)
+	d, _ := s.lookup(tx.Key)
 	if n < 0 || n > len(d.Command)-tx.AcceptedBytes {
 		return fmt.Errorf("invalid accepted count")
 	}
@@ -296,6 +344,14 @@ func (s *Scheduler) finish(now int64, outcome string) {
 	}
 	s.active = -1
 	s.nextSend = now + Second/10
+	if s.live {
+		s.nextSend = now + Second/2
+		if obd.IsInitialization(tx.Key) && outcome != "ok" {
+			s.report.State = "blocked"
+			s.issue("initialization_failed")
+			return
+		}
+	}
 	s.report.State = "ready"
 }
 func (s *Scheduler) Tick(now int64) error {
@@ -310,6 +366,10 @@ func (s *Scheduler) Tick(now int64) error {
 		idx := s.active
 		tx := s.report.Transactions[idx]
 		s.finish(now, "timeout")
+		if s.live && obd.IsInitialization(tx.Key) {
+			s.report.State = "blocked"
+			return nil
+		}
 		if tx.SentNS != nil {
 			s.drain = idx
 			s.report.State = "draining"
@@ -382,6 +442,17 @@ func (s *Scheduler) Receive(generation int, now int64, data []byte) error {
 		return fmt.Errorf("response before completed write")
 	}
 	tx := &s.report.Transactions[s.active]
+	if s.live && obd.IsInitialization(tx.Key) {
+		value, err := obd.ParseInitialization(tx.Key, frames[0])
+		if err != nil {
+			s.finish(now, "protocol_error")
+			return err
+		}
+		tx.AdapterStatus = []string{value}
+		s.initIndex++
+		s.finish(now, "ok")
+		return nil
+	}
 	reply, err := obd.Parse(tx.Key, frames[0])
 	if err != nil {
 		s.finish(now, "protocol_error")
@@ -429,12 +500,12 @@ func (s *Scheduler) Receive(generation int, now int64, data []byte) error {
 			}
 		}
 		if response.Value != nil {
-			if len(s.report.Observations) >= 2048 {
+			if len(s.report.Observations) >= s.maxObservations {
 				s.finish(now, "resource_limit")
 				s.report.State = "blocked"
 				return fmt.Errorf("observation budget exhausted")
 			}
-			d, _ := obd.Lookup(tx.Key)
+			d, _ := s.lookup(tx.Key)
 			s.report.Observations = append(s.report.Observations, Observation{tx.ID, tx.Generation, response.ECU, d.Signal, *response.Value, d.Unit, now, s.report.AnchorMS + now/1_000_000, nil, obd.DecoderVersion})
 			s.capabilities.Observe(response.ECU, tx.Key, tx.ID)
 			outcome = "ok"
@@ -455,6 +526,7 @@ func (s *Scheduler) Reconnect(now int64) error {
 	}
 	s.finish(now, "cancelled")
 	s.report.Generation++
+	s.initIndex = 0
 	s.report.State = "ready"
 	s.drain = -1
 	s.framer.Reset()

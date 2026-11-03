@@ -85,6 +85,14 @@ final class TransportPump {
         pending = Data(bytes); deadline = now() + 5; identityDeadline = now() + 10; receivedSinceIdentity = false
         flush(generation: generation)
     }
+    // Internal owner-only queue. The caller passes the fixed Go scheduler output.
+    func enqueueLive(_ bytes: Data) throws {
+        guard state == .ready, pending.isEmpty, !bytes.isEmpty, bytes.count <= 65536 else {
+            throw VehicleTransportError.failed("Live outbound admission failed")
+        }
+        pending = Data(bytes); deadline = now() + 5
+        flush(generation: generation)
+    }
     func flush(generation: Int) {
         guard generation == self.generation, state == .ready, let channel else { return }
         if !pending.isEmpty && now() >= deadline { fail("Write deadline exceeded; partial delivery uncertain"); return }

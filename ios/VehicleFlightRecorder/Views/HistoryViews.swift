@@ -6,12 +6,14 @@ struct SessionsView: View {
         List {
             Section {
                 if model.sessions.isEmpty {
-                    ContentUnavailableView("No drives yet", systemImage: "clock", description: Text("Start a mock drive from the dashboard. Saved drives stay on this simulator."))
+                    ContentUnavailableView("No drives yet", systemImage: "clock", description: Text("Start a recording from the dashboard. Saved sessions stay on this device."))
                 }
                 ForEach(model.sessions) { row in
                     NavigationLink {
                         List {
                             Section("Drive") {
+                                LabeledContent("Source", value: row.session.source ?? "unknown")
+                                LabeledContent("Profile", value: row.session.profileId ?? "unknown")
                                 LabeledContent("Started", value: row.session.started.formatted())
                                 LabeledContent("Duration", value: row.session.duration)
                                 LabeledContent("State", value: model.sessionState(row.session))
@@ -46,7 +48,7 @@ struct SessionsView: View {
                     Button("Load more sessions") { Task { await model.loadMoreSessions() } }.disabled(model.busy)
                 }
                 if let error = model.error { Text(error).foregroundStyle(.red) }
-            } header: { Text("Local mock drives") }
+            } header: { Text("Local recordings") }
         }.navigationTitle("Sessions").refreshable { await model.refresh(advance: false) }
     }
 }
@@ -125,7 +127,7 @@ struct IncidentDetailView: View {
                                     }
                                 }
                             }
-                            Text("Synthetic temporal evidence. A preceding event does not establish a cause.").font(.caption).foregroundStyle(.secondary)
+                            Text("Temporal evidence. A preceding event does not establish a cause.").font(.caption).foregroundStyle(.secondary)
                         }
                     } label: { Text("Triggers · observed order") }
                     // Keep this anchor in the eager stack. A List may not materialize

@@ -8,6 +8,25 @@ from .session import ValidationError, _decode, _integer
 
 COMMANDS = {"support": b"0100\r", "rpm": b"010C\r", "coolant": b"0105\r", "adapter_voltage": b"STVR\r"}
 SIGNALS = {"rpm": ("powertrain.engine.rpm", "rpm"), "coolant": ("powertrain.coolant.temperature", "degC"), "adapter_voltage": ("electrical.adapter_voltage", "V")}
+INITIALIZATION = dict(zip(
+    ('init_close init_defaults init_echo init_linefeeds init_memory init_spaces init_headers init_dlc init_format init_flow init_responses init_timing init_protocol init_timeout init_protocol_check init_identity').split(),
+    (b'STPC\r', b'ATD\r', b'ATE0\r', b'ATL0\r', b'ATM0\r', b'ATS1\r', b'ATH1\r', b'ATD0\r', b'ATCAF1\r', b'ATCFC1\r', b'ATR1\r', b'ATAT0\r', b'STP33\r', b'STPTO500\r', b'STPR\r', b'STI\r')))
+LIVE_COMMANDS = COMMANDS | INITIALIZATION
+
+
+def initialization_value(key, raw):
+    try:
+        text = raw.strip().decode('ascii')
+        require(text.endswith('>') and text.count('>') == 1, 'initialization prompt')
+        lines = [x.strip() for x in text[:-1].replace('\n', '\r').split('\r') if x.strip()]
+        lines = [x for x in lines if ''.join(x.upper().split()) != INITIALIZATION[key].decode().strip()]
+        require(len(lines) == 1, 'ambiguous initialization reply')
+        if key == 'init_identity': require(re.fullmatch(r'STN[0-9]{4} v[0-9]+(?:\.[0-9]+){1,3}', lines[0]), 'firmware identity')
+        else: require(lines[0] == ('33' if key == 'init_protocol_check' else 'OK'), 'initialization acknowledgement/protocol')
+        return lines[0]
+    except UnicodeError as error:
+        raise ValidationError('invalid initialization ASCII') from error
+
 OUTCOMES = {"pending", "ok", "partial", "no_data", "adapter_error", "negative_response", "unavailable", "protocol_error", "timeout", "cancelled", "resource_limit"}
 
 
@@ -30,6 +49,7 @@ def replay_values(key, raw):
 
     This is an offline integrity check, not an alternative acquisition/parser loop.
     """
+    if key in INITIALIZATION: return {}
     raw = raw.strip(b" \t\r\n")
     if not raw.endswith(b">") or raw.count(b">") != 1 or len(raw) > 8192:
         return {}
@@ -83,35 +103,70 @@ def validate_acquisition(path, *, allow_incomplete=False):
 
 def _validate_acquisition(path, *, allow_incomplete=False):
     path = Path(path)
-    require(path.stat().st_size <= 8 * 1024 * 1024, "8 MiB report limit")
+    require(path.stat().st_size <= 16 * 1024 * 1024, "16 MiB absolute report limit")
     with path.open("rb") as source:
-        data = source.read(8 * 1024 * 1024 + 1)
-    require(len(data) <= 8 * 1024 * 1024, "report grew beyond 8 MiB")
-    report = _decode(data, str(path))
-    fields(report, "report_version kind source protocol_profile catalog_version anchor_unix_ms duration_ns generation state vehicle_identity reference_comparison schedule raw transactions observations capabilities statistics issues")
-    require(type(report['report_version']) is int and report['report_version'] == 1, "unsupported version")
+        data = source.read(16 * 1024 * 1024 + 1)
+    require(len(data) <= 16 * 1024 * 1024, "report grew beyond 16 MiB")
+    try:
+        report = _decode(data, str(path))
+    except ValidationError:
+        if len(data) > 8 * 1024 * 1024:
+            raise ValidationError('report grew beyond 8 MiB without a valid live envelope')
+        raise
+    version = report.get('report_version') if isinstance(report, dict) else None
+    require(type(version) is int and version in (1, 2), 'unsupported version')
+    live = version == 2
+    fields(report, "report_version kind source protocol_profile catalog_version anchor_unix_ms duration_ns generation state vehicle_identity reference_comparison schedule raw transactions observations capabilities statistics issues" + (' configuration' if live else ''))
+    commands = LIVE_COMMANDS if live else COMMANDS
     require((report['kind'], report['source'], report['protocol_profile'], report['catalog_version']) ==
-            ('offline-acquisition', 'synthetic', 'can11-single-frame-headers-pci', 'standard-offline-1'), "unsupported source/profile/catalog")
-    require(report['vehicle_identity'] == 'unknown' and report['reference_comparison'] == 'unmeasured', "synthetic evidence cannot claim vehicle validation")
-    duration = _integer(report['duration_ns'], 'duration', 1)
+            (('live-acquisition', 'obd-live', 'can11-single-frame-headers-pci', 'standard-live-can11-1') if live else
+             ('offline-acquisition', 'synthetic', 'can11-single-frame-headers-pci', 'standard-offline-1')), 'unsupported source/profile/catalog')
+    require(report['vehicle_identity'] == 'unknown' and report['reference_comparison'] == 'unmeasured', 'unproven vehicle/reference claim')
+    if not live: require(len(data) <= 8 * 1024 * 1024, '8 MiB offline report limit')
+    if live:
+        config = report['configuration']
+        fields(config, 'app_version bridge_version reference_note sensor_refresh_rate enhanced_pack maximum_duration_ns minimum_admission_ns session_id origin operating_state workload native_anchor_ns initialization_version selected_protocol connections')
+        require(isinstance(config['session_id'], str) and re.fullmatch(r'live-[0-9a-f]{32}', config['session_id']), 'live session identity')
+        require(config['origin'] in ('physical', 'native-fixture', 'scripted-fixture') and config['operating_state'] in ('unknown', 'ignition_on_engine_off', 'stationary_running') and config['workload'] in ('combined', 'rpm_only', 'coolant_only', 'voltage_only'), 'live configuration')
+        require(config['initialization_version'] == 'obdlink-stp33-runtime-1' and config['selected_protocol'] == 'ISO15765-4-CAN11-500' and config['app_version'] == '0.1.0' and type(config['bridge_version']) is int and config['bridge_version'] == 1, 'configuration version/protocol')
+        require(config['sensor_refresh_rate'] == 'unknown' and config['enhanced_pack'] == 'none' and config['maximum_duration_ns'] == 600*10**9 and config['minimum_admission_ns'] == 5*10**8, 'unsupported live policy')
+        require(isinstance(config['reference_note'], str) and len(config['reference_note'].encode()) <= 512, 'reference note')
+        _integer(config['native_anchor_ns'], 'native anchor')
+        require(isinstance(config['connections'], list) and len(config['connections']) <= 16, 'connection budget')
+        for expected, connection in enumerate(config['connections'], 1):
+            fields(connection, 'generation start_ns metadata')
+            require(type(connection['generation']) is int and connection['generation'] == expected, 'connection generation sequence')
+            _integer(connection['start_ns'], 'connection start')
+            require(isinstance(connection['metadata'], dict) and len(connection['metadata']) <= 16 and connection['metadata'].get('protocol') == 'com.obdlink', 'connection identity')
+            require(all(isinstance(k, str) and len(k.encode()) <= 64 and isinstance(v, str) and len(v.encode()) <= 512 for k, v in connection['metadata'].items()), 'connection metadata')
+    duration = _integer(report['duration_ns'], 'duration', 0 if live else 1)
     require(duration <= 86400 * 10**9, "duration limit")
     anchor = _integer(report['anchor_unix_ms'], 'anchor', 1)
     generation = _integer(report['generation'], 'generation', 1)
     require(report['state'] in {'ready', 'writing', 'awaiting', 'draining', 'blocked', 'disconnected'}, "unknown state")
     require(allow_incomplete or report['state'] in {'blocked', 'disconnected'}, "unfinished acquisition report")
-    for key, maximum in [('schedule', 16), ('raw', 4096), ('transactions', 512), ('observations', 2048), ('capabilities', 32), ('statistics', 32), ('issues', 1024)]:
+    for key, maximum in [('schedule', 32 if live else 16), ('raw', 16384 if live else 4096), ('transactions', 2048 if live else 512), ('observations', 8192 if live else 2048), ('capabilities', 32), ('statistics', 32), ('issues', 1024)]:
         require(isinstance(report[key], list) and len(report[key]) <= maximum, f"invalid {key} budget")
     require(all(isinstance(issue, str) for issue in report['issues']), "invalid issues")
     schedule = {}
     for spec in report['schedule']:
         fields(spec, "key interval_ns timeout_ns priority")
         key = spec['key']
-        require(key in COMMANDS and key not in schedule, "unknown/duplicate request")
+        require(key in commands and key not in schedule, "unknown/duplicate request")
         require(10**8 <= _integer(spec['interval_ns'], 'interval') <= 60 * 10**9 and
                 10**8 <= _integer(spec['timeout_ns'], 'timeout') <= 5 * 10**9 and
                 0 <= _integer(spec['priority'], 'priority') <= 9, "invalid schedule")
         schedule[key] = spec
     require(schedule, "empty schedule")
+    if live:
+        require(list(schedule)[:len(INITIALIZATION)] == list(INITIALIZATION), 'missing/reordered initialization configuration')
+        selected = {'combined': {'support', 'rpm', 'coolant', 'adapter_voltage'}, 'rpm_only': {'support', 'rpm'}, 'coolant_only': {'support', 'coolant'}, 'voltage_only': {'adapter_voltage'}}[config['workload']]
+        require(set(schedule)-set(INITIALIZATION) == selected, 'workload/configuration mismatch')
+        require(all(schedule[k] == dict(key=k, interval_ns=60*10**9, timeout_ns=2*10**9, priority=0) for k in INITIALIZATION), 'initialization schedule')
+        for key in selected:
+            interval = {'support': 60, 'rpm': 2, 'coolant': 5, 'adapter_voltage': 5}[key]*10**9
+            priority = {'support': 0, 'rpm': 1, 'coolant': 2, 'adapter_voltage': 3}[key]
+            require(schedule[key] == dict(key=key, interval_ns=interval, timeout_ns=2*10**9, priority=priority), 'unsupported live schedule')
     txs, refs = {}, defaultdict(list)
     previous_end = 0
     previous_generation = 1
@@ -131,14 +186,15 @@ def _validate_acquisition(path, *, allow_incomplete=False):
             previous_end = end
         if tx['sent_ns'] is not None:
             require(start <= _integer(tx['sent_ns'], 'sent') <= (tx['end_ns'] if tx['end_ns'] is not None else duration), "invalid send time")
-        require(type(tx['accepted_bytes']) is int and 0 <= tx['accepted_bytes'] <= len(COMMANDS[tx['key']]), "invalid accepted count")
+        require(type(tx['accepted_bytes']) is int and 0 <= tx['accepted_bytes'] <= len(commands[tx['key']]), "invalid accepted count")
         require(isinstance(tx['raw_refs'], list) and all(type(i) is int for i in tx['raw_refs']), "invalid raw references")
         require(isinstance(tx['adapter_status'], list) and all(isinstance(i, str) for i in tx['adapter_status']), "invalid adapter status")
         txs[tx['id']] = tx
     total = previous_ns = 0
     raw_by_tx = defaultdict(list)
     for sequence, raw in enumerate(report['raw'], 1):
-        fields(raw, "sequence generation transaction_id kind monotonic_ns bytes_base64")
+        fields(raw, "sequence generation transaction_id kind monotonic_ns bytes_base64" + (" session_id" if live else ""))
+        if live: require(raw["session_id"] == config["session_id"], "foreign raw session")
         require(type(raw['sequence']) is int and raw['sequence'] == sequence, "raw sequence gap")
         ns = _integer(raw['monotonic_ns'], 'raw time')
         require(previous_ns <= ns <= duration, "raw time regression")
@@ -150,7 +206,7 @@ def _validate_acquisition(path, *, allow_incomplete=False):
         except ValueError as error:
             raise ValidationError('invalid raw Base64') from error
         total += len(data)
-        require(0 < len(data) <= 65536 and total <= 512 * 1024, "raw byte budget")
+        require(0 < len(data) <= 65536 and total <= (2 * 1024 * 1024 if live else 512 * 1024), "raw byte budget")
         tx = txs.get(raw['transaction_id'])
         if tx is None:
             require(raw['transaction_id'] == '' and raw['kind'] == 'unsolicited', "foreign raw transaction")
@@ -168,17 +224,31 @@ def _validate_acquisition(path, *, allow_incomplete=False):
         require(tx['raw_refs'] == refs[id], "broken raw reference list")
         rows = raw_by_tx[id]
         requested = [(row, data) for row, data in rows if row['kind'] == 'requested']
-        require(len(requested) == 1 and rows[0][0]['kind'] == 'requested' and requested[0][1] == COMMANDS[tx['key']] and requested[0][0]['monotonic_ns'] == tx['start_ns'], "invalid command evidence")
+        require(len(requested) == 1 and rows[0][0]['kind'] == 'requested' and requested[0][1] == commands[tx['key']] and requested[0][0]['monotonic_ns'] == tx['start_ns'], "invalid command evidence")
         accepted = b''.join(data for row, data in rows if row['kind'] == 'accepted')
-        require(COMMANDS[tx['key']].startswith(accepted) and len(accepted) == tx['accepted_bytes'], "accepted bytes differ from request")
+        require(commands[tx['key']].startswith(accepted) and len(accepted) == tx['accepted_bytes'], "accepted bytes differ from request")
         if tx['sent_ns'] is not None:
             accepted_rows = [row for row, _ in rows if row['kind'] == 'accepted']
-            require(accepted == COMMANDS[tx['key']] and accepted_rows[-1]['monotonic_ns'] == tx['sent_ns'], "send time lacks full acceptance evidence")
+            require(accepted == commands[tx['key']] and accepted_rows[-1]['monotonic_ns'] == tx['sent_ns'], "send time lacks full acceptance evidence")
         received_rows = [(row, data) for row, data in rows if row['kind'] == 'received']
         expected_values[id] = replay_values(tx['key'], b''.join(data for _, data in received_rows))
         if tx['outcome'] in {'ok', 'partial'}:
             require(tx['sent_ns'] is not None and received_rows, "success lacks response provenance")
             require(max(row['sequence'] for row, _ in rows if row['kind'] == 'accepted') < received_rows[0][0]['sequence'], "response predates completed write")
+    if live:
+        positions = defaultdict(int)
+        for tx in report['transactions']:
+            gen = tx['generation']
+            require(1 <= gen <= len(config['connections']), 'transaction lacks connection provenance')
+            require(config['connections'][gen-1]['start_ns'] <= tx['start_ns'], 'transaction precedes connection')
+            if tx['key'] in INITIALIZATION:
+                position = positions[gen]
+                require(position < len(INITIALIZATION) and tx['key'] == list(INITIALIZATION)[position], 'setup stage skipped or repeated')
+                if tx['outcome'] == 'ok':
+                    frame = b''.join(data for row, data in raw_by_tx[tx['id']] if row['kind'] == 'received')
+                    require(tx['adapter_status'] == [initialization_value(tx['key'], frame)], 'setup receipt mismatch')
+                    positions[gen] += 1
+            else: require(positions[gen] == len(INITIALIZATION), 'measurement requested before setup verification')
     groups, observed_pairs = defaultdict(list), set()
     for observation in report['observations']:
         fields(observation, "transaction_id generation ecu signal_id value unit receive_ns mapped_unix_ms measurement_unix_ms decoder_version")
@@ -251,7 +321,7 @@ def _validate_acquisition(path, *, allow_incomplete=False):
         if cap['state'] == 'unavailable': require(cap['observed'] or cap['advertised'] is True, "unknown inferred unavailable")
         if cap['observed']: require(any(o['generation'] == generation and o['ecu'] == cap['ecu'] and txs[o['transaction_id']]['key'] == cap['key'] for o in report['observations']), "capability observed without measurement")
         capability_keys.add(pair)
-    return {'status': 'valid', 'source': 'synthetic', 'physical_validation': False, 'report_version': 1,
+    return {'status': 'valid', 'source': report['source'], 'physical_validation': False, 'report_version': version,
             'generation': generation, 'state': report['state'], 'duration_seconds': duration/10**9,
             'transaction_count': len(txs), 'outcomes': dict(sorted(Counter(tx['outcome'] for tx in txs.values()).items())),
             'observation_count': len(observed_pairs), 'raw_record_count': len(report['raw']), 'statistics': report['statistics']}

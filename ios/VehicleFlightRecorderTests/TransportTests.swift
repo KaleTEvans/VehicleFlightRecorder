@@ -312,3 +312,35 @@ extension TransportTests {
         XCTAssertEqual(capture.writes, Data("S".utf8)); pump.disconnect()
     }
 }
+
+
+extension TransportTests {
+    func testLiveOwnerTickAdmitsWithoutUIRefreshAndStopCancels() async throws {
+        let executor = TransportExecutor(), directory = DirectoryFixture()
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString).appendingPathComponent("ConnectionCaptures")
+        let transport = MXPlusExternalAccessoryTransport(root: root, executor: executor, directory: directory)
+        defer { executor.submit { transport.disconnect(); try? FileManager.default.removeItem(at: root.deletingLastPathComponent()) } }
+        try await onTransport(executor) {
+            directory.accessories = [AccessoryDescriptor(id: 1, protocols: ["com.obdlink"], metadata: ["source": "fixture"])]
+            try transport.startLive(operatingState: "ignition_on_engine_off", workload: "rpm_only", reference: "Synthetic native owner test")
+            let live = try XCTUnwrap(transport.live)
+            let streams = try XCTUnwrap(directory.last)
+            transport.tick()
+            let before = try decodeCore(LiveSnapshot.self, live.core.snapshot())
+            XCTAssertEqual(before.state, "initializing")
+            transport.stream(streams.input, handle: .openCompleted)
+            transport.stream(streams.output, handle: .openCompleted)
+            transport.tick() // No view refresh or UI task drives this request.
+            let reportURL = URL(fileURLWithPath: live.core.path()).appendingPathComponent("capability.json")
+            let report = try XCTUnwrap(JSONSerialization.jsonObject(with: Data(contentsOf: reportURL)) as? [String: Any])
+            let transactions = try XCTUnwrap(report["transactions"] as? [[String: Any]])
+            XCTAssertEqual(transactions.count, 1)
+            XCTAssertEqual(transactions[0]["key"] as? String, "init_close")
+            XCTAssertThrowsError(try transport.requestIdentity(), "No concurrent identity command during live setup")
+            try transport.stopLive()
+            transport.tick()
+            XCTAssertEqual(transport.state, .disconnected)
+            XCTAssertEqual(try decodeCore(LiveSnapshot.self, live.core.snapshot()).state, "complete")
+        }
+    }
+}

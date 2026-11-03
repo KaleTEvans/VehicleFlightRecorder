@@ -8,6 +8,14 @@ enum SessionExporter {
     static let maximumArchiveBytes: UInt64 = 128 * 1024 * 1024
     static func archive(directory: URL, output: URL) throws -> URL {
         let root = directory.standardizedFileURL.resolvingSymlinksInPath()
+        let metadataURL = root.appendingPathComponent("session.json")
+        let metadataSize = try metadataURL.resourceValues(forKeys: [.fileSizeKey]).fileSize ?? Int.max
+        guard metadataSize <= 1024 * 1024 else { throw VehicleTransportError.failed("Session metadata exceeds limit") }
+        let metadata = try JSONSerialization.jsonObject(with: Data(contentsOf: metadataURL)) as? [String: Any]
+        guard let version = metadata?["schema_version"] as? Int, [1, 2].contains(version) else {
+            throw VehicleTransportError.failed("Unsupported session export schema")
+        }
+        let files = Self.files + (version == 2 ? ["capability.json"] : [])
         var total: UInt64 = 0
         for name in files {
             let file = root.appendingPathComponent(name)

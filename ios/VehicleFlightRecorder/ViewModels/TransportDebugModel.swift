@@ -7,6 +7,7 @@ import Foundation
     @Published var error: String?
     @Published var export: URL?
     @Published var busy = false
+    @Published var live: LiveSnapshot?
     private var actionFailure: String?
     private let executor = TransportExecutor()
     private let transport: MXPlusExternalAccessoryTransport
@@ -23,6 +24,11 @@ import Foundation
     func refresh() async { await run(marksBusy: false) { _ in } }
     func connect() async { await run { try $0.connect() } }
     func disconnect() async { await run { $0.disconnect() } }
+    func startLive(operatingState: String, workload: String, reference: String) async {
+        await run { try $0.startLive(operatingState: operatingState, workload: workload, reference: reference) }
+    }
+    func stopLive() async { await run { try $0.stopLive() } }
+    func markLive() async { await run { try $0.markLive() } }
     func identify() async { await run { try $0.requestIdentity() } }
     func lifecycle(_ phase: String) async {
         let transport = self.transport
@@ -54,11 +60,16 @@ import Foundation
                 let notice = transport.notice
                 let raw = transport.capture?.core.snapshot() ?? "No capture"
                 let pumpFailure = transport.pump.failure
+                var live: LiveSnapshot?
+                if let value = transport.live {
+                    do { live = try decodeCore(LiveSnapshot.self, value.core.snapshot()) }
+                    catch { failure = error.localizedDescription }
+                }
                 Task { @MainActor [weak self] in
                     if let self {
-                        self.state = state; self.notice = notice; self.raw = raw
+                        self.state = state; self.notice = notice; self.raw = raw; self.live = live
                         if marksBusy { self.actionFailure = failure }
-                        self.error = self.actionFailure ?? pumpFailure
+                        self.error = self.actionFailure ?? live.flatMap { $0.error.isEmpty ? nil : $0.error } ?? pumpFailure
                         // A pending refresh must not clear a command's busy state.
                         if marksBusy { self.busy = false }
                     }

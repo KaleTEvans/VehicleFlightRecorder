@@ -25,8 +25,8 @@ and confirmed build 6.1 automatic physical replug recovery in approximately 1–
 seconds after iOS Bluetooth reconnects. The recovery source passed 24 native hosted
 tests, two UI tests, portable CI, both device compile profiles and signed delivery.
 See `docs/MILESTONE_5.md` for actual source/run/capture evidence and its limits.
-PR #3 still awaits merge; start M6 from that merged foundation after repository
-closeout. This update does not activate M6.
+PR #3 was merged as `94c5949` on November 3 after the user authorized M5 closeout
+and M6 implementation. The current implementation report is `docs/MILESTONE_6.md`.
 
 Multiple-accessory and physical mid-write cases, plus separately identified OS
 suspension/termination/force-quit behavior, remain unverified on the phone. Preserve

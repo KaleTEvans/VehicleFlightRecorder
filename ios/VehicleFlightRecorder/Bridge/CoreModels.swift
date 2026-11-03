@@ -2,6 +2,8 @@ import Foundation
 
 struct SessionInfo: Codable, Identifiable {
     let sessionId: String
+    let source: String?
+    let profileId: String?
     let startTimeUnixMs: Int64
     let endTimeUnixMs: Int64?
     let state: String

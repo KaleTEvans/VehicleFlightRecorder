@@ -5,7 +5,8 @@ The user confirmed the build 6.1 physical unplug/replug test passes, with automa
 app reconnection approximately 1–2 seconds after reconnecting MX+ through iOS
 Bluetooth. Signed installation, raw identity evidence, open/close, later attachment,
 manual reconnect, lock/unlock and flicker correction have passed as recorded below.
-PR #3 is awaiting merge; Milestone 6 implementation has not started.
+PR #3 merged as `94c5949` on November 3, 2026. Milestone 6 implementation is
+underway on `codex/milestone-6-live-acquisition`; see [its report](MILESTONE_6.md).
 
 This acceptance does not certify every iOS lifecycle state or real vehicle polling.
 The physical coverage gaps in the table remain unverified and carry into stationary
@@ -511,3 +512,10 @@ M6 from the merged foundation. This report accepts M5 transport behavior; it doe
 not merge the PR, start M6, validate ECU reads or certify background recording.
 
 **Milestone 6 not started.**
+
+## Repository closeout — November 3, 2026
+
+PR #3 was squash-merged as `94c5949` after its checks passed. The user authorized
+Milestone 6; implementation continues from that merged foundation. Earlier
+“not started” and “unmerged” statements above record historical progress and are
+superseded by this closeout. No additional physical M5 result is inferred.

@@ -21,17 +21,20 @@ final class RecorderModel: ObservableObject {
     private var refreshCount = 0
     private var refreshing = false
 
-    init(service: RecorderService? = nil) {
+    init(service: RecorderService? = nil, historyOnly: Bool = false) {
         do {
             if let service {
                 self.service = service
                 self.sessionLocation = "Test app container"
             } else {
-                guard let pack = Bundle.main.url(forResource: "VehiclePack", withExtension: nil) else {
-                    throw NSError(domain: "Recorder", code: 2, userInfo: [NSLocalizedDescriptionKey: "The bundled mock vehicle pack is missing"])
-                }
                 let directory = try FileManager.default.url(for: .documentDirectory, in: .userDomainMask, appropriateFor: nil, create: true).appendingPathComponent("Sessions", isDirectory: true)
-                self.service = try RecorderService(pack: pack, sessions: directory)
+                if historyOnly { self.service = try RecorderService(history: directory) }
+                else {
+                    guard let pack = Bundle.main.url(forResource: "VehiclePack", withExtension: nil) else {
+                        throw VehicleTransportError.failed("The bundled mock vehicle pack is missing")
+                    }
+                    self.service = try RecorderService(pack: pack, sessions: directory)
+                }
                 self.sessionLocation = directory.path
             }
         } catch {

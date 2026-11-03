@@ -12,13 +12,13 @@ vehicle packs. The diagnostic MVP takes priority over the later Driver Companion
 ## Current status
 
 **November 3, 2026:** Milestones 0–4 are complete and merged into `master`.
-[Milestone 5 is accepted; PR #3 awaits merge](https://github.com/KaleTEvans/VehicleFlightRecorder/pull/3).
+[Milestone 5 is accepted and merged](https://github.com/KaleTEvans/VehicleFlightRecorder/pull/3).
 The installed iPhone/MX+ path passed the real firmware identity exchange, exported
 raw evidence, reconnect and lock/unlock checks. The user confirmed the flicker fix
 and build `0.1.0 (6.1)` automatic recovery in approximately 1–2 seconds after iOS
 Bluetooth reconnects. The recovery source passed 24 hosted native tests, two UI
 tests, device compile/signing and portable CI. Authorized offline acquisition
-foundations are included; live M6 integration has not started. Unverified physical
+foundations are included; M6 live integration is now in progress. Unverified physical
 edge cases remain documented in the milestone report.
 
 | Milestone | Scope | Status / details |
@@ -28,8 +28,8 @@ edge cases remain documented in the milestone report.
 | 2 | Incident detection, capture windows and reconstruction | Complete; [report](docs/MILESTONE_2.md) |
 | 3 | Native dashboard, sessions, incidents and export | Complete and merged; [report](docs/MILESTONE_3.md) |
 | 4 | Bridge, lifecycle and device/simulator build hardening | Complete and merged; [report](docs/MILESTONE_4.md) |
-| 5 | MX+ byte transport, connection evidence and offline preparation | Complete and accepted; PR #3 awaiting merge; [report](docs/MILESTONE_5.md) |
-| 6 | Adapter initialization, standard OBD and live acquisition | Offline foundations prepared within M5; live integration pending; [handoff](planning/milestone_6.md) |
+| 5 | MX+ byte transport, connection evidence and offline preparation | Complete, accepted and merged; [report](docs/MILESTONE_5.md) |
+| 6 | Adapter initialization, standard OBD and live acquisition | In progress; [report](docs/MILESTONE_6.md); [handoff](planning/milestone_6.md) |
 | 7 | Hands-off road logging, start confirmations and reliability | Planned; [handoff](planning/milestone_7.md) |
 | 8 | Verified Giulia drivetrain signals and incident correlation | Planned; [handoff](planning/milestone_8.md) |
 
@@ -45,16 +45,20 @@ edge cases remain documented in the milestone report.
   RPM/coolant/adapter-voltage decoding, bounded scheduling and simulated failure
   scenarios, with independently validated raw/timing/capability reports.
 - **Python analysis:** validate/summarize sessions, reconstruct incidents, inspect
-  connection captures and validate synthetic acquisition reports.
+  connection captures and independently replay synthetic and live acquisition reports.
 
-Simulator/Appetize always uses the mock recorder. Physical builds expose only an
-explicitly enabled, once-per-connection firmware identity read (`STI`); opening a
-connection sends no commands. The offline acquisition packages are not linked
-into the app and enable no additional scanner requests.
+Simulator/Appetize uses the mock recorder. On the Milestone 6 branch, physical
+builds add explicit **parked stationary recording**: documented Go-owned adapter
+setup, supported-PID discovery, RPM/coolant and adapter input voltage, manual
+incidents and a six-file ZIP with exact raw/transaction provenance. Opening a
+connection alone still sends no commands; Start enables live acquisition. The
+previously accepted TestFlight build `6.1` remains transport-only until a new build
+is delivered. See [Milestone 6](docs/MILESTONE_6.md) for validation status and limits.
 
-Real vehicle polling, automatic trip start/stop and user-facing recording
-confirmations are upcoming work. An uploaded simulator build or unsigned device
-compile does not establish hardware connectivity or background recording.
+Physical ECU support, actual sampling rates and reference comparisons remain
+pending stationary acceptance. Automatic trip start/stop, user-facing recording
+confirmations and road/background qualification belong to Milestone 7. An uploaded
+simulator build or unsigned device compile does not establish these behaviors.
 
 ## Develop and test in WSL
 

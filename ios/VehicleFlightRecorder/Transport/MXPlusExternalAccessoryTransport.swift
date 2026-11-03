@@ -52,6 +52,7 @@ final class MXPlusExternalAccessoryTransport: NSObject, VehicleTransport, Stream
     var state: TransportState { pump.state }
     var notice = "No accessory selected"
     var capture: GoConnectionCapture?
+    private(set) var live: GoLiveSession?
     private let root: URL
     private let executor: TransportExecutor
     private let directory: AccessoryDirectory?
@@ -86,7 +87,7 @@ final class MXPlusExternalAccessoryTransport: NSObject, VehicleTransport, Stream
                 self.overloadLock.lock(); self.overloaded = true; self.overloadLock.unlock()
             }
         }
-        timer = Timer.scheduledTimer(withTimeInterval: 0.5, repeats: true) { [weak self] _ in
+        timer = Timer.scheduledTimer(withTimeInterval: 0.1, repeats: true) { [weak self] _ in
             self?.tick()
         }
         discover()
@@ -103,6 +104,19 @@ final class MXPlusExternalAccessoryTransport: NSObject, VehicleTransport, Stream
             releaseSession(); return
         }
         pump.tick()
+        if let live {
+            do {
+                // Advance Go deadlines even while disconnected; UI reads do not poll.
+                let bytes: Data? = try live.core.nextCommand(TransportClock.nanoseconds(), wallMS: GoLiveSession.wall())
+                if let bytes, !bytes.isEmpty { try pump.enqueueLive(bytes) }
+                let snapshot = try decodeCore(LiveSnapshot.self, live.core.snapshot())
+                if !snapshot.active { disconnect(); return }
+            } catch {
+                let recover = live.core.requiresReconnect()
+                pump.fail(error.localizedDescription); releaseSession()
+                if !recover { disconnect(); notice = error.localizedDescription; return }
+            }
+        }
         if pump.state == .failed { releaseSession() }
         if pump.now() >= nextDiscovery {
             nextDiscovery = pump.now() + 2
@@ -139,8 +153,9 @@ final class MXPlusExternalAccessoryTransport: NSObject, VehicleTransport, Stream
             metadata["protocol"] = "com.obdlink"; metadata["app_version"] = "0.1.0"
             metadata["build"] = Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "unknown"
             metadata["ios"] = ProcessInfo.processInfo.operatingSystemVersionString
-            let log = try GoConnectionCapture(root: root, metadata: metadata)
-            capture = log
+            let log: TransportCapture
+            if let live { log = try live.connect(metadata: metadata) }
+            else { let standalone = try GoConnectionCapture(root: root, metadata: metadata); capture = standalone; log = standalone }
             guard let streams = directory.open(accessory.id) else {
                 try log.event("error", "EASession creation failed"); try log.close("session creation failed")
                 throw VehicleTransportError.failed("EASession creation failed; check pairing, competing apps and provisioning")
@@ -154,6 +169,28 @@ final class MXPlusExternalAccessoryTransport: NSObject, VehicleTransport, Stream
             input.open(); output.open()
             notice = metadata.sorted(by: { $0.key < $1.key }).map { "\($0.key): \($0.value)" }.joined(separator: " • ")
         } catch { notice = error.localizedDescription; pump.fail(error.localizedDescription); releaseSession() }
+    }
+    func startLive(operatingState: String, workload: String, reference: String) throws {
+        if let live, try decodeCore(LiveSnapshot.self, live.core.snapshot()).active {
+            throw VehicleTransportError.failed("A stationary session is already active")
+        }
+        disconnect() // Close any M5 identity exchange before creating a fresh generation.
+        let sessions = root.deletingLastPathComponent().appendingPathComponent("Sessions", isDirectory: true)
+        live = try GoLiveSession(root: sessions, operatingState: operatingState, workload: workload, reference: reference)
+        capture = nil
+        try connect()
+    }
+    func stopLive() throws {
+        guard let live else { return }
+        // Drain/cancel native pending bytes before finalizing the Go session.
+        disconnect()
+        try live.core.stop(TransportClock.nanoseconds())
+    }
+    func markLive() throws {
+        guard let live else { throw VehicleTransportError.failed("Start a stationary session first") }
+        var error: NSError?
+        _ = live.core.mark("Manual stationary incident", nativeNS: TransportClock.nanoseconds(), error: &error)
+        if let error { throw error }
     }
     func requestIdentity() throws { try pump.identify() }
     func disconnect() {

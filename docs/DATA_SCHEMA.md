@@ -1,8 +1,9 @@
-# Session schema 1 — Milestones 1–2
+# Session schemas — mock 1 and live 2
 
 The Go recorder writes numeric observations and discrete events. Python validates
-and summarizes those exact exports. Schema version 1 is supported; other versions
-fail explicitly. These contracts implement MVP sections 6–7 and retain its signal
+and summarizes those exact exports. Schema versions 1 (legacy/mock) and 2 (explicit live acquisition) are supported;
+other versions fail explicitly. The sections below describe schema 1; the live
+extension follows at the end. These contracts implement MVP sections 6–7 and retain its signal
 names. Enterprise ontology examples have not silently renamed the MVP catalog.
 
 ## Files and lifecycle
@@ -139,3 +140,77 @@ sequence numbers and pack provenance. Fault-scenario catalogs add scoped mock
 signals without changing the healthy six-signal catalog. Incident snapshots also
 use schema 1; unsupported versions fail explicitly. See the incident contract for
 revision semantics, coverage reasons and reconstruction.
+
+## Milestone 6 live extension — schema 2
+
+A live session uses `source: obd-live`, `profile_id: generic-obd-can11-500`,
+`vehicle_pack_version: none`, no `mock`, and required `live` configuration:
+`origin` (`physical`, `native-fixture`, `scripted-fixture`), `operating_state`
+(`unknown`, `ignition_on_engine_off`, `stationary_running`), `workload` (`combined`,
+`rpm_only`, `coolant_only`, `voltage_only`), `native_anchor_ns`,
+`catalog_version: standard-live-can11-1`,
+`protocol_profile: can11-single-frame-headers-pci`,
+`report_file: capability.json`, `start_origin: manual`. Fixtures remain explicitly
+identified even though they exercise the live schema. An origin label alone is
+not proof that measurements were physically acquired.
+
+Canonical observations/events carry schema 2 and share the existing contiguous
+record sequence. Incident journal rows independently retain incident schema 1.
+A single start anchor maps native continuous-clock offsets to canonical receipt
+milliseconds; `wall_clock_adjusted` records changes without rewriting timestamps.
+ECU measurement time is unknown, not receipt time under another name.
+
+Every live observation requires `module` (responding CAN ECU ID, or `adapter`),
+`bus: HS-CAN` (selected acquisition bus), decoder `1`, pack `none`, and provenance:
+`transaction_id`, `generation`, `raw_refs`, `request_start_ns`,
+`stream_accepted_ns`, `receive_ns`, `measurement_unix_ms: null`.
+Raw references are positive increasing row numbers. Free-form `raw_request` and
+`raw_response` are forbidden; exact bytes reside in the raw ledger. Each ECU reply
+remains separate, including conflicting values; `7E9` does not imply TCM.
+Adapter voltage is adapter input voltage, not a verified battery terminal reading.
+
+The ZIP contains the five existing files plus `capability.json`, a version-2
+`live-acquisition` report. It includes fixed configuration and initialization
+versions, per-generation adapter metadata, documented schedule, raw transactions,
+decoded observations, scoped capabilities, outcomes and measured rate/gap/latency
+statistics. Rates describe decoded receipt cadence across the full session,
+including setup. They do not establish underlying sensor refresh rates.
+`vehicle_identity: unknown` and `reference_comparison: unmeasured` remain honest
+until separately compared physical evidence is available.
+
+The raw ledger rows contain `session_id`, contiguous `sequence`, `generation`,
+`transaction_id` (empty for unsolicited bytes), `kind` (`requested`, `accepted`,
+`received`, `late_received`, `unsolicited`), `monotonic_ns` (offset from native
+anchor), and `bytes_base64`. Accepted bytes establish native stream acceptance,
+not ECU receipt. Timed-out late bytes stay raw and do not become new observations.
+All raw bytes must be appended successfully before the report checkpoint and
+canonical observation. A failed evidence write stops acquisition and leaves the
+session incomplete; a failed session cannot be finalized as healthy.
+
+Python independently replays setup and decoding, checks report raw rows against
+the raw file, and matches each canonical observation's value, ECU, transaction,
+raw references, timestamps and decoder. Unknown fields, altered provenance,
+missing rows and duplicate claims are rejected. Complete exports require an exact
+six-file layout, finalized counts, all report observations, stopped report and
+matching end time. Schema-1 mock exports continue requiring an empty raw file.
+
+Report checkpoints use checked, synced temporary writes and atomic rename before
+canonical append. An interruption can leave an older checkpoint, a well-formed
+uncheckpointed raw tail, report observations not yet in the canonical prefix, or
+a `.capability-*` temporary file. `--allow-incomplete` reports these explicitly;
+it does not repair, drop truncated rows, infer completion, or substitute a report
+observation into canonical history. Required files still must exist. Original
+phone Files evidence is retained when app export is unavailable for an unfinished
+session. No actual crash/power-loss durability claim is made.
+
+Limits: 600 seconds checked when the native owner runs, 16 connection generations,
+2,048 transactions, 16,384 raw records / 2 MiB payload, 8,192 decoded report
+observations, 16 MiB capability report, 64 MiB per canonical/raw log and 128 MiB
+native ZIP. Exceeding bounds stops admission; original evidence remains. The
+maximum is not an OS wake guarantee: after suspension, actual observed elapsed
+time may exceed 600 seconds before the owner resumes and stops.
+
+Independent future OBD/GPS/motion sources must define their own source timestamps,
+clock alignment, sequence and late-arrival admission before extending the current
+single-source ordered recorder. Receipt mapping here does not silently authorize
+asynchronous ingestion or sensor fusion.

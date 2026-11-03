@@ -104,6 +104,7 @@ jobs:
             --path build/ios-preview/NativeTests.xcresult \
             --output-path build/native-acceptance/ui-attachments
           cp -R "$APP_DATA/Documents/NativeAcceptance/Exports" build/native-acceptance/
+          cp -R "$APP_DATA/Documents/NativeAcceptance/Connections" build/native-acceptance/
           printf 'Simulator: %s\nCommit: %s\n' "$SIMULATOR_ID" "$GITHUB_SHA" > build/native-acceptance/provenance.txt
           xcrun simctl io "$SIMULATOR_ID" screenshot build/native-acceptance/simulator.png
 
@@ -116,6 +117,9 @@ jobs:
         run: |
           ./scripts/bootstrap.sh
           analytics/.venv/bin/python scripts/validate_native_exports.py build/native-acceptance
+          for capture in build/native-acceptance/Connections/*.jsonl; do
+            analytics/.venv/bin/python -m vehicle_flight_recorder validate-connection "$capture"
+          done
 
       - name: Publish native test and export evidence
         if: always()
@@ -194,7 +198,7 @@ jobs:
           platform: ios
           appFile: build/ios-preview/VehicleFlightRecorder-simulator.zip
           fileType: zip
-          note: Vehicle Flight Recorder - Milestone 4 hardened mock bridge
+          note: Vehicle Flight Recorder - Milestone 5 transport shell; mock-only simulator
           timeout: '120'
 
       - name: Report Appetize upload result
@@ -215,3 +219,40 @@ jobs:
             echo '### Appetize upload failed or returned no preview key; use the saved GitHub artifact for manual upload.' >> "$GITHUB_STEP_SUMMARY"
             exit 1
           fi
+
+  device-compatibility:
+    runs-on: macos-15
+    timeout-minutes: 20
+    env:
+      MOBILE_BUILD_PROFILE: device
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - name: Read device upload toolchain contract
+        id: toolchain
+        run: python3 scripts/mobile_build_config.py --github-output "$GITHUB_OUTPUT" --github-env "$GITHUB_ENV"
+      - uses: actions/setup-go@v5
+        with:
+          go-version: ${{ steps.toolchain.outputs.go_version }}
+          cache: false
+      - name: Build device-compatible framework and project
+        run: |
+          ./scripts/build_go_ios.sh
+          if ! command -v xcodegen >/dev/null; then brew install xcodegen; fi
+          ./scripts/generate_xcode_project.sh
+      - name: Compile unsigned release archive with upload-compatible SDK
+        run: |
+          xcodebuild -project ios/VehicleFlightRecorder.xcodeproj -scheme VehicleFlightRecorder \
+            -configuration Release -sdk iphoneos -destination 'generic/platform=iOS' \
+            -archivePath build/ios-device-compatibility/VehicleFlightRecorder.xcarchive \
+            CODE_SIGNING_ALLOWED=NO archive
+          mkdir -p build/device-compatibility
+          cp build/ios/native-build-manifest.json build/device-compatibility/
+          cp build/ios-device-compatibility/VehicleFlightRecorder.xcarchive/Products/Applications/VehicleFlightRecorder.app/Info.plist build/device-compatibility/
+      - uses: actions/upload-artifact@v4
+        with:
+          name: VehicleFlightRecorder-device-sdk-compatibility
+          path: build/device-compatibility/
+          if-no-files-found: error
+          retention-days: 14

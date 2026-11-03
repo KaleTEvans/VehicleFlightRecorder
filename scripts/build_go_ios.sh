@@ -7,6 +7,7 @@ ROOT="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
 }
 python3 "$ROOT/scripts/mobile_build_config.py"
 source "$ROOT/scripts/mobile_toolchain.env"
+if [[ "${MOBILE_BUILD_PROFILE:-preview}" == device ]]; then source "$ROOT/scripts/device_toolchain.env"; fi
 export DEVELOPER_DIR="/Applications/Xcode_${MOBILE_XCODE_VERSION}.app/Contents/Developer"
 xcodebuild -version
 export GOCACHE="${GOCACHE:-$ROOT/.cache/go-build}"

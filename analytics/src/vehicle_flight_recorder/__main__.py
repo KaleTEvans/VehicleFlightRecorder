@@ -10,7 +10,7 @@ from .session import IncompleteSessionError, ValidationError, load_session
 def main(argv=None):
     parser = argparse.ArgumentParser(prog="python -m vehicle_flight_recorder")
     commands = parser.add_subparsers(dest="command", required=True)
-    for name in ("validate", "summarize", "incident"):
+    for name in ("validate", "summarize", "incident", "validate-connection", "validate-acquisition"):
         command = commands.add_parser(name)
         command.add_argument("session_directory")
         if name == "incident":
@@ -18,7 +18,13 @@ def main(argv=None):
         command.add_argument("--allow-incomplete", action="store_true", help="inspect well-formed unfinalized logs without repairing them")
     args = parser.parse_args(argv)
     try:
-        if args.command == "incident":
+        if args.command == "validate-acquisition":
+            from .acquisition import validate_acquisition
+            summary = validate_acquisition(args.session_directory, allow_incomplete=args.allow_incomplete)
+        elif args.command == "validate-connection":
+            from .connection import validate_connection
+            summary = validate_connection(args.session_directory, allow_incomplete=args.allow_incomplete)
+        elif args.command == "incident":
             from .incidents import reconstruct
             summary = reconstruct(args.session_directory, args.incident_id, allow_incomplete=args.allow_incomplete)
         else:
@@ -30,7 +36,7 @@ def main(argv=None):
     except IncompleteSessionError as error:
         print(f"incomplete session: {error}", file=sys.stderr)
         return 2
-    except ValidationError as error:
+    except (ValidationError, OSError) as error:
         print(f"invalid session: {error}", file=sys.stderr)
         return 1
 

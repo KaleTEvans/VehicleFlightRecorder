@@ -277,3 +277,11 @@ xcodebuild -project ios/VehicleFlightRecorder.xcodeproj -scheme VehicleFlightRec
 This last command is an unsigned compile check, not an installable signed IPA.
 Use the workflow for actual simulator native/UI tests, native export extraction,
 Python validation and preview publication. No Mac setup is required in WSL.
+
+## Physical transport development
+
+Milestone 5 uses a dedicated native run loop and Go-owned connection captures.
+See [transport contract/status](MILESTONE_5.md) and [signed build setup](IOS_DEVICE.md).
+`validate-connection` inspects standalone transport files; canonical mock session
+validation remains unchanged. Native transport fixtures run in the simulator
+without opening EASession. Only device builds enable physical discovery.

@@ -123,8 +123,8 @@ jobs:
           umask 077
           mkdir -p "$RUNNER_TEMP/private_keys"
           printf '%s' "$API_KEY" | base64 --decode > "$RUNNER_TEMP/private_keys/AuthKey_$API_ID.p8"
-          API_PRIVATE_KEYS_DIR="$RUNNER_TEMP/private_keys" xcrun altool --upload-app --type ios \
-            --file build/ios-device/export/VehicleFlightRecorder.ipa --apiKey "$API_ID" --apiIssuer "$API_ISSUER"
+          API_PRIVATE_KEYS_DIR="$RUNNER_TEMP/private_keys" ./scripts/upload_testflight.sh \
+            build/ios-device/export/VehicleFlightRecorder.ipa
       - name: Clean signing material
         if: always()
         run: |

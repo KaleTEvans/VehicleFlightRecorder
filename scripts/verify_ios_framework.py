@@ -44,6 +44,7 @@ def main():
         binary = args.framework / library['LibraryIdentifier'] / library['LibraryPath'] / 'VehicleFlightRecorderCore'
         subprocess.run(['xcrun', 'lipo', str(binary), '-verify_arch', 'arm64'], check=True)
     inputs = sorted((ROOT / 'core').rglob('*.go')) + [ROOT / 'core/go.mod', ROOT / 'core/go.sum', ROOT / 'scripts/mobile_toolchain.env', ROOT / 'scripts/build_go_ios.sh', ROOT / 'ios/project.yml']
+    inputs += [ROOT / 'scripts/device_toolchain.env', ROOT / 'scripts/mobile_build_config.py']
     inputs += sorted((ROOT / 'vehicle-packs').rglob('*.json'))
     report = {'configuration': config, 'slices': libraries,
               'commit': subprocess.check_output(['git', 'rev-parse', 'HEAD'], text=True).strip(),

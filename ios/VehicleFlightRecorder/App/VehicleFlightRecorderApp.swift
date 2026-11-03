@@ -8,11 +8,21 @@ struct VehicleFlightRecorderApp: App {
             if ProcessInfo.processInfo.arguments.contains("--ui-test-evidence") {
                 EvidenceUITestHost()
             } else {
-                DashboardView()
+                RecorderRootView()
             }
             #else
-            DashboardView()
+            RecorderRootView()
             #endif
         }
+    }
+}
+
+private struct RecorderRootView: View {
+    var body: some View {
+        #if targetEnvironment(simulator)
+        DashboardView()
+        #else
+        TransportDebugView()
+        #endif
     }
 }

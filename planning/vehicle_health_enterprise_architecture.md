@@ -1,5 +1,15 @@
 # Vehicle Health Platform — Enterprise Architecture Roadmap
 ## Living document
+
+**Intermediate product phase (October 29, 2026):** The
+[Driver Companion V2 plan](driver_companion_v2_plan.md) sits after the diagnostic
+MVP and prioritized Alfa package, before broader platform expansion. It adds a
+personal garage, performance/diagnostic cockpit views, drive debriefs and qualified
+personal records on the same evidence foundation. Generic standard-signal discovery
+is shared infrastructure; manufacturer packs add depth. Broad generic release
+coverage still requires validation. The rollout stages below remain directional;
+V2 does not require cloud services, accounts or AI reporting, and does not displace
+the owner's immediate diagnostic objective.
 ### Status: Directional architecture; expand as the Alfa MVP generates evidence
 
 **Development environment decision (October 2026):** The reference developer has Windows + WSL and an iPhone, but no Mac. Milestone 0 is complete; an intermediary **MVP Milestone 0.5** introduces GitHub Actions macOS builds and Appetize browser-hosted simulator previews. The app is approved for OBDLink MX+, but simulator previews cannot connect to physical MFi/Bluetooth hardware. This is a **delivery/testing strategy**, not a change to the core platform architecture.

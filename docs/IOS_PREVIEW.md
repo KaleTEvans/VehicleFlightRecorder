@@ -262,3 +262,10 @@ analytics/.venv/bin/python -m unittest discover -s scripts/tests -v
 - [Tagged action inputs/output](https://github.com/appetizeio/github-action-appetize/blob/v1.1.0/action.yml)
 - [Appetize iOS bundle format](https://docs.appetize.io/platform/app-management/uploading-apps/ios)
 - [Appetize access permissions](https://docs.appetize.io/platform/app-management/app-permissions)
+
+## Milestone 5 boundary
+
+The preview remains mock-only. Native tests now also export synthetic connection
+captures and validate them in Python. Physical iPhone builds show Adapter Transport
+and use the separate [signed device workflow](IOS_DEVICE.md). Simulator success
+is not installation or accessory evidence.

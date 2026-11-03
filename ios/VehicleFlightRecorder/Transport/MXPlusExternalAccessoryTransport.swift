@@ -53,6 +53,7 @@ final class MXPlusExternalAccessoryTransport: NSObject, VehicleTransport, Stream
     var notice = "No accessory selected"
     var capture: GoConnectionCapture?
     private(set) var live: GoLiveSession?
+    private var liveAcquisitionEnabled = false
     private let root: URL
     private let executor: TransportExecutor
     private let directory: AccessoryDirectory?
@@ -104,17 +105,17 @@ final class MXPlusExternalAccessoryTransport: NSObject, VehicleTransport, Stream
             releaseSession(); return
         }
         pump.tick()
-        if let live {
+        if liveAcquisitionEnabled, let live {
             do {
                 // Advance Go deadlines even while disconnected; UI reads do not poll.
                 let bytes = try GoLiveSession.command(live.core, nativeNS: TransportClock.nanoseconds(), wallMS: GoLiveSession.wall())
                 if !bytes.isEmpty { try pump.enqueueLive(bytes) }
                 let snapshot = try decodeCore(LiveSnapshot.self, live.core.snapshot())
-                if !snapshot.active { disconnect(); return }
+                if !snapshot.active { liveAcquisitionEnabled = false; disconnect(); return }
             } catch {
                 let recover = live.core.requiresReconnect()
                 pump.fail(error.localizedDescription); releaseSession()
-                if !recover { disconnect(); notice = error.localizedDescription; return }
+                if !recover { liveAcquisitionEnabled = false; disconnect(); notice = error.localizedDescription; return }
             }
         }
         if pump.state == .failed { releaseSession() }
@@ -154,7 +155,7 @@ final class MXPlusExternalAccessoryTransport: NSObject, VehicleTransport, Stream
             metadata["build"] = Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "unknown"
             metadata["ios"] = ProcessInfo.processInfo.operatingSystemVersionString
             let log: TransportCapture
-            if let live { log = try live.connect(metadata: metadata) }
+            if liveAcquisitionEnabled, let live { log = try live.connect(metadata: metadata) }
             else { let standalone = try GoConnectionCapture(root: root, metadata: metadata); capture = standalone; log = standalone }
             guard let streams = directory.open(accessory.id) else {
                 try log.event("error", "EASession creation failed"); try log.close("session creation failed")
@@ -178,11 +179,13 @@ final class MXPlusExternalAccessoryTransport: NSObject, VehicleTransport, Stream
         let sessions = root.deletingLastPathComponent().appendingPathComponent("Sessions", isDirectory: true)
         live = try GoLiveSession(root: sessions, operatingState: operatingState, workload: workload, reference: reference)
         capture = nil
+        liveAcquisitionEnabled = true
         try connect()
     }
     func stopLive() throws {
         guard let live else { return }
         // Drain/cancel native pending bytes before finalizing the Go session.
+        liveAcquisitionEnabled = false
         disconnect()
         try live.core.stop(TransportClock.nanoseconds())
     }

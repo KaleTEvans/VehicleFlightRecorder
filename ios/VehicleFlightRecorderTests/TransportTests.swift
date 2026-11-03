@@ -341,6 +341,14 @@ extension TransportTests {
             transport.tick()
             XCTAssertEqual(transport.state, .disconnected)
             XCTAssertEqual(try decodeCore(LiveSnapshot.self, live.core.snapshot()).state, "complete")
+            // A saved live snapshot must not keep the transport in live mode.
+            try transport.connect()
+            let standalone = try XCTUnwrap(directory.last)
+            transport.stream(standalone.input, handle: .openCompleted)
+            transport.stream(standalone.output, handle: .openCompleted)
+            transport.tick()
+            XCTAssertEqual(transport.state, .ready)
+            XCTAssertNotNil(transport.capture, "M5 identity mode is available after live Stop")
         }
     }
 }

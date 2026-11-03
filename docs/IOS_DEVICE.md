@@ -14,6 +14,17 @@ passed native verification and uploaded at 17:20:58 CDT on October 30. On Novemb
 Bluetooth reconnects; M5 transport acceptance is complete. Unverified physical
 edge cases remain listed in the M5 report.
 
+## Milestone 6 beta
+
+Build `0.1.0 (7.1)` uploaded on November 3, 2026 at 1:44:51 p.m. CST from
+`06c5e207ae82aae259a9720271fc5f08df359511` in
+[run 41705740118](https://github.com/KaleTEvans/VehicleFlightRecorder/actions/runs/41705740118).
+The exact source passed 26 hosted native tests, two UI tests, both device compile
+profiles and real native ZIP reconstruction. Apple confirmed VALID /
+IN_BETA_TESTING at 1:45 p.m. CST; see [the M6 report](MILESTONE_6.md). Update from transport-only build 6.1 before testing
+parked live controls. Begin with the report's short individual workloads; physical
+M6 acceptance and road/background qualification remain pending.
+
 ## User setup
 
 Status update — October 30, 2026: Apple Developer enrollment is approved. The

@@ -38,7 +38,9 @@ for archive in archives:
     if incident['status'] != 'captured':
         raise SystemExit('Native scenario did not capture full evidence')
     reconstruction = reconstruct(destination, incident['incident_id'])
-    (destination / 'reconstructed-incident.json').write_text(json.dumps(reconstruction, indent=2) + '\n')
+    reconstructed = root / 'reconstructions'
+    reconstructed.mkdir(exist_ok=True)
+    (reconstructed / f'{archive.stem}.json').write_text(json.dumps(reconstruction, indent=2) + '\n')
     results.append(summary)
 if live_count < 1 or not {'healthy_drive', 'voltage_tcm_dropout'} <= scenarios:
     raise SystemExit('Native test scenario coverage is incomplete')

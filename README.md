@@ -18,8 +18,10 @@ raw evidence, reconnect and lock/unlock checks. The user confirmed the flicker f
 and build `0.1.0 (6.1)` automatic recovery in approximately 1–2 seconds after iOS
 Bluetooth reconnects. The recovery source passed 24 hosted native tests, two UI
 tests, device compile/signing and portable CI. Authorized offline acquisition
-foundations are included; M6 live integration is now in progress. Unverified physical
-edge cases remain documented in the milestone report.
+foundations are included. M6 parked acquisition is implemented and native-validated;
+build `0.1.0 (7.1)` uploaded for TestFlight on November 3 at 1:44 p.m. CST.
+Apple confirmed the build VALID / IN_BETA_TESTING; real stationary acceptance
+is pending in [its report](docs/MILESTONE_6.md).
 
 | Milestone | Scope | Status / details |
 | --- | --- | --- |
@@ -51,9 +53,8 @@ Simulator/Appetize uses the mock recorder. On the Milestone 6 branch, physical
 builds add explicit **parked stationary recording**: documented Go-owned adapter
 setup, supported-PID discovery, RPM/coolant and adapter input voltage, manual
 incidents and a six-file ZIP with exact raw/transaction provenance. Opening a
-connection alone still sends no commands; Start enables live acquisition. The
-previously accepted TestFlight build `6.1` remains transport-only until a new build
-is delivered. See [Milestone 6](docs/MILESTONE_6.md) for validation status and limits.
+connection alone still sends no commands; Start enables live acquisition. TestFlight build `6.1` is transport-only; build `7.1` adds these live controls.
+Update before performing M6 stationary tests. See [Milestone 6](docs/MILESTONE_6.md) for validation status and limits.
 
 Physical ECU support, actual sampling rates and reference comparisons remain
 pending stationary acceptance. Automatic trip start/stop, user-facing recording

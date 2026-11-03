@@ -205,8 +205,8 @@ session. No actual crash/power-loss durability claim is made.
 
 Limits: 600 seconds checked when the native owner runs, 16 connection generations,
 2,048 transactions, 16,384 raw records / 2 MiB payload, 8,192 decoded report
-observations, 16 MiB capability report, 64 MiB per canonical/raw log and 128 MiB
-native ZIP. Exceeding bounds stops admission; original evidence remains. The
+observations, 16 MiB capability report, 64 MiB reader budget per canonical/raw log
+(and raw writer bound), and 128 MiB native ZIP. Exceeding bounds stops admission; original evidence remains. The
 maximum is not an OS wake guarantee: after suspension, actual observed elapsed
 time may exceed 600 seconds before the owner resumes and stops.
 

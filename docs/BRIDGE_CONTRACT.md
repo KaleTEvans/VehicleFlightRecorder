@@ -2,7 +2,7 @@
 
 This contract is implemented by `core/mobile` and consumed by the native
 RecorderService actor. It is distinct from core/app release 0.1.0, telemetry
-schema 1, mock pack 0.2.0 and future decoder versions. Older persisted mock
+schemas 1 (mock) and 2 (live), mock pack 0.2.0 and decoder versions. Older persisted mock
 sessions are unchanged. A new client verifies `BridgeVersion() == 1` **before**
 creating a controller. Unsupported native/core versions fail closed, not by
 attempting to decode a best-effort snapshot. JSON evolution within a contract

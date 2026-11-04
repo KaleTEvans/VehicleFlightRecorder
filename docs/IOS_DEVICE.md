@@ -28,6 +28,19 @@ visit, with history/export and one evidence handoff afterward indoors. Per-case
 chat review is not required. Physical M6 acceptance and road/background
 qualification remain pending.
 
+**Current testing hold:** the user reported zero samples in separate engine-running
+RPM/coolant recordings, followed by intermittent export presentation. The export
+correction passed native acceptance on `40f0a7fd62e44d44116371cecfee23d59cb44950`
+([run 41749441572](https://github.com/KaleTEvans/VehicleFlightRecorder/actions/runs/41749441572)):
+28 hosted tests, three UI tests, both device compile profiles and five actual native
+ZIP validations, including zero-sample raw evidence. Build `0.1.0 (8.1)` uploaded
+on November 3 at 7:00:32 p.m. CST through
+[signed run 41750645334](https://github.com/KaleTEvans/VehicleFlightRecorder/actions/runs/41750645334);
+Apple confirmed VALID / IN_BETA_TESTING; this beta is available for retrieving the
+existing sessions
+indoors. No new car recording or resumed checklist is requested
+until those records have been analyzed. The acquisition cause remains unknown.
+
 ## User setup
 
 Status update — October 30, 2026: Apple Developer enrollment is approved. The

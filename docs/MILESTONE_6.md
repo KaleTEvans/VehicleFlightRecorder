@@ -198,7 +198,7 @@ sessions retain raw requests/replies and the capability report. Review evidence
 indoors and batch any fix/retest into the next packet. Combined/reconnect testing
 is on hold; no repeat car visit is requested while investigating these recordings.
 
-## Export retrieval defect — investigation in progress
+## Export retrieval correction — native acceptance passed
 
 The user also reports that Export sometimes responds only after repeated taps.
 Retrieval is a blocking issue for the pending RPM/coolant diagnosis. Code review
@@ -215,11 +215,47 @@ valid export candidates when finalized; their raw evidence must remain intact.
 
 Native regressions cover the physical nested-history route with scripted
 zero-sample RPM/coolant sessions, one-tap presentation and repeated exports, model
-failure cleanup, and independent Python validation of actual native ZIPs. Native
-verification and updated beta delivery are pending. Existing recordings can also
+failure cleanup, and independent Python validation of actual native ZIPs.
+[Native run 41749441572](https://github.com/KaleTEvans/VehicleFlightRecorder/actions/runs/41749441572)
+passed on source `40f0a7fd62e44d44116371cecfee23d59cb44950`: 28 hosted tests,
+three UI tests and both device compile profiles, with zero failures. The new UI
+case opens the real system share sheet on one tap, checks the correct file and
+Save to Files action, dismisses, reopens the same recording and then exports the
+other recording. No retry taps are used. All five actual native ZIPs validated,
+including zero-sample RPM/coolant recordings with retained no-data transactions.
+
+Native evidence artifact
+[13285573344](https://github.com/KaleTEvans/VehicleFlightRecorder/actions/runs/41749441572/artifacts/13285573344)
+has SHA-256 `cf80a77df4f3d6b9d89488e8902369b35543b7052c386ccb551b131f8ae32fc7`.
+Retrieved ZIPs and independent WSL replay are under ignored generated directories
+`build/milestone-6-native/40f0a7f/` and `40f0a7f-replay/`. These remain explicitly
+synthetic fixtures; the phone export behavior still needs confirmation. Updated
+beta delivery is recorded below. Existing recordings can also
 be retrieved through Files / On My iPhone / Vehicle Flight Recorder / Sessions,
 using the app's existing document-sharing configuration. No further car recording
 is requested to test retrieval. The physical acquisition cause remains unknown
 until the existing raw records are available.
+
+## Export beta delivery — November 3, 2026
+
+Build `0.1.0 (8.1)` uploaded at **01:00:32 UTC November 4 / 7:00:32 p.m. CST
+November 3** through
+[signed run 41750645334](https://github.com/KaleTEvans/VehicleFlightRecorder/actions/runs/41750645334).
+The signed source is the exact native-tested commit
+`40f0a7fd62e44d44116371cecfee23d59cb44950`. Archive/export/signature checks passed;
+Apple returned `UPLOAD SUCCEEDED with no errors`, delivery ID
+`0036e40f-7341-4158-80ec-0f2d4f9e95cc`. Read-only inspection confirmed upload
+COMPLETE with no errors or warnings, build VALID, `usesNonExemptEncryption: false`,
+and internal state IN_BETA_TESTING. Apple lists the processed build at
+01:01:32 UTC November 4 / 7:01:32 p.m. CST November 3. Build 8.1 is available
+for internal TestFlight installation.
+
+This update corrects session/capture export presentation and error reporting; it
+does not change OBD initialization, acquisition admission or decoders. Install it
+for the [indoor retrieval block](../planning/milestone_6_test_session.md#current-task--retrieve-existing-recordings-indoors)
+using the already-saved phone recordings. No scanner connection or new recording
+is needed. Physical single-tap/repeat export and receipt of the original ZIPs remain
+pending. The RPM/coolant diagnosis and connected checklist remain on hold.
+Appetize was not updated; PR #5 remains draft and M6 is not physically accepted.
 
 **Milestone 7 not started.**

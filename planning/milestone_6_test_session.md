@@ -4,7 +4,31 @@ Status: PAUSED pending investigation of the reported zero-sample RPM/coolant
 recordings. Preserve and return those existing sessions together; no repeat car
 visit or combined/reconnect testing is requested until evidence review. See
 [the device issue](../docs/MILESTONE_6.md#physical-acquisition-issue--user-report-november-3-2026).
-The checklist below remains the planned consolidated sequence after diagnosis. This checklist supersedes the
+The checklist below remains the planned consolidated sequence after diagnosis.
+
+## Current task — retrieve existing recordings indoors
+
+Export-fix build **0.1.0 (8.1)** uploaded on November 3 at 7:00 p.m. CST;
+Apple confirmed VALID / IN_BETA_TESTING. Update for this retrieval block;
+do not repeat the car cases below.
+No scanner connection is needed for this block.
+
+- [ ] Open saved sessions and choose the existing finalized RPM-only recording.
+  Tap Export session ZIP once; allow ZIP preparation, then save/share the archive.
+- [ ] Dismiss the share sheet and export that same recording again to confirm
+  repeat presentation. One copy of its ZIP is sufficient for the evidence handoff.
+- [ ] Export the existing coolant-only recording and any already-recorded voltage
+  session. Keep the original recordings; do not create replacements for this step.
+- [ ] Return those ZIPs together, noting any export error or the session's displayed
+  state. If an interrupted session cannot export, retain its original folder via
+  Files / On My iPhone / Vehicle Flight Recorder / Sessions instead.
+
+These are retrieval checks, not successful physical acquisition acceptance. Review
+the saved raw replies before issuing a consolidated connected retest packet.
+
+## Planned connected visit — remains paused
+
+This checklist supersedes the
 previous standalone “45-second voltage test, then return for review” request.
 Run the listed checks in one visit when their continue criteria pass; return the
 recordings together afterward. It follows the [shared test-session workflow](physical_test_sessions.md).
@@ -12,9 +36,11 @@ recordings together afterward. It follows the [shared test-session workflow](phy
 Target: the owner's 2017 Giulia QV and paired OBDLink MX+. Use the iPhone 16 Pro
 (previously reported iOS 26.6.2), noting any device/OS/adapter changes.
 
-Build: **Vehicle Flight Recorder 0.1.0 (7.1)**, app source
-`06c5e207ae82aae259a9720271fc5f08df359511`. Documentation changes do not require
-another app update. Plan approximately **20–30 minutes parked**, with extra time
+Original acquisition baseline: **Vehicle Flight Recorder 0.1.0 (7.1)**, app source
+`06c5e207ae82aae259a9720271fc5f08df359511`. Export-fix build **8.1**, source
+`40f0a7fd62e44d44116371cecfee23d59cb44950`, preserves that acquisition path.
+The connected visit remains paused; review the next retest packet before going.
+Plan approximately **20–30 minutes parked**, with extra time
 if using a prepared reference tool. This is an estimate, not measured reliability.
 Each recording stays below the build's 10-minute owner-loop limit. The fixed
 standard CAN 11-bit / 500 kbps profile, allowlist and conservative polling budgets
@@ -23,8 +49,8 @@ scheduling, not the transmitted command set.
 
 ## Before going to the car
 
-- [ ] Update TestFlight to 7.1 and read this entire checklist. Prepare a place for
-  brief notes; no CI or Apple-account work is needed during the visit.
+- [ ] Confirm the next approved retest build and read this entire checklist.
+  Prepare a place for brief notes; no CI or Apple-account work is needed during the visit.
 - [ ] Have the paired MX+, phone and any already available reference tool ready.
   If a reference is unavailable, mark that comparison pending; still collect the
   other cases during this visit.

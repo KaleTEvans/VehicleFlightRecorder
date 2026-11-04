@@ -88,8 +88,9 @@ final class EvidenceNavigationTests: XCTestCase {
                 XCTAssertTrue(sheet.waitForExistence(timeout: 15), app.debugDescription)
                 let sessionID = String(identifier.dropFirst("session-row-".count))
                 let title = app.navigationBars["UIActivityContentView"].otherElements.matching(NSPredicate(format: "label == %@", sessionID)).firstMatch
-                XCTAssertTrue(title.exists, app.debugDescription)
+                XCTAssertTrue(title.waitForExistence(timeout: 30), app.debugDescription)
                 let save = app.cells.matching(NSPredicate(format: "label == %@", "Save to Files")).firstMatch
+                XCTAssertTrue(save.waitForExistence(timeout: 15), app.debugDescription)
                 XCTAssertTrue(save.isHittable, app.debugDescription)
                 XCTAssertFalse(app.staticTexts["session-export-error"].exists)
                 let screenshot = XCTAttachment(screenshot: app.screenshot())

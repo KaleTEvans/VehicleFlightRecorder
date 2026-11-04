@@ -95,6 +95,7 @@ struct SessionShareSheet: UIViewControllerRepresentable {
     func makeUIViewController(context: Context) -> UIActivityViewController {
         let controller = UIActivityViewController(activityItems: [url], applicationActivities: nil)
         let completion = completed
+        controller.loadViewIfNeeded()
         controller.completionWithItemsHandler = { _, _, _, _ in
             // Clear the matching request for system cancel/Save to Files as well
             // as SwiftUI gesture dismissal. File generation has already finished.

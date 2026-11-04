@@ -10,12 +10,13 @@ from vehicle_flight_recorder.incidents import reconstruct
 
 root = Path(sys.argv[1])
 archives = sorted((root / 'Exports').glob('*.zip'))
-if len(archives) < 3:
-    raise SystemExit('Expected native healthy/manual, voltage/TCM and live-fixture ZIP exports')
+if len(archives) < 5:
+    raise SystemExit('Expected native mock, live-manual and two zero-sample live ZIP exports')
 expected = {'session.json', 'observations.jsonl', 'events.jsonl', 'incidents.jsonl', 'raw/transport.jsonl'}
 scenarios = set()
 results = []
 live_count = 0
+zero_workloads = set()
 for archive in archives:
     destination = root / 'unpacked' / archive.stem
     with zipfile.ZipFile(archive) as source:
@@ -32,17 +33,24 @@ for archive in archives:
     else:
         scenarios.add(metadata['mock']['scenario'])
     summary = load_session(destination)
-    if summary['state'] != 'complete' or summary['incident_count'] != 1:
-        raise SystemExit('Native test export must have one finalized incident')
-    incident = summary['incidents'][0]
-    if incident['status'] != 'captured':
-        raise SystemExit('Native scenario did not capture full evidence')
-    reconstruction = reconstruct(destination, incident['incident_id'])
-    reconstructed = root / 'reconstructions'
-    reconstructed.mkdir(exist_ok=True)
-    (reconstructed / f'{archive.stem}.json').write_text(json.dumps(reconstruction, indent=2) + '\n')
+    if summary['state'] != 'complete':
+        raise SystemExit('Native test export must be finalized')
+    if metadata['schema_version'] == 2 and summary['observation_count'] == 0:
+        if summary['incident_count'] != 0 or summary['live']['capability_report']['outcomes'].get('no_data', 0) < 1:
+            raise SystemExit('Zero-sample export must preserve its real scripted no-data transaction')
+        zero_workloads.add(metadata['live']['workload'])
+    else:
+        if summary['incident_count'] != 1:
+            raise SystemExit('Native manual/fault test export must have one incident')
+        incident = summary['incidents'][0]
+        if incident['status'] != 'captured':
+            raise SystemExit('Native scenario did not capture full evidence')
+        reconstruction = reconstruct(destination, incident['incident_id'])
+        reconstructed = root / 'reconstructions'
+        reconstructed.mkdir(exist_ok=True)
+        (reconstructed / f'{archive.stem}.json').write_text(json.dumps(reconstruction, indent=2) + '\n')
     results.append(summary)
-if live_count < 1 or not {'healthy_drive', 'voltage_tcm_dropout'} <= scenarios:
+if live_count < 3 or not {'rpm_only', 'coolant_only'} <= zero_workloads or not {'healthy_drive', 'voltage_tcm_dropout'} <= scenarios:
     raise SystemExit('Native test scenario coverage is incomplete')
 (root / 'python-validation.json').write_text(json.dumps(results, indent=2) + '\n')
-print(f'Validated {len(archives)} real native ZIP exports and reconstructed their incidents')
+print(f'Validated {len(archives)} native ZIP exports, including zero-sample RPM/coolant raw evidence; reconstructed all available incidents')

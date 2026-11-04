@@ -10,39 +10,14 @@ struct SessionsView: View {
                 }
                 ForEach(model.sessions) { row in
                     NavigationLink {
-                        List {
-                            Section("Drive") {
-                                LabeledContent("Source", value: row.session.source ?? "unknown")
-                                LabeledContent("Profile", value: row.session.profileId ?? "unknown")
-                                LabeledContent("Started", value: row.session.started.formatted())
-                                LabeledContent("Duration", value: row.session.duration)
-                                LabeledContent("State", value: model.sessionState(row.session))
-                                LabeledContent("Samples", value: "\(row.session.observationCount)")
-                                LabeledContent("Events", value: "\(row.session.eventCount)")
-                                LabeledContent("Incidents", value: "\(row.session.incidentCount)")
-                                LabeledContent("Size", value: ByteCountFormatter.string(fromByteCount: row.sizeBytes, countStyle: .file))
-                            }
-                            Section("Incidents") {
-                                if row.incidents.isEmpty { Text("No incidents recorded") }
-                                ForEach(row.incidents) { incident in
-                                    NavigationLink { IncidentDetailView(incident: incident, service: model.service) } label: { IncidentRow(incident: incident) }
-                                }
-                            }
-                            Section {
-                                Button("Export session ZIP") { Task { await model.export(row.id) } }
-                                    .disabled(row.session.state != "complete" || model.busy)
-                                Text("Stop and finalize before exporting. Interrupted sessions remain preserved locally; this app does not repair them.")
-                                    .font(.caption).foregroundStyle(.secondary)
-                                if let error = model.error { Text(error).foregroundStyle(.red) }
-                            }
-                        }.navigationTitle("Drive details")
+                        SessionDetailView(row: row, model: model)
                     } label: {
                         VStack(alignment: .leading, spacing: 5) {
                             Text(row.session.started, style: .date).font(.headline)
                             Text("\(row.session.started.formatted(date: .omitted, time: .shortened)) · \(row.session.duration)")
                             Text("\(row.session.observationCount) samples · \(row.session.incidentCount) incidents · \(model.sessionState(row.session))").font(.caption).foregroundStyle(.secondary)
                         }
-                    }
+                    }.accessibilityIdentifier("session-row-\(row.id)")
                 }
                 if model.hasMoreSessions {
                     Button("Load more sessions") { Task { await model.loadMoreSessions() } }.disabled(model.busy)
@@ -52,6 +27,60 @@ struct SessionsView: View {
         }.navigationTitle("Sessions").refreshable { await model.refresh(advance: false) }
     }
 }
+// The visible detail page owns presentation. A fresh request identity lets the
+// same ZIP be shared again after dismissal, without observing a URL elsewhere.
+struct SessionDetailView: View {
+    let row: StoredSession
+    @ObservedObject var model: RecorderModel
+    @State private var share: SessionShareRequest?
+    var body: some View {
+        List {
+            Section("Drive") {
+                LabeledContent("Source", value: row.session.source ?? "unknown")
+                LabeledContent("Profile", value: row.session.profileId ?? "unknown")
+                LabeledContent("Started", value: row.session.started.formatted())
+                LabeledContent("Duration", value: row.session.duration)
+                LabeledContent("State", value: model.sessionState(row.session))
+                LabeledContent("Samples", value: "\(row.session.observationCount)")
+                LabeledContent("Events", value: "\(row.session.eventCount)")
+                LabeledContent("Incidents", value: "\(row.session.incidentCount)")
+                LabeledContent("Size", value: ByteCountFormatter.string(fromByteCount: row.sizeBytes, countStyle: .file))
+            }
+            Section("Incidents") {
+                if row.incidents.isEmpty { Text("No incidents recorded") }
+                ForEach(row.incidents) { incident in
+                    NavigationLink { IncidentDetailView(incident: incident, service: model.service) } label: { IncidentRow(incident: incident) }
+                }
+            }
+            Section {
+                Button {
+                    Task {
+                        if let url = await model.export(row.id) { share = SessionShareRequest(url: url) }
+                    }
+                } label: {
+                    if model.exportingSessionID == row.id {
+                        HStack { ProgressView(); Text("Preparing ZIP…") }
+                    } else { Text("Export session ZIP") }
+                }
+                .buttonStyle(.borderless)
+                .accessibilityIdentifier("export-session-zip")
+                .disabled(row.session.state != "complete" || model.busy || share != nil)
+                Text("Stop and finalize before exporting. Interrupted sessions remain preserved locally; this app does not repair them.")
+                    .font(.caption).foregroundStyle(.secondary)
+                if let error = model.error {
+                    Text(error).foregroundStyle(.red).accessibilityIdentifier("session-export-error")
+                }
+            }
+        }
+        .navigationTitle("Drive details")
+        .sheet(item: $share) { request in
+            SessionShareSheet(url: request.url) {
+                if share?.id == request.id { share = nil }
+            }
+        }
+    }
+}
+
 struct IncidentRow: View {
     let incident: IncidentInfo
     var body: some View {

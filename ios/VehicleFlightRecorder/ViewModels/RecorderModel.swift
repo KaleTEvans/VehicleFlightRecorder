@@ -8,7 +8,7 @@ final class RecorderModel: ObservableObject {
     @Published var busy = false
     @Published var error: String?
     @Published var notice: String?
-    @Published var shareURL: URL?
+    @Published var exportingSessionID: String?
     @Published var hasMoreSessions = false
     private var nextHistoryOffset: Int64 = 0
     private var revision: UInt64 = 0
@@ -161,12 +161,21 @@ final class RecorderModel: ObservableObject {
             notice = "Incident marked. Capturing available evidence before and after this moment."
         } catch { recordActionFailure(error) }
     }
-    func export(_ id: String) async {
-        guard !busy, !closed, let service else { return }
+    @discardableResult
+    func export(_ id: String) async -> URL? {
+        guard !busy else { return nil }
+        guard !closed, let service else {
+            recordActionFailure(BridgeFailure(category: "invalid_state", operation: "export", detail: "Session history is unavailable"))
+            return nil
+        }
         busy = true
+        exportingSessionID = id
         revision &+= 1
-        defer { busy = false }
-        do { shareURL = try await service.archive(id); clearActionError() }
-        catch { recordActionFailure(error) }
+        defer { busy = false; exportingSessionID = nil }
+        do {
+            let url = try await service.archive(id)
+            clearActionError()
+            return url
+        } catch { recordActionFailure(error); return nil }
     }
 }

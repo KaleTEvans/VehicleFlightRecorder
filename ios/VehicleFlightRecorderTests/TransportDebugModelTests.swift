@@ -30,6 +30,20 @@ final class TransportDebugModelTests: XCTestCase {
         XCTAssertFalse(model.busy)
     }
 
+    @MainActor func testUnavailableCaptureExportReturnsFailureWithoutStuckBusyState() async {
+        let model = TransportDebugModel()
+        XCTAssertFalse(model.canShareCapture)
+        let url = await model.share()
+        XCTAssertNil(url)
+        XCTAssertNotNil(model.error)
+        XCTAssertFalse(model.busy)
+        let failure = model.error
+        await model.refresh()
+        XCTAssertEqual(model.error, failure)
+        await model.disconnect()
+        XCTAssertNil(model.error)
+    }
+
     #if targetEnvironment(simulator)
     @MainActor func testActionFailurePersistsUntilSuccessfulCommandClearsIt() async {
         let model = TransportDebugModel()

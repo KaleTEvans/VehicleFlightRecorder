@@ -85,10 +85,23 @@ private extension Data {
         Swift.withUnsafeBytes(of: &little) { append(contentsOf: $0) }
     }
 }
+struct SessionShareRequest: Identifiable {
+    let id = UUID()
+    let url: URL
+}
 struct SessionShareSheet: UIViewControllerRepresentable {
     let url: URL
+    var completed: () -> Void = {}
     func makeUIViewController(context: Context) -> UIActivityViewController {
-        UIActivityViewController(activityItems: [url], applicationActivities: nil)
+        let controller = UIActivityViewController(activityItems: [url], applicationActivities: nil)
+        controller.view.accessibilityIdentifier = "session-share-sheet"
+        let completion = completed
+        controller.completionWithItemsHandler = { _, _, _, _ in
+            // Clear the matching request for system cancel/Save to Files as well
+            // as SwiftUI gesture dismissal. File generation has already finished.
+            DispatchQueue.main.async { completion() }
+        }
+        return controller
     }
     func updateUIViewController(_ controller: UIActivityViewController, context: Context) {}
 }

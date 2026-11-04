@@ -5,8 +5,8 @@ import Foundation
     @Published var notice = "Ready for physical adapter testing"
     @Published var raw = "No connection capture"
     @Published var error: String?
-    @Published var export: URL?
     @Published var busy = false
+    @Published var canShareCapture = false
     @Published var live: LiveSnapshot?
     private var actionFailure: String?
     private let executor = TransportExecutor()
@@ -37,15 +37,32 @@ import Foundation
             error = actionFailure
         }
     }
-    func share() async {
-        export = nil
-        await run { transport in
-            guard transport.state != .ready, transport.state != .connecting, let capture = transport.capture else { throw VehicleTransportError.failed("Disconnect before exporting the current capture.") }
-            let source = URL(fileURLWithPath: capture.core.path())
-            let output = FileManager.default.temporaryDirectory.appendingPathComponent(source.lastPathComponent)
-            if FileManager.default.fileExists(atPath: output.path) { try FileManager.default.removeItem(at: output) }
-            try FileManager.default.copyItem(at: source, to: output)
-            Task { @MainActor [weak self] in self?.export = output }
+    func share() async -> URL? {
+        guard !busy else { return nil }
+        busy = true
+        defer { busy = false }
+        let transport = self.transport
+        do {
+            let output = try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<URL, Error>) in
+                let admitted = executor.submit {
+                    do {
+                        guard transport.state != .ready, transport.state != .connecting, let capture = transport.capture else {
+                            throw VehicleTransportError.failed("Disconnect before exporting the current capture.")
+                        }
+                        let source = URL(fileURLWithPath: capture.core.path())
+                        let output = FileManager.default.temporaryDirectory.appendingPathComponent(source.lastPathComponent)
+                        if FileManager.default.fileExists(atPath: output.path) { try FileManager.default.removeItem(at: output) }
+                        try FileManager.default.copyItem(at: source, to: output)
+                        continuation.resume(returning: output)
+                    } catch { continuation.resume(throwing: error) }
+                }
+                if !admitted { continuation.resume(throwing: VehicleTransportError.failed("Transport command mailbox is full")) }
+            }
+            actionFailure = nil; error = nil
+            return output
+        } catch {
+            actionFailure = error.localizedDescription; self.error = actionFailure
+            return nil
         }
     }
     private func run(marksBusy: Bool = true, _ action: @escaping (MXPlusExternalAccessoryTransport) throws -> Void) async {
@@ -59,6 +76,7 @@ import Foundation
                 let state = transport.state.rawValue
                 let notice = transport.notice
                 let raw = transport.capture?.core.snapshot() ?? "No capture"
+                let canShareCapture = transport.capture != nil && transport.state != .ready && transport.state != .connecting
                 let pumpFailure = transport.pump.failure
                 var live: LiveSnapshot?
                 if let value = transport.live {
@@ -68,6 +86,7 @@ import Foundation
                 Task { @MainActor [weak self] in
                     if let self {
                         self.state = state; self.notice = notice; self.raw = raw; self.live = live
+                        self.canShareCapture = canShareCapture
                         if marksBusy { self.actionFailure = failure }
                         self.error = self.actionFailure ?? live.flatMap { $0.error.isEmpty ? nil : $0.error } ?? pumpFailure
                         // A pending refresh must not clear a command's busy state.

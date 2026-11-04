@@ -4,7 +4,7 @@ struct TransportDebugView: View {
     @StateObject private var model = TransportDebugModel()
     @Environment(\.scenePhase) private var phase
     @State private var enableIdentity = false
-    @State private var showExport = false
+    @State private var share: SessionShareRequest?
     @State private var parked = false
     @State private var operatingState = "ignition_on_engine_off"
     @State private var workload = "combined"
@@ -68,14 +68,22 @@ struct TransportDebugView: View {
                         .disabled(!enableIdentity || model.state != "ready" || model.busy || model.live?.active == true)
                 }
                 Section("Raw connection evidence") {
-                    Button("Export closed connection capture") { Task { await model.share(); showExport = model.export != nil } }
-                        .disabled(model.busy || model.state == "ready" || model.state == "connecting")
+                    Button("Export closed connection capture") {
+                        Task { if let url = await model.share() { share = SessionShareRequest(url: url) } }
+                    }
+                        .disabled(model.busy || !model.canShareCapture || share != nil)
+                    Text("Recorded sessions use Saved sessions, incidents and export above. This button shares a separate closed transport capture.").font(.caption)
+                    if let error = model.error { Text(error).foregroundStyle(.red).accessibilityIdentifier("connection-export-error") }
                     Text("JSONL log retains full bytes. Preview shows the latest 32 records, up to 256 bytes each. Stream acceptance does not establish adapter receipt.").font(.caption)
                     Text(model.raw).font(.system(.caption, design: .monospaced)).textSelection(.enabled)
                 }
             }
             .navigationTitle("Adapter Transport")
-            .sheet(isPresented: $showExport) { if let url = model.export { SessionShareSheet(url: url) } }
+            .sheet(item: $share) { request in
+                SessionShareSheet(url: request.url) {
+                    if share?.id == request.id { share = nil }
+                }
+            }
             .task { await model.connect(); while !Task.isCancelled { await model.refresh(); try? await Task.sleep(for: .milliseconds(500)) } }
             .onChange(of: phase) { _, value in
                 Task { await model.lifecycle(value == .active ? "foreground" : value == .background ? "background" : "inactive") }
@@ -84,15 +92,13 @@ struct TransportDebugView: View {
     }
 }
 
-private struct PhysicalHistoryView: View {
-    @StateObject private var model = RecorderModel(historyOnly: true)
-    @State private var sharing = false
+struct PhysicalHistoryView: View {
+    @StateObject private var model: RecorderModel
+    init(service: RecorderService? = nil) {
+        _model = StateObject(wrappedValue: RecorderModel(service: service, historyOnly: true))
+    }
     var body: some View {
         SessionsView(model: model)
             .task { await model.refresh(advance: false) }
-            .onChange(of: model.shareURL) { _, value in sharing = value != nil }
-            .sheet(isPresented: $sharing, onDismiss: { model.shareURL = nil }) {
-                if let url = model.shareURL { SessionShareSheet(url: url) }
-            }
     }
 }

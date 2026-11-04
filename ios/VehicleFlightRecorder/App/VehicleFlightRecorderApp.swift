@@ -7,6 +7,8 @@ struct VehicleFlightRecorderApp: App {
             #if DEBUG
             if ProcessInfo.processInfo.arguments.contains("--ui-test-evidence") {
                 EvidenceUITestHost()
+            } else if ProcessInfo.processInfo.arguments.contains("--ui-test-history-export") {
+                HistoryExportUITestHost()
             } else {
                 RecorderRootView()
             }

@@ -65,6 +65,40 @@ final class RecorderTests: XCTestCase {
         await model.mark()
         XCTAssertEqual(model.snapshot?.incidents.first?.triggers.count, 1)
     }
+    @MainActor
+    func testZeroSampleLiveExportsRepeatAndClosedHistoryShowsFailure() async throws {
+        let service = try HistoryExportFixture.make()
+        let model = RecorderModel(service: service, historyOnly: true)
+        await model.refresh(advance: false)
+        XCTAssertNil(model.error)
+        XCTAssertEqual(model.sessions.count, 2)
+        let documents = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
+        let output = documents.appendingPathComponent("NativeAcceptance/Exports", isDirectory: true)
+        try FileManager.default.createDirectory(at: output, withIntermediateDirectories: true)
+        for row in model.sessions {
+            XCTAssertEqual(row.session.observationCount, 0)
+            XCTAssertEqual(row.session.state, "complete")
+            let firstResult = await model.export(row.id)
+            let first = try XCTUnwrap(firstResult)
+            let bytes = try Data(contentsOf: first)
+            XCTAssertGreaterThan(bytes.count, 0)
+            let secondResult = await model.export(row.id)
+            let second = try XCTUnwrap(secondResult)
+            XCTAssertEqual(first, second)
+            XCTAssertEqual(try Data(contentsOf: second), bytes)
+            XCTAssertFalse(model.busy)
+            XCTAssertNil(model.exportingSessionID)
+            XCTAssertNil(model.error)
+            try FileManager.default.copyItem(at: first, to: output.appendingPathComponent(first.lastPathComponent))
+        }
+        let id = try XCTUnwrap(model.sessions.first?.id)
+        await model.shutdown()
+        let unavailable = await model.export(id)
+        XCTAssertNil(unavailable)
+        XCTAssertNotNil(model.error)
+        XCTAssertFalse(model.busy)
+        XCTAssertNil(model.exportingSessionID)
+    }
     func testExportFailureIsVisible() throws {
         let path = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         XCTAssertThrowsError(try SessionExporter.archive(directory: path, output: path))

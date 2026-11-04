@@ -1,6 +1,10 @@
 # Milestone 6 — one parked test visit
 
-Status: READY TO RUN; physical results pending. This checklist supersedes the
+Status: PAUSED pending investigation of the reported zero-sample RPM/coolant
+recordings. Preserve and return those existing sessions together; no repeat car
+visit or combined/reconnect testing is requested until evidence review. See
+[the device issue](../docs/MILESTONE_6.md#physical-acquisition-issue--user-report-november-3-2026).
+The checklist below remains the planned consolidated sequence after diagnosis. This checklist supersedes the
 previous standalone “45-second voltage test, then return for review” request.
 Run the listed checks in one visit when their continue criteria pass; return the
 recordings together afterward. It follows the [shared test-session workflow](physical_test_sessions.md).

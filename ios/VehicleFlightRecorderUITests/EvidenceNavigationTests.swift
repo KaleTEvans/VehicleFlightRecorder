@@ -59,4 +59,48 @@ final class EvidenceNavigationTests: XCTestCase {
         XCTAssertTrue(interrupted.waitForExistence(timeout: 10))
     }
 
+    func testZeroSamplePhysicalHistoryExportOpensOnFirstTapAndRepeats() {
+        continueAfterFailure = false
+        let app = XCUIApplication()
+        app.launchArguments = ["--ui-test-history-export"]
+        app.launch()
+        let history = app.buttons["Saved sessions, incidents and export"]
+        XCTAssertTrue(history.waitForExistence(timeout: 30), app.debugDescription)
+        history.tap()
+        let rows = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH %@", "session-row-live-"))
+        expectation(for: NSPredicate { _, _ in rows.count == 2 }, evaluatedWith: app)
+        waitForExpectations(timeout: 15)
+        let identifiers = rows.allElementsBoundByIndex.map(\.identifier)
+        for (index, identifier) in identifiers.enumerated() {
+            app.buttons[identifier].tap()
+            let export = app.buttons["export-session-zip"]
+            XCTAssertTrue(export.waitForExistence(timeout: 10), app.debugDescription)
+            for _ in 0..<4 {
+                if export.isHittable { break }
+                app.swipeUp()
+            }
+            XCTAssertTrue(export.isHittable, app.debugDescription)
+            for attempt in 0..<(index == 0 ? 2 : 1) {
+                export.tap() // One tap; no retry loop can hide a presentation failure.
+                let sheet = app.otherElements["session-share-sheet"]
+                XCTAssertTrue(sheet.waitForExistence(timeout: 10), app.debugDescription)
+                XCTAssertFalse(app.staticTexts["session-export-error"].exists)
+                let screenshot = XCTAttachment(screenshot: app.screenshot())
+                screenshot.name = "Zero-sample export \(index)-\(attempt)"
+                screenshot.lifetime = .keepAlways
+                add(screenshot)
+                let close = app.buttons["Close"].firstMatch
+                if close.exists && close.isHittable { close.tap() }
+                else {
+                    let top = sheet.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.02))
+                    top.press(forDuration: 0.1, thenDragTo: sheet.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.9)))
+                }
+                expectation(for: NSPredicate { _, _ in !sheet.exists && export.isHittable && export.isEnabled }, evaluatedWith: app)
+                waitForExpectations(timeout: 10)
+            }
+            app.navigationBars.buttons["Sessions"].tap()
+            XCTAssertTrue(app.buttons[identifier].waitForExistence(timeout: 10))
+        }
+    }
+
 }

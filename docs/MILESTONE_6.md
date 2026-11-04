@@ -5,7 +5,8 @@ acceptance and signed TestFlight delivery passed; phone installation and physica
 stationary acceptance are tracked
 below. User authorized closing M5 and starting
 M6. M5 PR #3 merged as `94c5949`; implementation branch is
-`codex/milestone-6-live-acquisition`. No M6 physical result is claimed.
+`codex/milestone-6-live-acquisition`. No successful M6 physical acquisition is claimed; the reported device issue is
+recorded below.
 
 ## Implemented scope
 
@@ -179,5 +180,46 @@ It is a declared native fixture, not physical evidence. The phone/car gate remai
 open: short individual workloads, no new warnings, combined stationary capture,
 manual incident/evidence navigation, reconnect generation and actual retrieved
 exports/reference comparison. See the staged plan above.
+
+## Physical acquisition issue — user report, November 3, 2026
+
+The user reports separate RPM-only and coolant-only recordings lasting over
+50 seconds each, with the vehicle parked, engine running and the app operating
+state set to Engine running / stationary. Both saved-recording sample counts
+were reported as zero. Exact build, initialization status, voltage result and
+raw session exports have not yet been confirmed for these runs.
+
+Treat these as failed acquisition checks pending diagnosis (M6-04/M6-05 context),
+not evidence of unsupported parameters or an ECU fault. Both workloads depend
+on shared initialization and a valid supported-PID response before admission.
+Code review identifies that dependency but cannot establish the physical cause.
+Request the existing saved-session ZIPs together; even zero-sample finalized
+sessions retain raw requests/replies and the capability report. Review evidence
+indoors and batch any fix/retest into the next packet. Combined/reconnect testing
+is on hold; no repeat car visit is requested while investigating these recordings.
+
+## Export retrieval defect — investigation in progress
+
+The user also reports that Export sometimes responds only after repeated taps.
+Retrieval is a blocking issue for the pending RPM/coolant diagnosis. Code review
+found session sharing driven by a URL observer and separate Boolean state on a
+parent navigation destination. Standalone capture export also scheduled its
+output URL in a separate MainActor task before the caller checked for completion.
+
+The correction moves an item-based share request onto the visible session detail
+page, returns the completed archive URL directly, gives each presentation a fresh
+identity, and clears it on completion/dismissal. ZIP preparation and failures have
+visible states. Separate capture sharing returns its completed file directly and
+is disabled when no closed standalone capture exists. Zero-sample recordings are
+valid export candidates when finalized; their raw evidence must remain intact.
+
+Native regressions cover the physical nested-history route with scripted
+zero-sample RPM/coolant sessions, one-tap presentation and repeated exports, model
+failure cleanup, and independent Python validation of actual native ZIPs. Native
+verification and updated beta delivery are pending. Existing recordings can also
+be retrieved through Files / On My iPhone / Vehicle Flight Recorder / Sessions,
+using the app's existing document-sharing configuration. No further car recording
+is requested to test retrieval. The physical acquisition cause remains unknown
+until the existing raw records are available.
 
 **Milestone 7 not started.**

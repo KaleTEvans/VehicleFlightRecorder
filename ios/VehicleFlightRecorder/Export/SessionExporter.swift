@@ -94,7 +94,6 @@ struct SessionShareSheet: UIViewControllerRepresentable {
     var completed: () -> Void = {}
     func makeUIViewController(context: Context) -> UIActivityViewController {
         let controller = UIActivityViewController(activityItems: [url], applicationActivities: nil)
-        controller.view.accessibilityIdentifier = "session-share-sheet"
         let completion = completed
         controller.completionWithItemsHandler = { _, _, _, _ in
             // Clear the matching request for system cancel/Save to Files as well

@@ -82,19 +82,23 @@ final class EvidenceNavigationTests: XCTestCase {
             XCTAssertTrue(export.isHittable, app.debugDescription)
             for attempt in 0..<(index == 0 ? 2 : 1) {
                 export.tap() // One tap; no retry loop can hide a presentation failure.
-                let sheet = app.otherElements["session-share-sheet"]
-                XCTAssertTrue(sheet.waitForExistence(timeout: 10), app.debugDescription)
+                // UIActivityViewController presents a remote system hierarchy;
+                // verify its real controls and the correct file, not a host-view ID.
+                let sheet = app.otherElements["ActivityListView"]
+                XCTAssertTrue(sheet.waitForExistence(timeout: 15), app.debugDescription)
+                let sessionID = String(identifier.dropFirst("session-row-".count))
+                let title = app.navigationBars["UIActivityContentView"].otherElements.matching(NSPredicate(format: "label == %@", sessionID)).firstMatch
+                XCTAssertTrue(title.exists, app.debugDescription)
+                let save = app.cells.matching(NSPredicate(format: "label == %@", "Save to Files")).firstMatch
+                XCTAssertTrue(save.isHittable, app.debugDescription)
                 XCTAssertFalse(app.staticTexts["session-export-error"].exists)
                 let screenshot = XCTAttachment(screenshot: app.screenshot())
                 screenshot.name = "Zero-sample export \(index)-\(attempt)"
                 screenshot.lifetime = .keepAlways
                 add(screenshot)
-                let close = app.buttons["Close"].firstMatch
-                if close.exists && close.isHittable { close.tap() }
-                else {
-                    let top = sheet.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.02))
-                    top.press(forDuration: 0.1, thenDragTo: sheet.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.9)))
-                }
+                let close = app.buttons["header.closeButton"].firstMatch
+                XCTAssertTrue(close.isHittable, app.debugDescription)
+                close.tap()
                 expectation(for: NSPredicate { _, _ in !sheet.exists && export.isHittable && export.isEnabled }, evaluatedWith: app)
                 waitForExpectations(timeout: 10)
             }

@@ -1,30 +1,33 @@
 # Milestone 6 — one parked test visit
 
 Status: PAUSED pending investigation of the reported zero-sample RPM/coolant
-recordings. Preserve and return those existing sessions together; no repeat car
-visit or combined/reconnect testing is requested until evidence review. See
+recordings. Both requested ZIPs were received and validated on November 6. Setup
+succeeded but supported-PID discovery returned `NO DATA`; why that occurred is
+unresolved. No repeat car visit or combined/reconnect testing is requested until
+a prepared targeted retest packet is provided. See
 [the device issue](../docs/MILESTONE_6.md#physical-acquisition-issue--user-report-november-3-2026).
 The checklist below remains the planned consolidated sequence after diagnosis.
 
 ## Current task — retrieve existing recordings indoors
 
-Export-fix build **0.1.0 (8.1)** uploaded on November 3 at 7:00 p.m. CST;
-Apple confirmed VALID / IN_BETA_TESTING. Update for this retrieval block;
-do not repeat the car cases below.
-No scanner connection is needed for this block.
+**The RPM/coolant ZIP handoff is complete as of November 6.** Both requested
+files passed independent validation. Do not resend or re-record those sessions.
+Build **9.1** is now VALID / IN_BETA_TESTING, including the accepted export fix
+and saved-session workload/state visibility. Update to review the existing
+recordings indoors; no scanner connection is needed.
 
-- [ ] Open saved sessions and choose the existing finalized RPM-only recording.
-  Tap Export session ZIP once; allow ZIP preparation, then save/share the archive.
-- [ ] Dismiss the share sheet and export that same recording again to confirm
-  repeat presentation. One copy of its ZIP is sufficient for the evidence handoff.
-- [ ] Export the existing coolant-only recording and any already-recorded voltage
-  session. Keep the original recordings; do not create replacements for this step.
-- [ ] Return those ZIPs together, noting any export error or the session's displayed
-  state. If an interrupted session cannot export, retain its original folder via
-  Files / On My iPhone / Vehicle Flight Recorder / Sessions instead.
+- [x] Receive and validate the existing finalized RPM-only and coolant-only ZIPs.
+- [x] Review setup, supported-PID discovery and measurement admission from the raw
+  records. Both received `NO DATA` to `0100` after successful setup; neither sent
+  the selected measurement command or recorded a decoded reading.
+- [ ] Optional indoor UI confirmation on build 9.1:
+  existing sessions show the correct workload and selected operating state;
+  zero samples are explicit. A single-tap/repeat export check can be completed
+  here without another car visit or another evidence upload.
 
-These are retrieval checks, not successful physical acquisition acceptance. Review
-the saved raw replies before issuing a consolidated connected retest packet.
+File receipt alone does not confirm repeat share-sheet presentation or successful
+physical acquisition. No voltage ZIP was included. Reference comparison and a
+prepared targeted connected retest remain separate, pending work.
 
 ## Planned connected visit — remains paused
 

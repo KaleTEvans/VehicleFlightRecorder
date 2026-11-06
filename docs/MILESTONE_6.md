@@ -44,9 +44,10 @@ The exact allowlist, schemas, budgets and tests are recorded below.
 
 ## Remaining acceptance gates
 
-Updated phone installation, actual stationary individual/combined
-workloads and reference comparison, retrieved phone exports and manual incident
-reconstruction. Automated/native evidence and signed upload have passed as
+Successful stationary individual/combined acquisition and reference comparison,
+remaining phone-export checks and manual incident reconstruction. The two requested
+zero-sample phone recordings were retrieved and validated on November 6, as
+recorded below; their discovery failure remains unresolved. Automated/native evidence and signed upload have passed as
 recorded below. Do not label scripted/native fixtures as physical measurements.
 M5 identity/reconnect acceptance does not establish ECU polling or road reliability.
 
@@ -299,7 +300,7 @@ No voltage ZIP was provided. M6 physical acquisition remains unaccepted. Review
 and any prepared targeted retest stay consolidated; no new car visit is requested
 by this evidence handoff.
 
-## Saved-session setup visibility — in progress
+## Saved-session setup visibility — native acceptance passed
 
 The physical session metadata already stores workload, selected operating state
 and physical/fixture origin, but the Swift history model ignored those fields.
@@ -308,7 +309,40 @@ session list, and leads Drive details with recording setup and requested reading
 Zero-sample recordings explicitly say that no decoded readings were recorded;
 requested workload and selected engine state are not presented as measured facts.
 It also preserves compatibility with schema-1 mock history. This is a current M6
-usability correction; it does not depend on the later visual redesign. Native
-verification and beta delivery are pending. Acquisition behavior is unchanged.
+usability correction; it does not depend on the later visual redesign. Acquisition
+behavior is unchanged.
+
+[Native run 42266159403](https://github.com/KaleTEvans/VehicleFlightRecorder/actions/runs/42266159403)
+passed on source `84dcc28fbfa53795795b2f3a54c88a6cb07fe0bf`: 28 hosted tests,
+three UI tests and both device compile profiles. All five native ZIPs independently
+validated in Python. The UI case checks both RPM/coolant list labels, their matching
+detail workloads, requested readings, selected engine state, explicit fixture
+origin and zero-reading text, then reveals the offscreen Export row and verifies
+one-tap/repeat sharing with the correct file and Save to Files action. Schema-1
+mock history remains compatible. There were no failures in this accepted run.
+
+[Native evidence artifact 13528570447](https://github.com/KaleTEvans/VehicleFlightRecorder/actions/runs/42266159403/artifacts/13528570447)
+has SHA-256 `b2772420a717e141be8fd73025e555fcf5308fe65a6ec19f50efb45a864ff5c1`.
+Retrieved evidence, including both recording-setup screenshots, is under ignored
+`build/milestone-6-native/84dcc28/`. These are declared native fixtures; phone
+confirmation of the new labels remains an optional indoor check.
+
+## Saved-session display beta — November 6, 2026
+
+Signed build `0.1.0 (9.1)` uploaded from exact tested source
+`84dcc28fbfa53795795b2f3a54c88a6cb07fe0bf` through
+[run 42267707114](https://github.com/KaleTEvans/VehicleFlightRecorder/actions/runs/42267707114)
+at **18:10:25 UTC / 12:10:25 p.m. CST**. Archive/export and signature checks passed;
+Apple returned `UPLOAD SUCCEEDED with no errors`, delivery ID
+`5505f8e4-d0a0-4f07-97ec-e4a9f4af6fc7`. Read-only Apple inspection confirmed build
+VALID, `usesNonExemptEncryption: false`, and internal state IN_BETA_TESTING. Apple
+lists the processed build at **18:11:53 UTC / 12:11:53 p.m. CST**. Build 9.1 is
+available for internal TestFlight installation.
+Existing physical sessions receive their stored workload/state labels after updating;
+no re-recording, metadata migration or scanner connection is needed. Phone display
+confirmation is optional indoors. The two requested physical ZIPs are already
+received and independently validated; successful ECU acquisition remains unaccepted.
+Subsequent documentation changes do not alter the tested binary. PR #5 remains
+draft, Appetize is unchanged, and no additional car test is requested by this update.
 
 **Milestone 7 not started.**

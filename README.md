@@ -11,7 +11,7 @@ vehicle packs. The diagnostic MVP takes priority over the later Driver Companion
 
 ## Current status
 
-**November 3, 2026:** Milestones 0–4 are complete and merged into `master`.
+**November 6, 2026:** Milestones 0–4 are complete and merged into `master`.
 [Milestone 5 is accepted and merged](https://github.com/KaleTEvans/VehicleFlightRecorder/pull/3).
 The installed iPhone/MX+ path passed the real firmware identity exchange, exported
 raw evidence, reconnect and lock/unlock checks. The user confirmed the flicker fix
@@ -22,12 +22,16 @@ foundations are included. M6 parked acquisition is implemented and native-valida
 build `0.1.0 (7.1)` uploaded for TestFlight on November 3 at 1:44 p.m. CST.
 Apple confirmed the build VALID / IN_BETA_TESTING; real stationary acceptance
 is pending in [its report](docs/MILESTONE_6.md).
-The reported zero-sample RPM/coolant recordings are under investigation. Car
-testing is paused while the existing recordings are retrieved and reviewed;
-the export correction passed 28 hosted native tests, three UI tests and five
-actual native ZIP validations. Export-fix build `0.1.0 (8.1)` uploaded on November 3
-at 7:00 p.m. CST and is VALID / IN_BETA_TESTING. Update to retrieve existing
-sessions indoors; no new car recording is needed.
+Both requested zero-sample RPM/coolant phone ZIPs have been retrieved and validated.
+Adapter setup passed; supported-PID discovery returned `NO DATA`, leaving the
+measurement requests gated. The reason for that response remains unresolved; car
+testing stays paused pending a prepared targeted retest.
+The export correction and saved-session setup display passed 28 hosted native
+tests, three UI tests and five actual native ZIP validations. Build `0.1.0 (9.1)`
+uploaded on November 6 at 12:10 p.m. CST and is VALID / IN_BETA_TESTING. Session
+history now shows workload/state, and Drive details identifies requested readings
+and explicitly labels zero decoded samples. Existing recordings gain these labels
+after updating; no scanner connection or new car recording is needed.
 
 | Milestone | Scope | Status / details |
 | --- | --- | --- |
@@ -70,8 +74,8 @@ simulator build or unsigned device compile does not establish these behaviors.
 ## Human acceptance sessions
 
 Use the [M6 one-visit parked checklist](planning/milestone_6_test_session.md).
-It is currently paused after the RPM/coolant report; retrieve existing saved
-recordings indoors before attempting more connected tests.
+It is currently paused after review of the RPM/coolant phone exports. No new
+connected tests are requested until a targeted retest packet is prepared.
 Short individual recordings, combined capture and reconnect are grouped into one
 20–30 minute target visit, with reference-tool time extra. Do saved history,
 evidence navigation and exports afterward indoors, then return one evidence set.

@@ -28,18 +28,23 @@ visit, with history/export and one evidence handoff afterward indoors. Per-case
 chat review is not required. Physical M6 acceptance and road/background
 qualification remain pending.
 
-**Current testing hold:** the user reported zero samples in separate engine-running
-RPM/coolant recordings, followed by intermittent export presentation. The export
-correction passed native acceptance on `40f0a7fd62e44d44116371cecfee23d59cb44950`
-([run 41749441572](https://github.com/KaleTEvans/VehicleFlightRecorder/actions/runs/41749441572)):
-28 hosted tests, three UI tests, both device compile profiles and five actual native
-ZIP validations, including zero-sample raw evidence. Build `0.1.0 (8.1)` uploaded
-on November 3 at 7:00:32 p.m. CST through
-[signed run 41750645334](https://github.com/KaleTEvans/VehicleFlightRecorder/actions/runs/41750645334);
-Apple confirmed VALID / IN_BETA_TESTING; this beta is available for retrieving the
-existing sessions
-indoors. No new car recording or resumed checklist is requested
-until those records have been analyzed. The acquisition cause remains unknown.
+**Current testing hold:** on November 6, both requested RPM/coolant phone ZIPs
+were independently validated. They retain build-7.1 setup success followed by
+`NO DATA` from `0100`, leaving measurement requests gated. Why discovery received
+no data remains unresolved; physical sampling is not accepted and no new car
+recording is requested until a targeted retest packet is prepared.
+
+Build **0.1.0 (9.1)** is available for internal TestFlight installation. It adds
+workload/state to session history, requested readings and a zero-reading message
+to Drive details, using metadata already stored in existing recordings. No scanner
+connection or re-recording is needed. Source
+`84dcc28fbfa53795795b2f3a54c88a6cb07fe0bf` passed 28 hosted tests, three UI tests,
+both device compile profiles and five actual native ZIP validations in
+[native run 42266159403](https://github.com/KaleTEvans/VehicleFlightRecorder/actions/runs/42266159403).
+[Signed run 42267707114](https://github.com/KaleTEvans/VehicleFlightRecorder/actions/runs/42267707114)
+uploaded that exact source on November 6 at 12:10:25 p.m. CST; Apple confirmed
+VALID / IN_BETA_TESTING. This preserves the build-8.1 export correction. OBD
+initialization, admission and decoders are unchanged. See [the report](MILESTONE_6.md).
 
 ## User setup
 

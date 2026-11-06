@@ -200,4 +200,31 @@ final class EvidenceNavigationTests: XCTestCase {
         XCTAssertFalse(app.staticTexts["handoff-fixture-error"].exists)
     }
 
+    func testCAN29DiagnosticProfileAndDiscoveryRecovery() {
+        continueAfterFailure = false
+        let app = XCUIApplication()
+        app.launchArguments = ["--ui-test-can29"]
+        app.launch()
+        let profile = app.staticTexts["discovery-can29-profile"]
+        XCTAssertTrue(profile.waitForExistence(timeout: 30), app.debugDescription)
+        XCTAssertEqual(profile.label, "Profile: CAN 29-bit / 500 kbps")
+        let outcome = app.staticTexts["discovery-outcome"]
+        XCTAssertEqual(outcome.label, "ECU discovery: No data returned")
+        XCTAssertEqual(app.staticTexts["discovery-setup"].label, "Adapter setup: 21/21")
+        let supported = app.buttons["Load supported reply fixture"]
+        for _ in 0..<4 {
+            if supported.exists && supported.isHittable { break }
+            app.collectionViews.firstMatch.swipeUp()
+        }
+        XCTAssertTrue(supported.isHittable, app.debugDescription)
+        supported.tap()
+        expectation(for: NSPredicate { _, _ in outcome.label == "ECU discovery: Response received" }, evaluatedWith: app)
+        waitForExpectations(timeout: 30)
+        XCTAssertFalse(app.staticTexts["diagnostic-fixture-error"].exists)
+        let screenshot = XCTAttachment(screenshot: app.screenshot())
+        screenshot.name = "CAN29 profile and supported discovery (scripted)"
+        screenshot.lifetime = .keepAlways
+        add(screenshot)
+    }
+
 }

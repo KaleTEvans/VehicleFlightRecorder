@@ -13,6 +13,10 @@ func NewLive(anchorMS int64, specs []Schedule, config LiveConfiguration) (*Sched
 		return nil, fmt.Errorf("measurement workload needs a schedule")
 	}
 	protocol := "ISO15765-4-CAN11-500"
+	can29 := config.Workload == obd.CAN29Workload
+	if can29 {
+		protocol = "ISO15765-4-CAN29-500"
+	}
 	if handoff {
 		protocol = "unmodified-adapter-state"
 	}
@@ -26,8 +30,8 @@ func NewLive(anchorMS int64, specs []Schedule, config LiveConfiguration) (*Sched
 	if err != nil {
 		return nil, err
 	}
-	diagnostic := config.Workload == obd.DiagnosticWorkload
-	if diagnostic != (config.Initialization == obd.DiagnosticInitializationVersion) || handoff != (config.Initialization == obd.HandoffInitializationVersion) || (handoff && len(specs) != 0) {
+	diagnostic := config.Workload == obd.DiagnosticWorkload || can29
+	if (config.Workload == obd.DiagnosticWorkload) != (config.Initialization == obd.DiagnosticInitializationVersion) || can29 != (config.Initialization == obd.CAN29InitializationVersion) || handoff != (config.Initialization == obd.HandoffInitializationVersion) || (handoff && len(specs) != 0) {
 		return nil, fmt.Errorf("diagnostic workload/version mismatch")
 	}
 	for _, spec := range specs {
@@ -49,6 +53,9 @@ func NewLive(anchorMS int64, specs []Schedule, config LiveConfiguration) (*Sched
 	s.report.Kind = "live-acquisition"
 	s.report.Source = "obd-live"
 	s.report.Catalog = obd.LiveCatalogVersion
+	if can29 {
+		s.report.Catalog, s.report.Profile = obd.CAN29Catalog, obd.CAN29Profile
+	}
 	if handoff {
 		s.report.Catalog = obd.HandoffCatalog
 		s.report.Profile = obd.HandoffProfile

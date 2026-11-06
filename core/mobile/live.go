@@ -73,6 +73,11 @@ func NewLiveRecorder(root, options string, wallMS, nativeNS int64) (result *Live
 	}
 	id := "live-" + hex.EncodeToString(nonce[:])
 	profile, catalog, protocol, selectedProtocol := "generic-obd-can11-500", obd.LiveCatalogVersion, obd.Profile, "ISO15765-4-CAN11-500"
+	can29 := config.Workload == obd.CAN29Workload
+	diagnostic := config.Workload == obd.DiagnosticWorkload || can29
+	if can29 {
+		profile, catalog, protocol, selectedProtocol = "generic-obd-can29-500", obd.CAN29Catalog, obd.CAN29Profile, "ISO15765-4-CAN29-500"
+	}
 	limit := liveLimitNS
 	if config.Workload == obd.HandoffWorkload {
 		profile, catalog, protocol, selectedProtocol = obd.HandoffProfile, obd.HandoffCatalog, obd.HandoffProfile, "unmodified-adapter-state"
@@ -84,17 +89,20 @@ func NewLiveRecorder(root, options string, wallMS, nativeNS int64) (result *Live
 	}
 	interval := 60 * acquisition.Second
 	initialization := obd.InitializationVersion
-	if config.Workload == obd.DiagnosticWorkload {
+	if diagnostic {
 		interval = 15 * acquisition.Second
 		initialization = obd.DiagnosticInitializationVersion
+		if can29 {
+			initialization = obd.CAN29InitializationVersion
+		}
 	}
 	specs := []acquisition.Schedule{{Key: "support", IntervalNS: interval, TimeoutNS: 2 * acquisition.Second, Priority: 0}}
 	for _, spec := range []acquisition.Schedule{{Key: "rpm", IntervalNS: 2 * acquisition.Second, TimeoutNS: 2 * acquisition.Second, Priority: 1}, {Key: "coolant", IntervalNS: 5 * acquisition.Second, TimeoutNS: 2 * acquisition.Second, Priority: 2}, {Key: "adapter_voltage", IntervalNS: 5 * acquisition.Second, TimeoutNS: 2 * acquisition.Second, Priority: 3}} {
-		if config.Workload == "combined" || config.Workload == obd.DiagnosticWorkload || (config.Workload == "rpm_only" && spec.Key == "rpm") || (config.Workload == "coolant_only" && spec.Key == "coolant") || (config.Workload == "voltage_only" && spec.Key == "adapter_voltage") {
+		if config.Workload == "combined" || diagnostic || (config.Workload == "rpm_only" && spec.Key == "rpm") || (config.Workload == "coolant_only" && spec.Key == "coolant") || (config.Workload == "voltage_only" && spec.Key == "adapter_voltage") {
 			specs = append(specs, spec)
 		}
 	}
-	if config.Workload == obd.DiagnosticWorkload {
+	if diagnostic {
 		specs = append(specs, acquisition.Schedule{Key: "can_status", IntervalNS: 15 * acquisition.Second, TimeoutNS: 2 * acquisition.Second, Priority: 4})
 	}
 	// Voltage-only testing does not query an ECU merely to measure the adapter.

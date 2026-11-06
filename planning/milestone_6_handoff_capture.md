@@ -1,6 +1,11 @@
 # Milestone 6 — adapter handoff capture
 
-Status: READY. Install **Vehicle Flight Recorder 0.1.0 (11.1)** from TestFlight.
+Status: CAPTURE RECEIVED AND VALIDATED on November 6, 2026. No repeat requested.
+Build: **Vehicle Flight Recorder 0.1.0 (11.1)**. The 1.397-second physical capture
+retained `A7 [AT]`, `AUTO, ISO 15765-4 (CAN 29/500) [AT]` and `500000`, with
+all three readbacks successful. See [the evidence review](../docs/MILESTONE_6.md#physical-adapter-handoff-received--build-111).
+The historical instructions below document the completed capture; they are not
+an additional car-test request.
 Source: `540c385bb465ac6404ed67ab4f393923fe2274c7`. Uploaded November 6, 2026
 at **2:42:16 p.m. CST**; Apple confirmed VALID / IN_BETA_TESTING. This source
 passed 30 hosted native tests, five UI tests and ten native ZIP validations.

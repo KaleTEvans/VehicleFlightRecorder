@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"vehicleflightrecorder.local/core/mobile"
 )
 
@@ -20,7 +21,7 @@ func main() {
 func run() error {
 	output := flag.String("output", "", "new session parent directory")
 	scenario := flag.String("scenario", "healthy", "healthy, reconnect, malformed, unsupported, timeout, no_data, recovery")
-	workload := flag.String("workload", "combined", "combined, rpm_only, coolant_only, voltage_only, discovery_diagnostic")
+	workload := flag.String("workload", "combined", "combined, rpm_only, coolant_only, voltage_only, discovery_diagnostic, can29_diagnostic, adapter_handoff")
 	flag.Parse()
 	if *output == "" {
 		return fmt.Errorf("--output required")
@@ -64,6 +65,12 @@ func run() error {
 			replies["STPBRR\r"] = "?\r>"
 		}
 	}
+	if *workload == "can29_diagnostic" {
+		replies["STP34\r"] = "OK\r>"
+		replies["ATSH18DB33F1\r"] = "OK\r>"
+		replies["STPR\r"] = "34\r>"
+	}
+
 	supportAttempts := 0
 	if *scenario == "unsupported" {
 		replies["0100\r"] = "7E8 06 41 00 00 00 00 00\r>"
@@ -92,7 +99,7 @@ func run() error {
 			}
 			offline = false
 		}
-		if now == 80000000000 && *workload != "discovery_diagnostic" && *workload != "adapter_handoff" {
+		if now == 80000000000 && *workload != "discovery_diagnostic" && *workload != "can29_diagnostic" && *workload != "adapter_handoff" {
 			if _, e = l.Mark("Scripted manual evidence", base+now); e != nil {
 				return e
 			}
@@ -116,6 +123,9 @@ func run() error {
 			if *scenario == "no_data" || (*scenario == "recovery" && supportAttempts == 1) {
 				response = "NO DATA\r>"
 			}
+		}
+		if *workload == "can29_diagnostic" {
+			response = strings.NewReplacer("7E8", "18DAF110", "7E9", "18DAF118").Replace(response)
 		}
 		if !ok {
 			return fmt.Errorf("unreviewed command %q", command)

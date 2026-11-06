@@ -143,11 +143,11 @@ revision semantics, coverage reasons and reconstruction.
 
 ## Milestone 6 live extension — schema 2
 
-A live session uses `source: obd-live`, `profile_id: generic-obd-can11-500`,
+A regular live session uses `source: obd-live`, `profile_id: generic-obd-can11-500`,
 `vehicle_pack_version: none`, no `mock`, and required `live` configuration:
 `origin` (`physical`, `native-fixture`, `scripted-fixture`), `operating_state`
 (`unknown`, `ignition_on_engine_off`, `stationary_running`), `workload` (`combined`,
-`rpm_only`, `coolant_only`, `voltage_only`, `discovery_diagnostic`, `adapter_handoff`), `native_anchor_ns`,
+`rpm_only`, `coolant_only`, `voltage_only`, `discovery_diagnostic`, `can29_diagnostic`, `adapter_handoff`), `native_anchor_ns`,
 `catalog_version: standard-live-can11-1`,
 `protocol_profile: can11-single-frame-headers-pci`,
 `report_file: capability.json`, `start_origin: manual`. Fixtures remain explicitly
@@ -187,6 +187,29 @@ schedules remain unchanged. Status replies are opaque adapter evidence in
 claims. All RPM/coolant requests still require prior same-generation support.
 The updated reader is required for these new diagnostic exports; legacy exports
 remain readable without migration. See [M6 diagnostic delivery](MILESTONE_6.md#targeted-discovery-diagnostic-build--delivered-physical-test-pending).
+
+The explicitly selected `can29_diagnostic` workload uses profile ID
+`generic-obd-can29-500`, protocol profile
+`can29-normal-fixed-single-frame-headers-pci`, catalog `standard-live-can29-1`,
+initialization `obdlink-stp34-diagnostic-1`, selected protocol
+`ISO15765-4-CAN29-500`. Its 21-step setup uses STP34, ATSH18DB33F1 and normal-fixed
+addressing (STCAF0), automatic receive filters and verified protocol/baud
+readbacks of 34 / 500000. The three differing initialization keys are
+`init29_protocol`, `init29_functional_header`, `init29_protocol_check`; the other
+steps and diagnostic schedules/failure backoff are shared. No implicit selection
+from a handoff/AUTO response, protocol search or NVM protocol write is performed.
+
+This decoder accepts header/PCI ISO-TP single-frame physical replies addressed
+to tester F1, with full IDs `18DAF1xx` (excluding source F1/self). It accepts a
+contiguous ID or byte-spaced header, rejects 11-bit/wrong-destination/functional
+request/multiframe/foreign-PID data and isolates malformed/duplicate responders.
+Module IDs remain opaque; different responders are never merged or labeled ECM/
+TCM from their addresses. Supported-PID advertisements, unknown/unsupported states,
+measurements and reconnect generations retain their existing distinct semantics.
+This profile permits up to 512 capability/statistic rows to cover its bounded
+8-bit responder namespace; existing profiles retain their 32-row reader bounds.
+Other byte/transaction/observation/duration budgets are unchanged. The updated
+Python reader is required for new CAN29 exports; prior recordings need no migration.
 
 The `adapter_handoff` workload instead uses profile/catalog `adapter-state-only` /
 `adapter-state-1`, initialization `obdlink-adapter-handoff-1`, and selected protocol

@@ -7,6 +7,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"regexp"
+	"sort"
 	"strconv"
 	"strings"
 )
@@ -103,6 +104,16 @@ var voltage = regexp.MustCompile(`^[0-9]{1,2}\.[0-9]{2}$`)
 
 func compact(s string) string { return strings.ToUpper(strings.Join(strings.Fields(s), "")) }
 func Parse(key string, frame []byte) (Reply, error) {
+	return ParseProfile(Profile, key, frame)
+}
+
+// ParseProfile keeps CAN identifier/addressing rules explicit. The 29-bit
+// profile accepts only normal-fixed physical replies addressed to tester F1,
+// retaining the full responder ID without assigning vehicle module names.
+func ParseProfile(profile, key string, frame []byte) (Reply, error) {
+	if profile != Profile && profile != CAN29Profile {
+		return Reply{}, fmt.Errorf("unsupported decoder profile")
+	}
 	d, err := Lookup(key)
 	if err != nil {
 		return Reply{}, err
@@ -146,11 +157,15 @@ func Parse(key string, frame []byte) (Reply, error) {
 			result.Statuses = append(result.Statuses, line)
 			continue
 		}
-		response, decodeErr := decodeLine(d, line)
+		response, decodeErr := decodeLine(profile, d, line)
 		if decodeErr != nil {
 			ecu := "unknown"
 			text := compact(line)
-			if len(text) >= 3 {
+			if profile == CAN29Profile {
+				if len(text) >= 8 && validCAN29ID(text[:8]) {
+					ecu = text[:8]
+				}
+			} else if len(text) >= 3 {
 				if n, e := strconv.ParseUint(text[:3], 16, 12); e == nil && n >= 0x7e8 && n <= 0x7ef {
 					ecu = text[:3]
 				}
@@ -192,7 +207,15 @@ func Parse(key string, frame []byte) (Reply, error) {
 	return result, nil
 }
 
-func decodeLine(d Definition, line string) (Response, error) {
+func validCAN29ID(id string) bool {
+	if len(id) != 8 || !strings.HasPrefix(id, "18DAF1") || id[6:] == "F1" {
+		return false
+	}
+	_, err := strconv.ParseUint(id, 16, 29)
+	return err == nil
+}
+
+func decodeLine(profile string, d Definition, line string) (Response, error) {
 	if d.Key == "adapter_voltage" {
 		if line == "--.--" {
 			return Response{ECU: "adapter", State: "unavailable"}, nil
@@ -207,19 +230,27 @@ func decodeLine(d Definition, line string) (Response, error) {
 		return Response{ECU: "adapter", State: "observed", Value: &value}, nil
 	}
 	text := compact(line)
-	if len(text) < 7 || len(text)%2 != 1 {
+	headerLength := 3
+	if profile == CAN29Profile {
+		headerLength = 8
+	}
+	if len(text) < headerLength+4 || (len(text)-headerLength)%2 != 0 {
 		return Response{}, fmt.Errorf("unsupported frame format (headers/PCI required)")
 	}
-	id, err := strconv.ParseUint(text[:3], 16, 12)
-	if err != nil || id < 0x7e8 || id > 0x7ef {
+	id, err := strconv.ParseUint(text[:headerLength], 16, 29)
+	valid := err == nil && id >= 0x7e8 && id <= 0x7ef
+	if profile == CAN29Profile {
+		valid = validCAN29ID(text[:headerLength])
+	}
+	if !valid {
 		return Response{}, fmt.Errorf("unsupported response ID")
 	}
-	data, err := hex.DecodeString(text[3:])
+	data, err := hex.DecodeString(text[headerLength:])
 	if err != nil || len(data) > 8 || len(data) < 2 || data[0] == 0 || data[0] > 7 || int(data[0])+1 > len(data) {
 		return Response{}, fmt.Errorf("unsupported/truncated ISO-TP single frame")
 	}
 	payload := append([]byte(nil), data[1:1+int(data[0])]...)
-	response := Response{ECU: text[:3], Payload: payload, State: "advertised"}
+	response := Response{ECU: text[:headerLength], Payload: payload, State: "advertised"}
 	if len(payload) == 3 && payload[0] == 0x7f && payload[1] == 1 {
 		response.State = "negative_response"
 		return response, nil
@@ -307,8 +338,17 @@ func (c *Capabilities) Unavailable(ecu, key, tx string) {
 }
 func (c *Capabilities) Rows() []Capability {
 	var out []Capability
-	// Fixed catalog and sorted caller-known ECU IDs avoid randomized map output.
-	for _, ecu := range []string{"7E8", "7E9", "7EA", "7EB", "7EC", "7ED", "7EE", "7EF", "adapter"} {
+	// Sort actual observed addresses; never truncate 29-bit responders to 11 bits.
+	ids := map[string]bool{}
+	for _, row := range c.rows {
+		ids[row.ECU] = true
+	}
+	ordered := make([]string, 0, len(ids))
+	for ecu := range ids {
+		ordered = append(ordered, ecu)
+	}
+	sort.Strings(ordered)
+	for _, ecu := range ordered {
 		for _, d := range catalog {
 			if row, ok := c.rows[ecu+"/"+d.Key]; ok {
 				out = append(out, c.Get(row.ECU, row.Key))

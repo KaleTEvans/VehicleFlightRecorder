@@ -10,7 +10,7 @@ from vehicle_flight_recorder.incidents import reconstruct
 
 root = Path(sys.argv[1])
 archives = sorted((root / 'Exports').glob('*.zip'))
-if len(archives) < 10:
+if len(archives) < 13:
     raise SystemExit('Expected native baseline, zero-sample and diagnostic no-data/recovery ZIP exports')
 expected = {'session.json', 'observations.jsonl', 'events.jsonl', 'incidents.jsonl', 'raw/transport.jsonl'}
 scenarios = set()
@@ -19,6 +19,7 @@ live_count = 0
 zero_workloads = set()
 diagnostic_cases = set()
 handoff_cases = set()
+can29_cases = set()
 for archive in archives:
     destination = root / 'unpacked' / archive.stem
     with zipfile.ZipFile(archive) as source:
@@ -48,6 +49,18 @@ for archive in archives:
         elif first['adapter_status']==['34']: handoff_cases.add('retained')
         elif first['adapter_status']==['AUTO']: handoff_cases.add('unknown')
         else: raise SystemExit('Missing native handoff fixture coverage')
+    elif metadata['schema_version'] == 2 and metadata['live']['workload'] == 'can29_diagnostic':
+        report=json.loads((destination/'capability.json').read_text())
+        if summary['incident_count'] or metadata['profile_id']!='generic-obd-can29-500' or report['configuration']['initialization_version']!='obdlink-stp34-diagnostic-1':
+            raise SystemExit('Invalid native CAN29 profile identity')
+        signals=set(summary['signal_coverage'])
+        if signals=={'electrical.adapter_voltage'}:
+            can29_cases.add('no_data')
+        elif signals=={'electrical.adapter_voltage','powertrain.engine.rpm','powertrain.coolant.temperature'}:
+            if not {'18DAF110','18DAF118'} <= {c['ecu'] for c in report['capabilities']}:
+                raise SystemExit('Missing full CAN29 responder IDs')
+            can29_cases.add('timeout' if summary['live']['capability_report']['outcomes'].get('timeout',0) else 'recovery')
+        else: raise SystemExit('Invalid CAN29 native signal coverage')
     elif metadata['schema_version'] == 2 and metadata['live']['workload'] == 'discovery_diagnostic':
         report = json.loads((destination/'capability.json').read_text())
         if summary['incident_count'] != 0 or report['configuration']['initialization_version'] != 'obdlink-stp33-diagnostic-2':
@@ -73,7 +86,7 @@ for archive in archives:
         reconstructed.mkdir(exist_ok=True)
         (reconstructed / f'{archive.stem}.json').write_text(json.dumps(reconstruction, indent=2) + '\n')
     results.append(summary)
-if live_count < 8 or handoff_cases != {'retained','unknown','timeout'} or diagnostic_cases != {'no_data','recovery'} or not {'rpm_only', 'coolant_only'} <= zero_workloads or not {'healthy_drive', 'voltage_tcm_dropout'} <= scenarios:
+if live_count < 11 or can29_cases != {'no_data','recovery','timeout'} or handoff_cases != {'retained','unknown','timeout'} or diagnostic_cases != {'no_data','recovery'} or not {'rpm_only', 'coolant_only'} <= zero_workloads or not {'healthy_drive', 'voltage_tcm_dropout'} <= scenarios:
     raise SystemExit('Native test scenario coverage is incomplete')
 (root / 'python-validation.json').write_text(json.dumps(results, indent=2) + '\n')
-print(f'Validated {len(archives)} native ZIP exports, including zero-sample RPM/coolant and diagnostic/handoff retained-unknown-timeout evidence; reconstructed all available incidents')
+print(f'Validated {len(archives)} native ZIP exports, including zero-sample RPM/coolant and CAN29 no-data/recovery/timeout and diagnostic/handoff evidence; reconstructed all available incidents')

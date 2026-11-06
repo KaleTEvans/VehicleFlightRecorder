@@ -16,16 +16,28 @@ DIAGNOSTIC_INITIALIZATION = dict(list(INITIALIZATION.items())[:13] + [
     ('init_receive_defaults', b'ATCRA\r'), ('init_automatic_filters', b'STFA\r'),
     ('init_baud_check', b'STPBRR\r')] + list(INITIALIZATION.items())[13:])
 HANDOFF_INITIALIZATION = {'init_previous_protocol': b'STPR\r', 'init_previous_description': b'STPRS\r', 'init_previous_baud': b'STPBRR\r'}
-ALL_INITIALIZATION = DIAGNOSTIC_INITIALIZATION | HANDOFF_INITIALIZATION
+CAN29_INITIALIZATION = {({'init_protocol':'init29_protocol', 'init_functional_header':'init29_functional_header', 'init_protocol_check':'init29_protocol_check'}.get(k,k)):
+    ({'init_protocol':b'STP34\r', 'init_functional_header':b'ATSH18DB33F1\r'}.get(k,v)) for k,v in DIAGNOSTIC_INITIALIZATION.items()}
+ALL_INITIALIZATION = DIAGNOSTIC_INITIALIZATION | CAN29_INITIALIZATION | HANDOFF_INITIALIZATION
 LIVE_COMMANDS = COMMANDS | ALL_INITIALIZATION | {'can_status': b'ATCS\r'}
 
 
-def support_bits(data):
+def response_id(compact, can29=False):
+    if can29:
+        return compact[:8] if re.match(r'18DAF1[0-9A-F]{2}',compact) and compact[6:8] != 'F1' else None
+    return compact[:3] if re.match(r'7E[8-F]',compact) else None
+
+
+def support_bits(data, can29=False):
     candidates, seen, bad = {}, set(), set()
     for line in data.decode('ascii', errors='replace').replace('\n', '\r').replace('>', '\r').split('\r'):
         compact = ''.join(line.upper().split())
-        if not re.fullmatch(r'7E[8-F](?:[0-9A-F]{2}){2,8}', compact): continue
-        ecu, payload = compact[:3], bytes.fromhex(compact[3:])
+        ecu = response_id(compact,can29)
+        if ecu is None: continue
+        if not re.fullmatch(r'(?:[0-9A-F]{2}){2,8}', compact[len(ecu):]):
+            bad.add(ecu)
+            continue
+        payload = bytes.fromhex(compact[len(ecu):])
         if ecu in seen: bad.add(ecu)
         seen.add(ecu)
         if payload[0] == 6 and len(payload) >= 7 and payload[1:3] == b'\x41\x00':
@@ -46,7 +58,7 @@ def initialization_value(key, raw):
             require(len(lines[0]) <= 128 and all(c == '\t' or 32 <= ord(c) <= 126 for c in lines[0]), 'handoff readback shape')
             return lines[0]
         if key == 'init_identity': require(re.fullmatch(r'STN[0-9]{4} v[0-9]+(?:\.[0-9]+){1,3}', lines[0]), 'firmware identity')
-        else: require(lines[0] == ('33' if key == 'init_protocol_check' else '500000' if key == 'init_baud_check' else 'OK'), 'initialization acknowledgement/protocol')
+        else: require(lines[0] == ('34' if key == 'init29_protocol_check' else '33' if key == 'init_protocol_check' else '500000' if key == 'init_baud_check' else 'OK'), 'initialization acknowledgement/protocol')
         return lines[0]
     except UnicodeError as error:
         raise ValidationError('invalid initialization ASCII') from error
@@ -68,7 +80,7 @@ def number(value):
     return value
 
 
-def replay_values(key, raw):
+def replay_values(key, raw, can29=False):
     """Check the small documented decoder surface against exact received bytes.
 
     This is an offline integrity check, not an alternative acquisition/parser loop.
@@ -92,15 +104,15 @@ def replay_values(key, raw):
                 if "adapter" in result: duplicates.add("adapter")
                 result["adapter"] = float(line)
             continue
-        if not re.match(r"7E[8-F]", compact):
+        ecu = response_id(compact,can29)
+        if ecu is None:
             continue
-        ecu = compact[:3]
         if ecu in seen_ecus: duplicates.add(ecu)
         seen_ecus.add(ecu)
-        if not re.fullmatch(r"7E[8-F](?:[0-9A-F]{2}){2,8}", compact):
+        if not re.fullmatch(r"(?:[0-9A-F]{2}){2,8}", compact[len(ecu):]):
             duplicates.add(ecu)
             continue
-        data = bytes.fromhex(compact[3:])
+        data = bytes.fromhex(compact[len(ecu):])
         if not 1 <= data[0] <= 7 or data[0]+1 > len(data):
             duplicates.add(ecu)
             continue
@@ -143,7 +155,8 @@ def _validate_acquisition(path, *, allow_incomplete=False):
     fields(report, "report_version kind source protocol_profile catalog_version anchor_unix_ms duration_ns generation state vehicle_identity reference_comparison schedule raw transactions observations capabilities statistics issues" + (' configuration' if live else ''))
     commands = LIVE_COMMANDS if live else COMMANDS
     handoff = live and isinstance(report.get('configuration'),dict) and report['configuration'].get('workload')=='adapter_handoff'
-    profile,catalog = ('adapter-state-only','adapter-state-1') if handoff else ('can11-single-frame-headers-pci','standard-live-can11-1')
+    can29 = live and isinstance(report.get('configuration'),dict) and report['configuration'].get('workload')=='can29_diagnostic'
+    profile,catalog = ('can29-normal-fixed-single-frame-headers-pci','standard-live-can29-1') if can29 else ('adapter-state-only','adapter-state-1') if handoff else ('can11-single-frame-headers-pci','standard-live-can11-1')
     require((report['kind'], report['source'], report['protocol_profile'], report['catalog_version']) ==
             (('live-acquisition', 'obd-live', profile, catalog) if live else
              ('offline-acquisition', 'synthetic', 'can11-single-frame-headers-pci', 'standard-offline-1')), 'unsupported source/profile/catalog')
@@ -153,10 +166,10 @@ def _validate_acquisition(path, *, allow_incomplete=False):
         config = report['configuration']
         fields(config, 'app_version bridge_version reference_note sensor_refresh_rate enhanced_pack maximum_duration_ns minimum_admission_ns session_id origin operating_state workload native_anchor_ns initialization_version selected_protocol connections')
         require(isinstance(config['session_id'], str) and re.fullmatch(r'live-[0-9a-f]{32}', config['session_id']), 'live session identity')
-        require(config['origin'] in ('physical', 'native-fixture', 'scripted-fixture') and config['operating_state'] in ('unknown', 'ignition_on_engine_off', 'stationary_running') and config['workload'] in ('combined', 'rpm_only', 'coolant_only', 'voltage_only', 'discovery_diagnostic', 'adapter_handoff'), 'live configuration')
-        diagnostic = config['workload'] == 'discovery_diagnostic'
-        init_steps = HANDOFF_INITIALIZATION if handoff else DIAGNOSTIC_INITIALIZATION if diagnostic else INITIALIZATION
-        require(config['initialization_version'] == ('obdlink-adapter-handoff-1' if handoff else 'obdlink-stp33-diagnostic-2' if diagnostic else 'obdlink-stp33-runtime-1') and config['selected_protocol'] == ('unmodified-adapter-state' if handoff else 'ISO15765-4-CAN11-500') and config['app_version'] == '0.1.0' and type(config['bridge_version']) is int and config['bridge_version'] == 1, 'configuration version/protocol')
+        require(config['origin'] in ('physical', 'native-fixture', 'scripted-fixture') and config['operating_state'] in ('unknown', 'ignition_on_engine_off', 'stationary_running') and config['workload'] in ('combined', 'rpm_only', 'coolant_only', 'voltage_only', 'discovery_diagnostic', 'can29_diagnostic', 'adapter_handoff'), 'live configuration')
+        diagnostic = config['workload'] in ('discovery_diagnostic','can29_diagnostic')
+        init_steps = HANDOFF_INITIALIZATION if handoff else CAN29_INITIALIZATION if can29 else DIAGNOSTIC_INITIALIZATION if diagnostic else INITIALIZATION
+        require(config['initialization_version'] == ('obdlink-stp34-diagnostic-1' if can29 else 'obdlink-adapter-handoff-1' if handoff else 'obdlink-stp33-diagnostic-2' if diagnostic else 'obdlink-stp33-runtime-1') and config['selected_protocol'] == ('ISO15765-4-CAN29-500' if can29 else 'unmodified-adapter-state' if handoff else 'ISO15765-4-CAN11-500') and config['app_version'] == '0.1.0' and type(config['bridge_version']) is int and config['bridge_version'] == 1, 'configuration version/protocol')
         require(config['sensor_refresh_rate'] == 'unknown' and config['enhanced_pack'] == 'none' and config['maximum_duration_ns'] == (15 if handoff else 600)*10**9 and config['minimum_admission_ns'] == 5*10**8, 'unsupported live policy')
         require(isinstance(config['reference_note'], str) and len(config['reference_note'].encode()) <= 512, 'reference note')
         _integer(config['native_anchor_ns'], 'native anchor')
@@ -173,7 +186,7 @@ def _validate_acquisition(path, *, allow_incomplete=False):
     generation = _integer(report['generation'], 'generation', 1)
     require(report['state'] in {'ready', 'writing', 'awaiting', 'draining', 'blocked', 'disconnected'}, "unknown state")
     require(allow_incomplete or report['state'] in {'blocked', 'disconnected'}, "unfinished acquisition report")
-    for key, maximum in [('schedule', 32 if live else 16), ('raw', 16384 if live else 4096), ('transactions', 2048 if live else 512), ('observations', 8192 if live else 2048), ('capabilities', 32), ('statistics', 32), ('issues', 1024)]:
+    for key, maximum in [('schedule', 32 if live else 16), ('raw', 16384 if live else 4096), ('transactions', 2048 if live else 512), ('observations', 8192 if live else 2048), ('capabilities', 512 if can29 else 32), ('statistics', 512 if can29 else 32), ('issues', 1024)]:
         require(isinstance(report[key], list) and len(report[key]) <= maximum, f"invalid {key} budget")
     require(all(isinstance(issue, str) for issue in report['issues']), "invalid issues")
     schedule = {}
@@ -188,7 +201,7 @@ def _validate_acquisition(path, *, allow_incomplete=False):
     require(schedule, "empty schedule")
     if live:
         require(list(schedule)[:len(init_steps)] == list(init_steps), 'missing/reordered initialization configuration')
-        selected = {'combined': {'support', 'rpm', 'coolant', 'adapter_voltage'}, 'rpm_only': {'support', 'rpm'}, 'coolant_only': {'support', 'coolant'}, 'voltage_only': {'adapter_voltage'}, 'discovery_diagnostic': {'support', 'rpm', 'coolant', 'adapter_voltage', 'can_status'}, 'adapter_handoff': set()}[config['workload']]
+        selected = {'combined': {'support', 'rpm', 'coolant', 'adapter_voltage'}, 'rpm_only': {'support', 'rpm'}, 'coolant_only': {'support', 'coolant'}, 'voltage_only': {'adapter_voltage'}, 'discovery_diagnostic': {'support', 'rpm', 'coolant', 'adapter_voltage', 'can_status'}, 'can29_diagnostic': {'support','rpm','coolant','adapter_voltage','can_status'}, 'adapter_handoff': set()}[config['workload']]
         require(set(schedule)-set(init_steps) == selected, 'workload/configuration mismatch')
         require(all(schedule[k] == dict(key=k, interval_ns=60*10**9, timeout_ns=2*10**9, priority=0) for k in init_steps), 'initialization schedule')
         for key in selected:
@@ -259,7 +272,7 @@ def _validate_acquisition(path, *, allow_incomplete=False):
             accepted_rows = [row for row, _ in rows if row['kind'] == 'accepted']
             require(accepted == commands[tx['key']] and accepted_rows[-1]['monotonic_ns'] == tx['sent_ns'], "send time lacks full acceptance evidence")
         received_rows = [(row, data) for row, data in rows if row['kind'] == 'received']
-        expected_values[id] = replay_values(tx['key'], b''.join(data for _, data in received_rows))
+        expected_values[id] = replay_values(tx['key'], b''.join(data for _, data in received_rows), can29)
         if tx['outcome'] in {'ok', 'partial'}:
             require(tx['sent_ns'] is not None and received_rows, "success lacks response provenance")
             require(max(row['sequence'] for row, _ in rows if row['kind'] == 'accepted') < received_rows[0][0]['sequence'], "response predates completed write")
@@ -289,7 +302,7 @@ def _validate_acquisition(path, *, allow_incomplete=False):
                 require(positions[gen] == len(init_steps), 'measurement requested before setup verification')
                 if tx['key'] == 'support' and tx['outcome'] in {'ok','partial'}:
                     frame = b''.join(data for row,data in raw_by_tx[tx['id']] if row['kind']=='received')
-                    support_by_generation[gen].update(support_bits(frame))
+                    support_by_generation[gen].update(support_bits(frame, can29))
                 elif tx['key'] in {'rpm','coolant'}:
                     pid = 12 if tx['key']=='rpm' else 5
                     require(any(mask & (1 << (32-pid)) for mask in support_by_generation[gen].values()), 'measurement requested without prior same-generation advertised support')
@@ -339,12 +352,12 @@ def _validate_acquisition(path, *, allow_incomplete=False):
         if tx['generation'] != generation or tx['key'] != 'support' or tx['outcome'] not in {'ok', 'partial'}:
             continue
         data = b''.join(data for row, data in raw_by_tx[tx['id']] if row['kind'] == 'received')
-        support_masks.update(support_bits(data))
+        support_masks.update(support_bits(data, can29))
     capability_keys = set()
     for cap in report['capabilities']:
         fields(cap, "ecu key state advertised observed evidence_transaction")
         pair = (cap['ecu'], cap['key'])
-        require(pair not in capability_keys and cap['key'] in SIGNALS and (cap['ecu'] == 'adapter' or re.fullmatch('7E[8-F]', cap['ecu'])), "invalid/duplicate capability")
+        require(pair not in capability_keys and cap['key'] in SIGNALS and (cap['ecu'] == 'adapter' or response_id(cap['ecu'],can29) == cap['ecu']), "invalid/duplicate capability")
         require(cap['state'] in {'unknown', 'advertised', 'observed', 'unsupported', 'unavailable'} and type(cap['observed']) is bool and (cap['advertised'] is None or type(cap['advertised']) is bool), "invalid capability state")
         evidence = txs.get(cap['evidence_transaction'])
         require(evidence is not None and evidence['generation'] == generation and evidence['key'] in {cap['key'], 'support'}, "capability cache crosses generation/configuration")

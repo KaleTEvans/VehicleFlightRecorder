@@ -175,3 +175,71 @@ def test_handoff_does_not_invent_vehicle_configuration(handoff_exports,tmp_path,
     if mutation=='scope':report['protocol_profile']='can11-single-frame-headers-pci'
     report_path.write_text(json.dumps(report))
     with pytest.raises(ValidationError):load_session(path)
+
+@pytest.fixture(scope='module')
+def can29_exports(tmp_path_factory):
+    root=Path(__file__).resolve().parents[2]
+    output=tmp_path_factory.mktemp('can29')
+    binary=output/'live-fixture'
+    env=os.environ|{'GOCACHE':str(root/'.cache/go-build'),'GOMODCACHE':str(root/'.cache/go-mod')}
+    subprocess.run(['go','build','-o',str(binary),'./cmd/live-fixture'],cwd=root/'core',env=env,check=True)
+    result={}
+    for scenario in ('healthy','no_data','recovery','malformed','timeout','reconnect','unsupported'):
+        run=subprocess.run([str(binary),'--output',str(output/scenario),'--workload','can29_diagnostic','--scenario',scenario],check=True,capture_output=True,text=True)
+        result[scenario]=Path(run.stdout.strip())
+    return result
+
+
+@pytest.mark.parametrize('scenario',['healthy','no_data','recovery','malformed','timeout','reconnect','unsupported'])
+def test_can29_profile_independent_replay(can29_exports,scenario):
+    result=load_session(can29_exports[scenario])
+    report=json.loads((can29_exports[scenario]/'capability.json').read_text())
+    assert result['profile_id']=='generic-obd-can29-500'
+    assert report['protocol_profile']=='can29-normal-fixed-single-frame-headers-pci'
+    assert report['configuration']['initialization_version']=='obdlink-stp34-diagnostic-1'
+    assert report['configuration']['selected_protocol']=='ISO15765-4-CAN29-500'
+    assert not result['incidents']
+    assert all(o['ecu']=='adapter' or (len(o['ecu'])==8 and o['ecu'].startswith('18DAF1')) for o in report['observations'])
+    if scenario in ('no_data','unsupported'):
+        assert set(result['signal_coverage'])=={'electrical.adapter_voltage'}
+    else:
+        assert set(result['signal_coverage'])=={'electrical.adapter_voltage','powertrain.engine.rpm','powertrain.coolant.temperature'}
+        assert {'18DAF110','18DAF118'} <= {c['ecu'] for c in report['capabilities']}
+    if scenario=='timeout': assert result['live']['capability_report']['outcomes']['timeout']>=1
+    if scenario=='reconnect': assert report['generation']==2
+    if scenario=='malformed': assert result['live']['capability_report']['outcomes']['partial']>=1
+
+
+@pytest.mark.parametrize('mutation',['metadata','catalog','protocol','initialization','header','readback','destination'])
+def test_can29_scope_and_raw_corruption_rejected(can29_exports,tmp_path,mutation):
+    import base64
+    path=tmp_path/'session';shutil.copytree(can29_exports['healthy'],path)
+    if mutation=='metadata':
+        p=path/'session.json';data=json.loads(p.read_text());data['profile_id']='generic-obd-can11-500';p.write_text(json.dumps(data))
+    else:
+        p=path/'capability.json';data=json.loads(p.read_text())
+        if mutation=='catalog': data['catalog_version']='standard-live-can11-1'
+        if mutation=='protocol': data['configuration']['selected_protocol']='ISO15765-4-CAN11-500'
+        if mutation=='initialization': data['configuration']['initialization_version']='obdlink-stp33-diagnostic-2'
+        if mutation=='readback': next(t for t in data['transactions'] if t['key']=='init29_protocol_check')['adapter_status']=['33']
+        if mutation in ('header','destination'):
+            # Change both copies of the ledger, forcing independent command or
+            # responder validation rather than only the ledger-equality check.
+            for row in data['raw']:
+                raw=base64.b64decode(row['bytes_base64'])
+                raw=raw.replace(b'ATSH18DB33F1',b'ATSH000007DF') if mutation=='header' else raw.replace(b'18DAF110',b'18DA1010')
+                row['bytes_base64']=base64.b64encode(raw).decode()
+            (path/'raw/transport.jsonl').write_text(''.join(json.dumps(r)+'\n' for r in data['raw']))
+        p.write_text(json.dumps(data))
+    with pytest.raises(ValidationError):load_session(path)
+
+
+def test_independent_can29_parser_address_and_duplicate_isolation():
+    from vehicle_flight_recorder.acquisition import replay_values,support_bits
+    assert replay_values('rpm',b'18 DA F1 10 04 41 0C 1A F8\r>',True)=={'18DAF110':1726}
+    assert replay_values('rpm',b'7E8 04 41 0C 1A F8\r>',True)=={}
+    assert replay_values('rpm',b'18DAF110 04 41 0C 1A F8\r>',False)=={}
+    for address in ('18DA10F1','18DB33F1','18DAF1F1','38DAF110'):
+        assert replay_values('rpm',f'{address} 04 41 0C 1A F8\r>'.encode(),True)=={}
+    assert replay_values('rpm',b'18DAF110 04 41 0C 00 00\r18DAF110 broken\r18DAF118 04 41 0C 0F A0\r>',True)=={'18DAF118':1000}
+    assert support_bits(b'18DAF110 06 41 00 08 10 00 00\r18DAF110 broken\r>',True)=={}

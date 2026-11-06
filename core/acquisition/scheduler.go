@@ -471,7 +471,7 @@ func (s *Scheduler) Receive(generation int, now int64, data []byte) error {
 		s.finish(now, "ok")
 		return nil
 	}
-	reply, err := obd.Parse(tx.Key, frames[0])
+	reply, err := obd.ParseProfile(s.report.Profile, tx.Key, frames[0])
 	if err != nil {
 		s.finish(now, "protocol_error")
 		return err

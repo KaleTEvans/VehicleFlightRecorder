@@ -66,12 +66,13 @@ def _metadata(metadata):
         if set(metadata) != expected or metadata['source'] != 'obd-live' or metadata['vehicle_pack_version'] != 'none': _fail('unknown/incompatible schema_version 2 live metadata')
         live = metadata['live']
         if not isinstance(live, dict) or set(live) != {'origin','operating_state','workload','native_anchor_ns','catalog_version','protocol_profile','report_file','start_origin'}: _fail('invalid live configuration')
-        if live['origin'] not in ('physical','native-fixture','scripted-fixture') or live['operating_state'] not in ('unknown','ignition_on_engine_off','stationary_running') or live['workload'] not in ('combined','rpm_only','coolant_only','voltage_only','discovery_diagnostic','adapter_handoff'): _fail('unknown live source/configuration')
+        if live['origin'] not in ('physical','native-fixture','scripted-fixture') or live['operating_state'] not in ('unknown','ignition_on_engine_off','stationary_running') or live['workload'] not in ('combined','rpm_only','coolant_only','voltage_only','discovery_diagnostic','can29_diagnostic','adapter_handoff'): _fail('unknown live source/configuration')
         _integer(live['native_anchor_ns'], 'native anchor')
         handoff=live['workload']=='adapter_handoff'
+        can29=live['workload']=='can29_diagnostic'
         if handoff and (metadata['observation_count'] != 0 or metadata['incident_count'] != 0): _fail('adapter handoff cannot contain measurements/incidents')
-        if metadata['profile_id'] != ('adapter-state-only' if handoff else 'generic-obd-can11-500'): _fail('live workload/profile mismatch')
-        if (live['catalog_version'], live['protocol_profile'], live['report_file'], live['start_origin']) != (('adapter-state-1','adapter-state-only','capability.json','manual') if handoff else ('standard-live-can11-1','can11-single-frame-headers-pci','capability.json','manual')): _fail('unsupported live catalog/profile')
+        if metadata['profile_id'] != ('generic-obd-can29-500' if can29 else 'adapter-state-only' if handoff else 'generic-obd-can11-500'): _fail('live workload/profile mismatch')
+        if (live['catalog_version'], live['protocol_profile'], live['report_file'], live['start_origin']) != (('standard-live-can29-1','can29-normal-fixed-single-frame-headers-pci','capability.json','manual') if can29 else ('adapter-state-1','adapter-state-only','capability.json','manual') if handoff else ('standard-live-can11-1','can11-single-frame-headers-pci','capability.json','manual')): _fail('unsupported live catalog/profile')
     elif 'live' in metadata or metadata.get('source') == 'obd-live': _fail('live metadata requires schema 2')
     for key in ("session_id", "source", "profile_id", "vehicle_pack_version"):
         _string(metadata.get(key), f"session.json {key}")

@@ -17,6 +17,7 @@ struct TransportDebugView: View {
                     Text("Transport: \(model.state)")
                     Text(model.notice)
                     if workload == "adapter_handoff" { Text("Adapter-only handoff capture · VFR leaves the vehicle protocol unchanged.").font(.caption) }
+                    else if workload == "can29_diagnostic" { Text("Standard OBD stationary diagnostic · CAN 29-bit / 500 kbps. Enhanced Alfa / TCM signals are not enabled.").font(.caption) }
                     else { Text("Standard OBD stationary testing · generic CAN 11-bit / 500 kbps. Enhanced Alfa / TCM signals are not enabled.").font(.caption) }
                     if let error = model.error { Text(error).foregroundStyle(.red).textSelection(.enabled) }
                     Button("Discover / Connect") { Task { await model.connect() } }.disabled(model.busy)
@@ -31,12 +32,13 @@ struct TransportDebugView: View {
                     Picker("Workload", selection: $workload) {
                         Text("Combined").tag("combined")
                         Text("Discovery diagnostic").tag("discovery_diagnostic")
+                        Text("CAN 29-bit diagnostic").tag("can29_diagnostic")
                         Text("Adapter handoff capture").tag("adapter_handoff")
                         Text("RPM only").tag("rpm_only")
                         Text("Coolant only").tag("coolant_only")
                         Text("Adapter voltage only").tag("voltage_only")
                     }.disabled(model.live?.active == true)
-                    if workload == "discovery_diagnostic" {
+                    if workload == "discovery_diagnostic" || workload == "can29_diagnostic" {
                         Text("Record about 2 minutes, then Stop and save. This mode records discovery attempts, adapter CAN status and voltage; RPM/coolant wait for valid support evidence. Keep this app open and the vehicle parked.").font(.caption)
                     }
                     TextField("Reference tool / reading (optional)", text: $reference)
@@ -134,6 +136,10 @@ struct LiveDiscoveryStatusView: View {
                     }
                 }
             } else if let discovery = live.discovery {
+                if live.workload == "can29_diagnostic" {
+                    Text("Profile: CAN 29-bit / 500 kbps").font(.caption)
+                        .accessibilityIdentifier("discovery-can29-profile")
+                }
                 Text("Adapter setup: \(discovery.setupComplete)/\(discovery.setupTotal)")
                     .accessibilityIdentifier("discovery-setup")
                 Text(live.initialized ? "Adapter setup verified" : "Waiting for verified adapter initialization").font(.caption)

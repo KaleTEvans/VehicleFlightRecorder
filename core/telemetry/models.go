@@ -276,6 +276,9 @@ func (s Session) Validate() error {
 			return fmt.Errorf("invalid live session contract")
 		}
 		profile, catalog, protocol := "generic-obd-can11-500", "standard-live-can11-1", "can11-single-frame-headers-pci"
+		if s.Live.Workload == "can29_diagnostic" {
+			profile, catalog, protocol = "generic-obd-can29-500", "standard-live-can29-1", "can29-normal-fixed-single-frame-headers-pci"
+		}
 		if s.Live.Workload == "adapter_handoff" {
 			if s.ObservationCount != 0 || s.IncidentCount != 0 {
 				return fmt.Errorf("adapter handoff cannot contain measurements/incidents")
@@ -297,7 +300,7 @@ func (s Session) Validate() error {
 			return fmt.Errorf("invalid operating state")
 		}
 		switch s.Live.Workload {
-		case "combined", "rpm_only", "coolant_only", "voltage_only", "discovery_diagnostic", "adapter_handoff":
+		case "combined", "rpm_only", "coolant_only", "voltage_only", "discovery_diagnostic", "can29_diagnostic", "adapter_handoff":
 		default:
 			return fmt.Errorf("invalid live workload")
 		}

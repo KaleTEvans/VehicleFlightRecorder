@@ -58,7 +58,7 @@ struct LiveSnapshot: Decodable {
     let discovery: LiveDiscovery?
     let adapterState: AdapterStateReadback?
     var isHandoff: Bool { workload == "adapter_handoff" }
-    var isDiagnostic: Bool { workload == "discovery_diagnostic" }
+    var isDiagnostic: Bool { workload == "discovery_diagnostic" || workload == "can29_diagnostic" }
     let elapsedMs: Int64
     let initialized: Bool
     let error: String

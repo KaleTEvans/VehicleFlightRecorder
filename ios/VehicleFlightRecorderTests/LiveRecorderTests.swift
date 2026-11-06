@@ -105,4 +105,33 @@ final class LiveRecorderTests: XCTestCase {
         }
     }
 
+    func testNativeCAN29NoDataRecoveryAndTimeoutExports() async throws {
+        for kind in ["no_data", "recovery", "timeout"] {
+            let result = try DiscoveryDiagnosticFixture.make(recovery: kind != "no_data", can29: true, timeoutRPM: kind == "timeout")
+            let snapshot = result.snapshot
+            XCTAssertTrue(snapshot.isDiagnostic)
+            XCTAssertTrue(snapshot.initialized)
+            XCTAssertEqual(snapshot.workload, "can29_diagnostic")
+            XCTAssertEqual(snapshot.discovery?.setupComplete, 21)
+            XCTAssertEqual(snapshot.discovery?.outcome, kind == "no_data" ? "no_data" : "ok")
+            let ecuRows = snapshot.readings.filter { $0.ecu != "adapter" }
+            if kind == "no_data" { XCTAssertTrue(ecuRows.isEmpty) }
+            else {
+                XCTAssertEqual(Set(ecuRows.map { $0.ecu }), Set(["18DAF110", "18DAF118"]))
+                XCTAssertTrue(ecuRows.contains { $0.signalId == "powertrain.coolant.temperature" && $0.value == 83 })
+                XCTAssertTrue(ecuRows.contains { $0.signalId == "powertrain.engine.rpm" && $0.value == 800 })
+                XCTAssertTrue(ecuRows.contains { $0.signalId == "powertrain.engine.rpm" && $0.value == 1000 })
+            }
+            let service = try RecorderService(history: result.root)
+            let rows = try await service.sessions()
+            XCTAssertEqual(rows.first?.session.profileId, "generic-obd-can29-500")
+            let archive = try await service.archive(result.sessionID)
+            let docs = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
+            let output = docs.appendingPathComponent("NativeAcceptance/Exports", isDirectory: true)
+            try FileManager.default.createDirectory(at: output, withIntermediateDirectories: true)
+            try FileManager.default.copyItem(at: archive, to: output.appendingPathComponent(archive.lastPathComponent))
+            try await service.close()
+        }
+    }
+
 }

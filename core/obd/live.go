@@ -10,6 +10,10 @@ const LiveCatalogVersion = "standard-live-can11-1"
 const InitializationVersion = "obdlink-stp33-runtime-1"
 const DiagnosticInitializationVersion = "obdlink-stp33-diagnostic-2"
 const DiagnosticWorkload = "discovery_diagnostic"
+const CAN29Workload = "can29_diagnostic"
+const CAN29InitializationVersion = "obdlink-stp34-diagnostic-1"
+const CAN29Profile = "can29-normal-fixed-single-frame-headers-pci"
+const CAN29Catalog = "standard-live-can29-1"
 const HandoffWorkload = "adapter_handoff"
 const HandoffInitializationVersion = "obdlink-adapter-handoff-1"
 const HandoffProfile = "adapter-state-only"
@@ -53,7 +57,7 @@ func InitializationFor(version string) ([]Definition, error) {
 	if version == InitializationVersion {
 		return Initialization(), nil
 	}
-	if version != DiagnosticInitializationVersion {
+	if version != DiagnosticInitializationVersion && version != CAN29InitializationVersion {
 		return nil, fmt.Errorf("unknown initialization version")
 	}
 	steps := Initialization()
@@ -64,14 +68,31 @@ func InitializationFor(version string) ([]Definition, error) {
 		{Key: "init_automatic_filters", Command: "STFA\r", Reference: STNReference + "#page=39"},
 		{Key: "init_baud_check", Command: "STPBRR\r", Reference: STNReference + "#page=34"},
 	}
-	// STP33 must precede settings whose interpretation depends on protocol.
+	// Protocol selection must precede settings whose interpretation depends on it.
 	result := append([]Definition{}, steps[:13]...)
 	result = append(result, extra...)
-	return append(result, steps[13:]...), nil
+	result = append(result, steps[13:]...)
+	if version == CAN29InitializationVersion {
+		for i := range result {
+			switch result[i].Key {
+			case "init_protocol":
+				result[i].Key, result[i].Command = "init29_protocol", "STP34\r"
+			case "init_functional_header":
+				result[i].Key, result[i].Command = "init29_functional_header", "ATSH18DB33F1\r"
+			case "init_protocol_check":
+				result[i].Key = "init29_protocol_check"
+			}
+		}
+	}
+	return result, nil
 }
-func IsInitialization(key string) bool { return strings.HasPrefix(key, "init_") }
+func IsInitialization(key string) bool {
+	return strings.HasPrefix(key, "init_") || strings.HasPrefix(key, "init29_")
+}
 func LookupLive(key string) (Definition, error) {
 	steps, _ := InitializationFor(DiagnosticInitializationVersion)
+	can29, _ := InitializationFor(CAN29InitializationVersion)
+	steps = append(steps, can29...)
 	steps = append(steps, handoffInitialization...)
 	for _, d := range steps {
 		if d.Key == key {
@@ -122,6 +143,9 @@ func ParseInitialization(key string, frame []byte) (string, error) {
 	want := "OK"
 	if key == "init_protocol_check" {
 		want = "33"
+	}
+	if key == "init29_protocol_check" {
+		want = "34"
 	}
 	if key == "init_baud_check" {
 		want = "500000"

@@ -547,4 +547,82 @@ The physical handoff result remains unconfirmed; no protocol change or decoder
 expansion is justified solely by the scripted fixture settings. Follow-up delivery
 notes do not alter the tested binary; Appetize remains unchanged and PR #5 stays draft.
 
+## Physical adapter handoff received — build 11.1
+
+The supplied `VFR1.zip` is the requested physical `adapter_handoff` session,
+`live-8fc1fc4898c0c3e1b1acb0c86ead71eb`, build **0.1.0 (11.1)** on the MX+ /
+iOS 26.6.2. It began November 6, 2026 at **3:41:36.733 p.m. CST** and completed
+in **1.396830542 seconds** with `handoff_readbacks_captured`. Session validation
+and independent capability/raw replay passed: three successful transactions,
+12 raw rows, one connection generation, no issues, no uncheckpointed evidence.
+Zero observations/incidents are expected for this adapter-only workload.
+
+| Query | Exact retained reply (echo/prompt omitted) |
+| --- | --- |
+| STPR | `A7 [AT]` |
+| STPRS | `AUTO, ISO 15765-4 (CAN 29/500) [AT]` |
+| STPBRR | `500000` |
+
+Original requested/accepted/received bytes agree with these receipts. Only these
+three read-only queries were sent: no STPC, ATD, STP33, vehicle request, retry or
+reconnect. Thus the handoff capture itself passed its physical readback/export
+check. Raw reply suffixes remain preserved; the reader does not normalize the
+AT-style number into an ST preset or adopt a vehicle profile automatically.
+
+This is a concrete **29-bit/500 kbps adapter-state lead**, whereas VFR's regular
+and diagnostic acquisition explicitly select STP33 (11-bit/500 kbps). The
+[manufacturer FRPM E](https://www.scantool.net/scantool/downloads/678/obdlink_frpm_e.pdf#page=33)
+distinguishes ST presets 33 (11-bit Tx) and 34 (29-bit Tx); both can receive both
+identifier sizes, so transmit addressing matters. Do not interpret raw `A7 [AT]`
+as literal ST preset 7 or feed it directly to STP. The retained description and
+baud readback provide the concrete evidence here.
+
+A transmit-profile/addressing mismatch is now a supported diagnostic hypothesis
+for the earlier NO DATA, not an established root cause. This capture contains no
+ECU response and cannot prove which setting OBDLink used for its earlier live
+readings, identify ECU/TCM addresses, or verify RPM/coolant acquisition. Cleanup
+or accessory reconnection may still have changed state before the capture.
+
+Next engineering scope: add and independently test an explicitly versioned
+29-bit/500 kbps diagnostic profile, matching functional transmit addressing and
+29-bit response parsing/provenance, before requesting another batched parked
+session. Merely changing STP33 to STP34 is insufficient for the existing 11-bit
+header/parser assumptions. No further repeat on 11.1 is requested. M6 physical
+ECU acquisition and remaining acceptance gates stay open; this review ships no
+new app binary or acquisition behavior.
+
+ZIP SHA-256: `2d8e3f59716702322b7d2e70d42d66d991128645dd9ae10ffc068e87076c5796`.
+The original ZIP, extracted six-file session and validation summary remain private
+under ignored `.cache/physical-tests/2026-11-06/handoff-11.1/`.
+
+## Explicit CAN 29-bit diagnostic profile — implementation, acceptance pending
+
+The user authorized implementing the next targeted profile after the physical
+11.1 handoff retained CAN 29/500. `can29_diagnostic` is a separate opt-in workload:
+STP34, standard functional transmit header ATSH18DB33F1, normal-fixed addressing,
+automatic receive filters and strict 34 / 500000 readbacks in a versioned 21-step
+setup. Regular/11-bit diagnostic/handoff workloads keep their previous selection
+and contracts. There is no automatic protocol search, arbitrary send, NVM protocol
+write, enhanced PID or ECU write. Opening a connection still sends no commands.
+
+The profile/catalog/initialization identifiers are documented in DATA_SCHEMA.md.
+The Go parser and independent Python replay retain full 18DAF1xx responder IDs,
+header/PCI and per-ECU raw provenance; reject wrong destination/11-bit/multiframe/
+foreign data; and isolate duplicate or malformed responders. Capability rows now
+sort actual addresses rather than iterating an 11-bit-only list. The 29-bit
+namespace has a separate bounded reader budget; legacy limits remain unchanged.
+No address is assigned a physical module name or a TCM temperature meaning.
+
+Native UI exposes CAN 29-bit diagnostic and shows its active profile; saved
+history identifies the workload. New tests cover two responders, supported and
+unsupported readings, NO DATA/recovery, timeouts/late bytes, setup mismatches,
+reconnect generation isolation, independent replay/corruption, native UI and ZIPs.
+Portable checks passed: full Go tests/vet, targeted CAN29 configuration/parser/
+reconnect tests, 144 Python tests, 29 script tests, race checks, formatting and
+actionlint. All four retained phone captures independently validate. Native
+acceptance and signed delivery are pending; no new build is ready for a car visit. The [new single-visit packet](../planning/milestone_6_can29_session.md)
+is draft pending delivery. It batches discovery/acquisition, conditional reconnect
+and a later official-app SAE comparison, followed by one indoor ZIP handoff.
+M6 physical ECU acquisition/reference/reliability/manual gates remain open.
+
 **Milestone 7 not started.**

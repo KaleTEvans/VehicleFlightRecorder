@@ -218,6 +218,10 @@ final class EvidenceNavigationTests: XCTestCase {
         }
         XCTAssertTrue(supported.isHittable, app.debugDescription)
         supported.tap()
+        for _ in 0..<4 {
+            if outcome.isHittable { break }
+            app.collectionViews.firstMatch.swipeDown()
+        }
         expectation(for: NSPredicate { _, _ in outcome.label == "ECU discovery: Response received" }, evaluatedWith: app)
         waitForExpectations(timeout: 30)
         XCTAssertFalse(app.staticTexts["diagnostic-fixture-error"].exists)

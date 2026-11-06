@@ -31,8 +31,10 @@ qualification remain pending.
 **Current physical diagnosis:** on November 6, both requested RPM/coolant phone ZIPs
 were independently validated. They retain build-7.1 setup success followed by
 `NO DATA` from `0100`, leaving measurement requests gated. Why discovery received
-no data remains unresolved; physical sampling is not accepted and the next connected work uses the delivered
-[targeted diagnostic packet](../planning/milestone_6_diagnostic_session.md).
+no data remains unresolved; physical sampling is not accepted. The build-10.1
+D1 diagnostic also returned no ECU data; the official app later showed RPM and
+coolant, but its working protocol is unknown. The next connected work uses the
+[short adapter handoff packet](../planning/milestone_6_handoff_capture.md) on 11.1.
 
 Build **0.1.0 (9.1)** is available for internal TestFlight installation. It adds
 workload/state to session history, requested readings and a zero-reading message
@@ -46,15 +48,28 @@ uploaded that exact source on November 6 at 12:10:25 p.m. CST; Apple confirmed
 VALID / IN_BETA_TESTING. This preserves the build-8.1 export correction. OBD
 initialization, admission and decoders are unchanged. See [the report](MILESTONE_6.md).
 
-The current diagnostic beta is **0.1.0 (10.1)**, source
+The earlier diagnostic beta **0.1.0 (10.1)** used source
 `24037f0f0bdab0c5e0caff3a98cb3d0185b80629`. It passed 29 hosted / four UI tests,
 seven actual native ZIP validations, both device compile profiles and signed
 [run 42276904829](https://github.com/KaleTEvans/VehicleFlightRecorder/actions/runs/42276904829).
 Apple confirmed upload COMPLETE, build VALID and IN_BETA_TESTING after upload
-November 6 at 1:11:05 p.m. CST. Select the new Discovery diagnostic workload only
-for the [one-visit packet](../planning/milestone_6_diagnostic_session.md); regular
-workloads keep their prior initialization/schedules. This build collects the
-missing diagnosis evidence; successful physical ECU acquisition is still pending.
+November 6 at 1:11:05 p.m. CST. Its Discovery diagnostic workload was used for
+the [earlier one-visit packet](../planning/milestone_6_diagnostic_session.md);
+regular workloads keep their prior initialization/schedules. D1 evidence is
+received; successful physical ECU acquisition is still pending.
+
+The current targeted beta is **0.1.0 (11.1)**, source
+`540c385bb465ac6404ed67ab4f393923fe2274c7`. It passed 30 hosted native tests,
+five UI tests, ten native ZIP validations and both device compile profiles in
+[native run 42288515502](https://github.com/KaleTEvans/VehicleFlightRecorder/actions/runs/42288515502).
+[Signed run 42290107051](https://github.com/KaleTEvans/VehicleFlightRecorder/actions/runs/42290107051)
+uploaded it November 6 at **2:42:16 p.m. CST**; Apple confirmed VALID /
+IN_BETA_TESTING. **Adapter handoff capture** reads only STPR, STPRS and STPBRR
+without reset/configuration or vehicle polling, then saves automatically. It may
+capture settings left by the reference app, although cleanup/reconnection may
+already have altered them. Run the linked short packet once; do not repeat D2
+on 10.1. Existing regular/diagnostic workloads keep their setup and schedules.
+The new mode intentionally records zero sensor samples. M6 remains unaccepted.
 
 ## User setup
 

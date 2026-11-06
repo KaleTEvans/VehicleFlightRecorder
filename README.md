@@ -24,13 +24,18 @@ Apple confirmed the build VALID / IN_BETA_TESTING; real stationary acceptance
 is pending in [its report](docs/MILESTONE_6.md).
 Both requested zero-sample RPM/coolant phone ZIPs have been retrieved and validated.
 Adapter setup passed; supported-PID discovery returned `NO DATA`, leaving the
-measurement requests gated. The reason for that response remains unresolved. A
-[targeted parked diagnostic packet](planning/milestone_6_diagnostic_session.md) is
-now ready for TestFlight **10.1**, uploaded November 6 at 1:11 p.m. CST and
-confirmed VALID / IN_BETA_TESTING. This adds explicit runtime setup/readbacks,
-discovery/status capture and visible retry outcomes; it is not physical acceptance.
-The diagnostic source passed 29 hosted native tests, four UI tests and seven ZIP
-validations, plus Go/race checks, 122 Python tests and 29 script tests.
+measurement requests gated. The reason remains unresolved. The build-10.1 D1
+diagnostic retained successful setup and adapter voltage, but four attempts still
+returned `NO DATA`. The official OBDLink app subsequently showed RPM and coolant;
+its working protocol remains unknown. D2 was not run.
+The next test is the [short adapter handoff capture](planning/milestone_6_handoff_capture.md)
+on TestFlight **0.1.0 (11.1)**, uploaded November 6 at **2:42:16 p.m. CST** and
+confirmed VALID / IN_BETA_TESTING. It reads only current protocol/description/baud
+before VFR resets or selects a profile, preserving raw evidence without vehicle
+polling. App cleanup/reconnection may already have changed the scanner state.
+The exact source passed 30 hosted native tests, five UI tests, ten native ZIP
+validations, Go/race checks, 129 Python tests and 29 script tests. Physical ECU
+acquisition remains unaccepted.
 The export correction and saved-session setup display passed 28 hosted native
 tests, three UI tests and five actual native ZIP validations. Build `0.1.0 (9.1)`
 uploaded on November 6 at 12:10 p.m. CST and is VALID / IN_BETA_TESTING. Session
@@ -79,15 +84,15 @@ simulator build or unsigned device compile does not establish these behaviors.
 
 ## Human acceptance sessions
 
-Use the [current M6 diagnostic visit checklist](planning/milestone_6_diagnostic_session.md)
-on **10.1**. It groups a two-minute diagnostic capture, an official-app reference,
-a conditional diagnostic repeat, and ordinary combined/reconnect continuation only
-when its prerequisites pass into one 15–25 minute parked visit. Do saved history,
-evidence navigation and exports afterward indoors, then return one evidence set.
-The older [general M6 checklist](planning/milestone_6_test_session.md) remains paused
-and is superseded for this visit. The [shared workflow](planning/physical_test_sessions.md)
-applies to later milestones and targeted retests; physical acceptance remains
-evidence-based.
+Use the [short M6 handoff checklist](planning/milestone_6_handoff_capture.md)
+on **11.1**: establish working SAE RPM/coolant in OBDLink, keep the scanner
+powered, close OBDLink and run Adapter handoff capture once. It automatically
+saves three readbacks or available failure evidence within a 15-second active
+owner-loop limit; zero sensor samples are expected. Export/review follows indoors.
+This replaces an unchanged D2 recording; no repeat of D1 or accepted 9.1 UI checks
+is requested. Earlier diagnostic/general packets remain historical. The
+[shared workflow](planning/physical_test_sessions.md) applies to later milestones
+and targeted retests; physical acceptance remains evidence-based.
 
 ## Develop and test in WSL
 

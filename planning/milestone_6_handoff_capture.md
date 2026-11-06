@@ -1,6 +1,9 @@
 # Milestone 6 — adapter handoff capture
 
-Status: DRAFT pending native acceptance and TestFlight delivery. Build: pending.
+Status: READY. Install **Vehicle Flight Recorder 0.1.0 (11.1)** from TestFlight.
+Source: `540c385bb465ac6404ed67ab4f393923fe2274c7`. Uploaded November 6, 2026
+at **2:42:16 p.m. CST**; Apple confirmed VALID / IN_BETA_TESTING. This source
+passed 30 hosted native tests, five UI tests and ten native ZIP validations.
 Do not repeat D2 on build 10.1 for this purpose; it resets/configures the adapter
 before reading protocol settings. D1 is already validated and does not need a repeat.
 This short packet replaces that extra diagnostic recording.

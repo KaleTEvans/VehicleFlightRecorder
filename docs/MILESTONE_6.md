@@ -499,7 +499,7 @@ is unavailable, a reference-app diagnostic log/report would be a separate source
 No new initialization implementation is shipped by this clarification. Do not
 request an additional visit only for an unchanged D2 on 10.1.
 
-## Adapter-only handoff capture — implementation in progress
+## Adapter-only handoff capture — delivered, physical result pending
 
 The user did not run D2 and is willing to perform a handoff test if it can capture
 settings left by OBDLink. The new opt-in `adapter_handoff` workload is separate
@@ -523,7 +523,28 @@ in handoff history. Python independently validates the adapter-only scope, exact
 three-command order, no retries/generation reuse, receipt bytes and both prior
 live setup versions. Existing recordings require no migration; new handoff
 exports require the updated reader. The new [one short handoff packet](../planning/milestone_6_handoff_capture.md)
-replaces another unchanged D2, with export/review indoors. Native acceptance and
-signed delivery remain pending; no test on 10.1 can exercise this new mode.
+replaces another unchanged D2, with export/review indoors. Native acceptance is recorded below; no test on 10.1 can exercise this new mode.
+
+The source `540c385bb465ac6404ed67ab4f393923fe2274c7` passed portable CI:
+Go tests/vet, 129 Python tests, 29 script tests, race checks and formatting/actionlint.
+All three original phone ZIPs still independently validate with the updated reader.
+[Native run 42288515502](https://github.com/KaleTEvans/VehicleFlightRecorder/actions/runs/42288515502)
+passed 30 hosted tests, five UI tests, both device compile profiles and validation
+of ten native ZIPs. The three added exports prove retained settings, unknown
+AUTO/? settings and a timeout capture without reset/profile selection/vehicle
+queries or retries. Existing diagnostic/history/export UI acceptance stays green.
+[Native artifact 13538973065](https://github.com/KaleTEvans/VehicleFlightRecorder/actions/runs/42288515502/artifacts/13538973065)
+has SHA-256 `fdd3e434c8a5afc0719dd3bc96f17e54a986216aba021c800b39cd32b32e1a28`.
+Downloaded evidence/screenshot is under ignored `build/milestone-6-native/540c385/`.
+Signed build **0.1.0 (11.1)** used the exact tested source through
+[run 42290107051](https://github.com/KaleTEvans/VehicleFlightRecorder/actions/runs/42290107051).
+Archive/export/signature verification passed; Apple returned `UPLOAD SUCCEEDED
+with no errors` at **20:42:16 UTC / 2:42:16 p.m. CST November 6**. Delivery ID:
+`dad48319-d4b3-487f-b156-b51231e76ec6`. Read-only Apple API inspection confirmed
+build VALID / internal IN_BETA_TESTING, uploadedDate 20:42:58 UTC. It is ready
+for the short handoff packet; an unchanged D2 on 10.1 is not requested.
+The physical handoff result remains unconfirmed; no protocol change or decoder
+expansion is justified solely by the scripted fixture settings. Follow-up delivery
+notes do not alter the tested binary; Appetize remains unchanged and PR #5 stays draft.
 
 **Milestone 7 not started.**

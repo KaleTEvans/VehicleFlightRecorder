@@ -2,7 +2,8 @@
 
 Status: D1/reference evidence received. An unchanged D2 is not requested.
 The [adapter handoff packet](milestone_6_handoff_capture.md) supersedes this
-packet for the next visit once its new build is delivered; do not run it on 10.1.
+packet for the next visit: TestFlight **0.1.0 (11.1)** is ready. Do not run the
+handoff test on 10.1.
 
 Build: **Vehicle Flight Recorder 0.1.0 (10.1)**, source
 `24037f0f0bdab0c5e0caff3a98cb3d0185b80629`. Native acceptance passed 29 hosted

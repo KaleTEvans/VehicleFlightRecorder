@@ -99,11 +99,13 @@ final class EvidenceNavigationTests: XCTestCase {
             setup.lifetime = .keepAlways
             add(setup)
             let export = app.buttons["export-session-zip"]
-            XCTAssertTrue(export.waitForExistence(timeout: 10), app.debugDescription)
-            for _ in 0..<4 {
-                if export.isHittable { break }
-                app.swipeUp()
+            // List materializes offscreen rows only after scrolling. Setup now
+            // leads the detail page, so reveal Export before waiting for its row.
+            for _ in 0..<6 {
+                if export.exists && export.isHittable { break }
+                app.collectionViews.firstMatch.swipeUp()
             }
+            XCTAssertTrue(export.waitForExistence(timeout: 10), app.debugDescription)
             XCTAssertTrue(export.isHittable, app.debugDescription)
             for attempt in 0..<(index == 0 ? 2 : 1) {
                 export.tap() // One tap; no retry loop can hide a presentation failure.

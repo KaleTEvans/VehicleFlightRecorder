@@ -1,5 +1,5 @@
-// Package obd implements an offline-only, deliberately narrow ASCII/CAN profile.
-// It is not imported by the mobile facade and cannot open or write a transport.
+// Package obd implements the deliberately narrow documented ASCII/CAN profile.
+// It defines byte requests and decoders but cannot open or write a transport.
 package obd
 
 import (

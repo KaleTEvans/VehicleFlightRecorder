@@ -11,7 +11,25 @@ SIGNALS = {"rpm": ("powertrain.engine.rpm", "rpm"), "coolant": ("powertrain.cool
 INITIALIZATION = dict(zip(
     ('init_close init_defaults init_echo init_linefeeds init_memory init_spaces init_headers init_dlc init_format init_flow init_responses init_timing init_protocol init_timeout init_protocol_check init_identity').split(),
     (b'STPC\r', b'ATD\r', b'ATE0\r', b'ATL0\r', b'ATM0\r', b'ATS1\r', b'ATH1\r', b'ATD0\r', b'ATCAF1\r', b'ATCFC1\r', b'ATR1\r', b'ATAT0\r', b'STP33\r', b'STPTO500\r', b'STPR\r', b'STI\r')))
-LIVE_COMMANDS = COMMANDS | INITIALIZATION
+DIAGNOSTIC_INITIALIZATION = dict(list(INITIALIZATION.items())[:13] + [
+    ('init_functional_header', b'ATSH7DF\r'), ('init_normal_addressing', b'STCAF0\r'),
+    ('init_receive_defaults', b'ATCRA\r'), ('init_automatic_filters', b'STFA\r'),
+    ('init_baud_check', b'STPBRR\r')] + list(INITIALIZATION.items())[13:])
+LIVE_COMMANDS = COMMANDS | DIAGNOSTIC_INITIALIZATION | {'can_status': b'ATCS\r'}
+
+
+def support_bits(data):
+    candidates, seen, bad = {}, set(), set()
+    for line in data.decode('ascii', errors='replace').replace('\n', '\r').replace('>', '\r').split('\r'):
+        compact = ''.join(line.upper().split())
+        if not re.fullmatch(r'7E[8-F](?:[0-9A-F]{2}){2,8}', compact): continue
+        ecu, payload = compact[:3], bytes.fromhex(compact[3:])
+        if ecu in seen: bad.add(ecu)
+        seen.add(ecu)
+        if payload[0] == 6 and len(payload) >= 7 and payload[1:3] == b'\x41\x00':
+            candidates[ecu] = int.from_bytes(payload[3:7], 'big')
+        else: bad.add(ecu)
+    return {ecu: mask for ecu, mask in candidates.items() if ecu not in bad}
 
 
 def initialization_value(key, raw):
@@ -19,10 +37,10 @@ def initialization_value(key, raw):
         text = raw.strip().decode('ascii')
         require(text.endswith('>') and text.count('>') == 1, 'initialization prompt')
         lines = [x.strip() for x in text[:-1].replace('\n', '\r').split('\r') if x.strip()]
-        lines = [x for x in lines if ''.join(x.upper().split()) != INITIALIZATION[key].decode().strip()]
+        lines = [x for x in lines if ''.join(x.upper().split()) != DIAGNOSTIC_INITIALIZATION[key].decode().strip()]
         require(len(lines) == 1, 'ambiguous initialization reply')
         if key == 'init_identity': require(re.fullmatch(r'STN[0-9]{4} v[0-9]+(?:\.[0-9]+){1,3}', lines[0]), 'firmware identity')
-        else: require(lines[0] == ('33' if key == 'init_protocol_check' else 'OK'), 'initialization acknowledgement/protocol')
+        else: require(lines[0] == ('33' if key == 'init_protocol_check' else '500000' if key == 'init_baud_check' else 'OK'), 'initialization acknowledgement/protocol')
         return lines[0]
     except UnicodeError as error:
         raise ValidationError('invalid initialization ASCII') from error
@@ -49,7 +67,7 @@ def replay_values(key, raw):
 
     This is an offline integrity check, not an alternative acquisition/parser loop.
     """
-    if key in INITIALIZATION: return {}
+    if key in DIAGNOSTIC_INITIALIZATION or key == "can_status": return {}
     raw = raw.strip(b" \t\r\n")
     if not raw.endswith(b">") or raw.count(b">") != 1 or len(raw) > 8192:
         return {}
@@ -127,8 +145,10 @@ def _validate_acquisition(path, *, allow_incomplete=False):
         config = report['configuration']
         fields(config, 'app_version bridge_version reference_note sensor_refresh_rate enhanced_pack maximum_duration_ns minimum_admission_ns session_id origin operating_state workload native_anchor_ns initialization_version selected_protocol connections')
         require(isinstance(config['session_id'], str) and re.fullmatch(r'live-[0-9a-f]{32}', config['session_id']), 'live session identity')
-        require(config['origin'] in ('physical', 'native-fixture', 'scripted-fixture') and config['operating_state'] in ('unknown', 'ignition_on_engine_off', 'stationary_running') and config['workload'] in ('combined', 'rpm_only', 'coolant_only', 'voltage_only'), 'live configuration')
-        require(config['initialization_version'] == 'obdlink-stp33-runtime-1' and config['selected_protocol'] == 'ISO15765-4-CAN11-500' and config['app_version'] == '0.1.0' and type(config['bridge_version']) is int and config['bridge_version'] == 1, 'configuration version/protocol')
+        require(config['origin'] in ('physical', 'native-fixture', 'scripted-fixture') and config['operating_state'] in ('unknown', 'ignition_on_engine_off', 'stationary_running') and config['workload'] in ('combined', 'rpm_only', 'coolant_only', 'voltage_only', 'discovery_diagnostic'), 'live configuration')
+        diagnostic = config['workload'] == 'discovery_diagnostic'
+        init_steps = DIAGNOSTIC_INITIALIZATION if diagnostic else INITIALIZATION
+        require(config['initialization_version'] == ('obdlink-stp33-diagnostic-2' if diagnostic else 'obdlink-stp33-runtime-1') and config['selected_protocol'] == 'ISO15765-4-CAN11-500' and config['app_version'] == '0.1.0' and type(config['bridge_version']) is int and config['bridge_version'] == 1, 'configuration version/protocol')
         require(config['sensor_refresh_rate'] == 'unknown' and config['enhanced_pack'] == 'none' and config['maximum_duration_ns'] == 600*10**9 and config['minimum_admission_ns'] == 5*10**8, 'unsupported live policy')
         require(isinstance(config['reference_note'], str) and len(config['reference_note'].encode()) <= 512, 'reference note')
         _integer(config['native_anchor_ns'], 'native anchor')
@@ -159,13 +179,13 @@ def _validate_acquisition(path, *, allow_incomplete=False):
         schedule[key] = spec
     require(schedule, "empty schedule")
     if live:
-        require(list(schedule)[:len(INITIALIZATION)] == list(INITIALIZATION), 'missing/reordered initialization configuration')
-        selected = {'combined': {'support', 'rpm', 'coolant', 'adapter_voltage'}, 'rpm_only': {'support', 'rpm'}, 'coolant_only': {'support', 'coolant'}, 'voltage_only': {'adapter_voltage'}}[config['workload']]
-        require(set(schedule)-set(INITIALIZATION) == selected, 'workload/configuration mismatch')
-        require(all(schedule[k] == dict(key=k, interval_ns=60*10**9, timeout_ns=2*10**9, priority=0) for k in INITIALIZATION), 'initialization schedule')
+        require(list(schedule)[:len(init_steps)] == list(init_steps), 'missing/reordered initialization configuration')
+        selected = {'combined': {'support', 'rpm', 'coolant', 'adapter_voltage'}, 'rpm_only': {'support', 'rpm'}, 'coolant_only': {'support', 'coolant'}, 'voltage_only': {'adapter_voltage'}, 'discovery_diagnostic': {'support', 'rpm', 'coolant', 'adapter_voltage', 'can_status'}}[config['workload']]
+        require(set(schedule)-set(init_steps) == selected, 'workload/configuration mismatch')
+        require(all(schedule[k] == dict(key=k, interval_ns=60*10**9, timeout_ns=2*10**9, priority=0) for k in init_steps), 'initialization schedule')
         for key in selected:
-            interval = {'support': 60, 'rpm': 2, 'coolant': 5, 'adapter_voltage': 5}[key]*10**9
-            priority = {'support': 0, 'rpm': 1, 'coolant': 2, 'adapter_voltage': 3}[key]
+            interval = {'support': 15 if diagnostic else 60, 'rpm': 2, 'coolant': 5, 'adapter_voltage': 5, 'can_status': 15}[key]*10**9
+            priority = {'support': 0, 'rpm': 1, 'coolant': 2, 'adapter_voltage': 3, 'can_status': 4}[key]
             require(schedule[key] == dict(key=key, interval_ns=interval, timeout_ns=2*10**9, priority=priority), 'unsupported live schedule')
     txs, refs = {}, defaultdict(list)
     previous_end = 0
@@ -235,20 +255,36 @@ def _validate_acquisition(path, *, allow_incomplete=False):
         if tx['outcome'] in {'ok', 'partial'}:
             require(tx['sent_ns'] is not None and received_rows, "success lacks response provenance")
             require(max(row['sequence'] for row, _ in rows if row['kind'] == 'accepted') < received_rows[0][0]['sequence'], "response predates completed write")
+    for tx in report['transactions']:
+        if tx['key'] == 'can_status' and tx['outcome'] == 'ok':
+            frame = b''.join(data for row, data in raw_by_tx[tx['id']] if row['kind'] == 'received')
+            require(len(frame) <= 256 and frame.endswith(b'>') and frame.count(b'>') == 1, 'CAN status frame')
+            try: lines = [x.strip() for x in frame[:-1].decode('ascii').replace('\n', '\r').split('\r') if x.strip() and ''.join(x.upper().split()) != 'ATCS']
+            except UnicodeError as error: raise ValidationError('CAN status ASCII') from error
+            require(len(lines) == 1 and len(lines[0]) <= 80 and all(c in '\t' or 32 <= ord(c) <= 126 for c in lines[0]), 'CAN status shape')
+            require(lines[0].upper() not in {'?','OK','NO DATA','ERROR','CAN ERROR','BUS ERROR','STOPPED'} and tx['adapter_status'] == lines, 'CAN status receipt mismatch')
     if live:
         positions = defaultdict(int)
+        support_by_generation = defaultdict(dict)
         for tx in report['transactions']:
             gen = tx['generation']
             require(1 <= gen <= len(config['connections']), 'transaction lacks connection provenance')
             require(config['connections'][gen-1]['start_ns'] <= tx['start_ns'], 'transaction precedes connection')
-            if tx['key'] in INITIALIZATION:
+            if tx['key'] in init_steps:
                 position = positions[gen]
-                require(position < len(INITIALIZATION) and tx['key'] == list(INITIALIZATION)[position], 'setup stage skipped or repeated')
+                require(position < len(init_steps) and tx['key'] == list(init_steps)[position], 'setup stage skipped or repeated')
                 if tx['outcome'] == 'ok':
                     frame = b''.join(data for row, data in raw_by_tx[tx['id']] if row['kind'] == 'received')
                     require(tx['adapter_status'] == [initialization_value(tx['key'], frame)], 'setup receipt mismatch')
                     positions[gen] += 1
-            else: require(positions[gen] == len(INITIALIZATION), 'measurement requested before setup verification')
+            else:
+                require(positions[gen] == len(init_steps), 'measurement requested before setup verification')
+                if tx['key'] == 'support' and tx['outcome'] in {'ok','partial'}:
+                    frame = b''.join(data for row,data in raw_by_tx[tx['id']] if row['kind']=='received')
+                    support_by_generation[gen].update(support_bits(frame))
+                elif tx['key'] in {'rpm','coolant'}:
+                    pid = 12 if tx['key']=='rpm' else 5
+                    require(any(mask & (1 << (32-pid)) for mask in support_by_generation[gen].values()), 'measurement requested without prior same-generation advertised support')
     groups, observed_pairs = defaultdict(list), set()
     for observation in report['observations']:
         fields(observation, "transaction_id generation ecu signal_id value unit receive_ns mapped_unix_ms measurement_unix_ms decoder_version")
@@ -291,18 +327,7 @@ def _validate_acquisition(path, *, allow_incomplete=False):
         if tx['generation'] != generation or tx['key'] != 'support' or tx['outcome'] not in {'ok', 'partial'}:
             continue
         data = b''.join(data for row, data in raw_by_tx[tx['id']] if row['kind'] == 'received')
-        candidates, seen, bad = {}, set(), set()
-        for line in data.decode('ascii', errors='replace').replace('\n', '\r').replace('>', '\r').split('\r'):
-            compact = ''.join(line.upper().split())
-            if not re.fullmatch(r'7E[8-F](?:[0-9A-F]{2}){2,8}', compact):
-                continue
-            ecu, payload = compact[:3], bytes.fromhex(compact[3:])
-            if ecu in seen: bad.add(ecu)
-            seen.add(ecu)
-            if payload[0] == 6 and len(payload) >= 7 and payload[1:3] == b'\x41\x00':
-                candidates[ecu] = int.from_bytes(payload[3:7], 'big')
-            else: bad.add(ecu)
-        support_masks.update({ecu: mask for ecu, mask in candidates.items() if ecu not in bad})
+        support_masks.update(support_bits(data))
     capability_keys = set()
     for cap in report['capabilities']:
         fields(cap, "ecu key state advertised observed evidence_transaction")

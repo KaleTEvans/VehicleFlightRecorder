@@ -54,6 +54,9 @@ final class GoLiveCapture: TransportCapture {
 }
 struct LiveSnapshot: Decodable {
     let state: String
+    let workload: String?
+    let discovery: LiveDiscovery?
+    var isDiagnostic: Bool { workload == "discovery_diagnostic" }
     let elapsedMs: Int64
     let initialized: Bool
     let error: String
@@ -76,4 +79,29 @@ struct LiveCapability: Decodable, Identifiable {
     let ecu: String
     let state: String
     var id: String { key + "/" + ecu }
+}
+
+struct LiveDiscovery: Decodable {
+    let attempts: Int
+    let outcome: String
+    let adapterStatus: String
+    let nextAttemptMs: Int64
+    let canStatus: String
+    let canStatusAgeMs: Int64
+    let setupComplete: Int
+    let setupTotal: Int
+    var title: String {
+        switch outcome {
+        case "not_requested": return "Not requested for voltage-only recording"
+        case "waiting_for_setup": return "Waiting for adapter setup"
+        case "not_attempted": return "Not yet attempted"
+        case "pending": return "Request in progress"
+        case "ok": return "Response received"
+        case "partial": return "Partial response received"
+        case "no_data": return "No data returned"
+        case "timeout": return "Request timed out"
+        case "protocol_error": return "Unrecognized response"
+        default: return outcome.replacingOccurrences(of: "_", with: " ").capitalized
+        }
+    }
 }

@@ -1,5 +1,9 @@
 # Milestone 6 — one parked test visit
 
+Next-visit update: the [targeted diagnostic packet](milestone_6_diagnostic_session.md)
+supersedes this general checklist once its diagnostic build is delivered. Build 9.1
+UI/export checks passed by user confirmation; no standalone repeat is needed.
+
 Status: PAUSED pending investigation of the reported zero-sample RPM/coolant
 recordings. Both requested ZIPs were received and validated on November 6. Setup
 succeeded but supported-PID discovery returned `NO DATA`; why that occurred is
@@ -20,7 +24,7 @@ recordings indoors; no scanner connection is needed.
 - [x] Review setup, supported-PID discovery and measurement admission from the raw
   records. Both received `NO DATA` to `0100` after successful setup; neither sent
   the selected measurement command or recorded a decoded reading.
-- [ ] Optional indoor UI confirmation on build 9.1:
+- [x] Indoor UI confirmation on build 9.1 (user accepted all checks):
   existing sessions show the correct workload and selected operating state;
   zero samples are explicit. A single-tap/repeat export check can be completed
   here without another car visit or another evidence upload.

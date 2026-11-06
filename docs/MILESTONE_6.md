@@ -345,4 +345,49 @@ received and independently validated; successful ECU acquisition remains unaccep
 Subsequent documentation changes do not alter the tested binary. PR #5 remains
 draft, Appetize is unchanged, and no additional car test is requested by this update.
 
+
+## Targeted discovery diagnostic build — in progress
+
+The user confirmed all build-9.1 history and single-tap/repeat export checks pass.
+These are closed human UI checks; the two earlier zero-sample phone ZIPs are also
+already validated. The user has seen adapter voltage in the official app but has
+not yet established live RPM/coolant there. The next visit therefore includes a
+sequential independent standard-OBD comparison, not another voltage-only proof.
+
+The new opt-in `discovery_diagnostic` workload uses initialization version
+`obdlink-stp33-diagnostic-2`. It retains the fixed STP33 CAN 11-bit / 500 kbps
+profile and adds, after selection: `ATSH7DF`, `STCAF0`, `ATCRA`, `STFA`, `STPBRR`.
+The baud reply must be exactly 500000 before reads are admitted. Runtime header,
+addressing and filters are explicit; no NVM protocol write, reboot, scanning,
+user-supplied frame or enhanced request is introduced. These are diagnostic
+controls, not an established fix for the vehicle's no-data response.
+
+Sources reviewed November 6:
+[OBDLink FRPM E](https://www.scantool.net/scantool/downloads/678/obdlink_frpm_e.pdf),
+pp. 14, 18, 33–34, 37, 39, 57; [ELM327DSJ](https://www.elmelectronics.com/wp-content/uploads/2016/07/ELM327DS.pdf),
+pp. 15–16. A standard OBD request can open the selected channel; absent STPO alone
+is not established as this failure's cause. ATCS is retained as an opaque bounded
+adapter reply, not a guessed numeric-counter decoder or bus-health assertion.
+
+Diagnostic scheduling requests support and `ATCS` at 15-second nominal intervals;
+no-data failures back off to 30 seconds. Existing minimum 500 ms admission,
+single in-flight request, two-second deadlines, raw/resource limits, 600-second
+owner-loop guard and reconnect initialization remain. Voltage is sampled at five
+seconds; RPM/coolant at two/five seconds only after valid same-generation support.
+Regular workloads retain initialization version 1 and their existing schedules.
+
+The native screen adds setup progress, discovery attempts/outcome/eligibility and
+CAN-status reply age. Unknown ECU support is explicit; adapter voltage does not
+imply ECU communication. Raw requests, readbacks, failures and observations stay
+in the canonical six-file live export. Python independently accepts both declared
+setup versions, verifies diagnostic schedules/readbacks/status receipt and
+same-generation support admission, and continues reading old phone ZIPs unchanged.
+
+Portable Go tests/vet, 122 Python tests and 29 script tests passed. Native fixture
+acceptance, signed delivery and the car run remain pending. The next human work
+uses only the [single targeted diagnostic packet](../planning/milestone_6_diagnostic_session.md)
+after delivery: D1, official-app reference, conditional D2, and ordinary combined /
+reconnect continuation only when their written prerequisites pass. History/export
+and one evidence handoff follow indoors. No per-case chat/upload is required.
+
 **Milestone 7 not started.**

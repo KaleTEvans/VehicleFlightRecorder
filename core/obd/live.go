@@ -8,6 +8,8 @@ import (
 
 const LiveCatalogVersion = "standard-live-can11-1"
 const InitializationVersion = "obdlink-stp33-runtime-1"
+const DiagnosticInitializationVersion = "obdlink-stp33-diagnostic-2"
+const DiagnosticWorkload = "discovery_diagnostic"
 
 // Runtime-only configuration, FRPM E sections 7.2/8.6. No ATSP/NVM,
 // calibration, ECU mutation, arbitrary CAN frame or reboot command is admitted.
@@ -30,13 +32,40 @@ var initialization = []Definition{
 	{Key: "init_identity", Command: "STI\r", Reference: STNReference + "#page=28"},
 }
 
-func Initialization() []Definition     { return append([]Definition(nil), initialization...) }
+func Initialization() []Definition { return append([]Definition(nil), initialization...) }
+
+// Diagnostic setup preserves the legacy sequence and adds only fixed runtime
+// addressing/filter settings and actual-baud readback after protocol selection.
+func InitializationFor(version string) ([]Definition, error) {
+	if version == InitializationVersion {
+		return Initialization(), nil
+	}
+	if version != DiagnosticInitializationVersion {
+		return nil, fmt.Errorf("unknown initialization version")
+	}
+	steps := Initialization()
+	extra := []Definition{
+		{Key: "init_functional_header", Command: "ATSH7DF\r", Reference: STNReference + "#page=18"},
+		{Key: "init_normal_addressing", Command: "STCAF0\r", Reference: STNReference + "#page=37"},
+		{Key: "init_receive_defaults", Command: "ATCRA\r", Reference: STNReference + "#page=14"},
+		{Key: "init_automatic_filters", Command: "STFA\r", Reference: STNReference + "#page=39"},
+		{Key: "init_baud_check", Command: "STPBRR\r", Reference: STNReference + "#page=34"},
+	}
+	// STP33 must precede settings whose interpretation depends on protocol.
+	result := append([]Definition{}, steps[:13]...)
+	result = append(result, extra...)
+	return append(result, steps[13:]...), nil
+}
 func IsInitialization(key string) bool { return strings.HasPrefix(key, "init_") }
 func LookupLive(key string) (Definition, error) {
-	for _, d := range initialization {
+	steps, _ := InitializationFor(DiagnosticInitializationVersion)
+	for _, d := range steps {
 		if d.Key == key {
 			return d, nil
 		}
+	}
+	if key == "can_status" {
+		return Definition{Key: key, Command: "ATCS\r", Reference: STNReference + "#page=14"}, nil
 	}
 	return Lookup(key)
 }
@@ -74,6 +103,9 @@ func ParseInitialization(key string, frame []byte) (string, error) {
 	if key == "init_protocol_check" {
 		want = "33"
 	}
+	if key == "init_baud_check" {
+		want = "500000"
+	}
 	if key == "init_identity" {
 		if !identityReply.MatchString(result[0]) {
 			return "", fmt.Errorf("unrecognized STN firmware identity")
@@ -82,4 +114,32 @@ func ParseInitialization(key string, frame []byte) (string, error) {
 		return "", fmt.Errorf("initialization %s returned %q", key, result[0])
 	}
 	return result[0], nil
+}
+
+// ParseCANStatus retains a bounded adapter status reply, not a sensor observation
+// or an assertion that the vehicle bus is healthy. Original bytes stay in raw.
+func ParseCANStatus(frame []byte) (string, error) {
+	if len(frame) < 2 || len(frame) > 256 || frame[len(frame)-1] != '>' || strings.Count(string(frame), ">") != 1 {
+		return "", fmt.Errorf("one bounded CAN status reply required")
+	}
+	for _, b := range frame {
+		if b != '\r' && b != '\n' && b != '\t' && (b < 32 || b > 126) {
+			return "", fmt.Errorf("invalid status ASCII")
+		}
+	}
+	lines := []string{}
+	for _, line := range strings.FieldsFunc(string(frame[:len(frame)-1]), func(r rune) bool { return r == '\r' || r == '\n' }) {
+		line = strings.TrimSpace(line)
+		if line != "" && compact(line) != "ATCS" {
+			lines = append(lines, line)
+		}
+	}
+	if len(lines) != 1 || len(lines[0]) > 80 {
+		return "", fmt.Errorf("ambiguous CAN status reply")
+	}
+	switch strings.ToUpper(lines[0]) {
+	case "?", "OK", "NO DATA", "ERROR", "CAN ERROR", "BUS ERROR", "STOPPED":
+		return "", fmt.Errorf("CAN status unavailable")
+	}
+	return lines[0], nil
 }

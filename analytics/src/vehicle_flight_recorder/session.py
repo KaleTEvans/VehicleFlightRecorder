@@ -66,7 +66,7 @@ def _metadata(metadata):
         if set(metadata) != expected or metadata['source'] != 'obd-live' or metadata['profile_id'] != 'generic-obd-can11-500' or metadata['vehicle_pack_version'] != 'none': _fail('unknown/incompatible schema_version 2 live metadata')
         live = metadata['live']
         if not isinstance(live, dict) or set(live) != {'origin','operating_state','workload','native_anchor_ns','catalog_version','protocol_profile','report_file','start_origin'}: _fail('invalid live configuration')
-        if live['origin'] not in ('physical','native-fixture','scripted-fixture') or live['operating_state'] not in ('unknown','ignition_on_engine_off','stationary_running') or live['workload'] not in ('combined','rpm_only','coolant_only','voltage_only'): _fail('unknown live source/configuration')
+        if live['origin'] not in ('physical','native-fixture','scripted-fixture') or live['operating_state'] not in ('unknown','ignition_on_engine_off','stationary_running') or live['workload'] not in ('combined','rpm_only','coolant_only','voltage_only','discovery_diagnostic'): _fail('unknown live source/configuration')
         _integer(live['native_anchor_ns'], 'native anchor')
         if (live['catalog_version'], live['protocol_profile'], live['report_file'], live['start_origin']) != ('standard-live-can11-1','can11-single-frame-headers-pci','capability.json','manual'): _fail('unsupported live catalog/profile')
     elif 'live' in metadata or metadata.get('source') == 'obd-live': _fail('live metadata requires schema 2')

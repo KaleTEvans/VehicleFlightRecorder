@@ -286,7 +286,7 @@ func (s Session) Validate() error {
 			return fmt.Errorf("invalid operating state")
 		}
 		switch s.Live.Workload {
-		case "combined", "rpm_only", "coolant_only", "voltage_only":
+		case "combined", "rpm_only", "coolant_only", "voltage_only", "discovery_diagnostic":
 		default:
 			return fmt.Errorf("invalid live workload")
 		}

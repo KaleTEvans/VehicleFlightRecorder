@@ -75,17 +75,26 @@ func NewLiveRecorder(root, options string, wallMS, nativeNS int64) (result *Live
 	if err = metadata.Validate(); err != nil {
 		return nil, err
 	}
-	specs := []acquisition.Schedule{{Key: "support", IntervalNS: 60 * acquisition.Second, TimeoutNS: 2 * acquisition.Second, Priority: 0}}
+	interval := 60 * acquisition.Second
+	initialization := obd.InitializationVersion
+	if config.Workload == obd.DiagnosticWorkload {
+		interval = 15 * acquisition.Second
+		initialization = obd.DiagnosticInitializationVersion
+	}
+	specs := []acquisition.Schedule{{Key: "support", IntervalNS: interval, TimeoutNS: 2 * acquisition.Second, Priority: 0}}
 	for _, spec := range []acquisition.Schedule{{Key: "rpm", IntervalNS: 2 * acquisition.Second, TimeoutNS: 2 * acquisition.Second, Priority: 1}, {Key: "coolant", IntervalNS: 5 * acquisition.Second, TimeoutNS: 2 * acquisition.Second, Priority: 2}, {Key: "adapter_voltage", IntervalNS: 5 * acquisition.Second, TimeoutNS: 2 * acquisition.Second, Priority: 3}} {
-		if config.Workload == "combined" || (config.Workload == "rpm_only" && spec.Key == "rpm") || (config.Workload == "coolant_only" && spec.Key == "coolant") || (config.Workload == "voltage_only" && spec.Key == "adapter_voltage") {
+		if config.Workload == "combined" || config.Workload == obd.DiagnosticWorkload || (config.Workload == "rpm_only" && spec.Key == "rpm") || (config.Workload == "coolant_only" && spec.Key == "coolant") || (config.Workload == "voltage_only" && spec.Key == "adapter_voltage") {
 			specs = append(specs, spec)
 		}
+	}
+	if config.Workload == obd.DiagnosticWorkload {
+		specs = append(specs, acquisition.Schedule{Key: "can_status", IntervalNS: 15 * acquisition.Second, TimeoutNS: 2 * acquisition.Second, Priority: 4})
 	}
 	// Voltage-only testing does not query an ECU merely to measure the adapter.
 	if config.Workload == "voltage_only" {
 		specs = specs[1:]
 	}
-	engine, err := acquisition.NewLive(wallMS, specs, acquisition.LiveConfiguration{SessionID: id, Origin: config.Origin, OperatingState: config.OperatingState, Workload: config.Workload, NativeAnchorNS: nativeNS, Initialization: obd.InitializationVersion, Protocol: "ISO15765-4-CAN11-500", AppVersion: "0.1.0", BridgeVersion: BridgeVersion(), ReferenceNote: config.ReferenceNote, SensorRefresh: "unknown", EnhancedPack: "none", MaximumDurationNS: liveLimitNS, MinimumAdmissionNS: acquisition.Second / 2, Connections: []acquisition.Connection{}})
+	engine, err := acquisition.NewLive(wallMS, specs, acquisition.LiveConfiguration{SessionID: id, Origin: config.Origin, OperatingState: config.OperatingState, Workload: config.Workload, NativeAnchorNS: nativeNS, Initialization: initialization, Protocol: "ISO15765-4-CAN11-500", AppVersion: "0.1.0", BridgeVersion: BridgeVersion(), ReferenceNote: config.ReferenceNote, SensorRefresh: "unknown", EnhancedPack: "none", MaximumDurationNS: liveLimitNS, MinimumAdmissionNS: acquisition.Second / 2, Connections: []acquisition.Connection{}})
 	if err != nil {
 		return nil, err
 	}
@@ -540,6 +549,6 @@ func (l *LiveRecorder) Snapshot() (result string) {
 		readings = append(readings, map[string]any{"signal_id": o.Signal, "ecu": o.ECU, "value": o.Value, "unit": o.Unit, "quality": quality, "age_ms": (l.elapsed - o.ReceiveNS) / 1_000_000, "generation": o.Generation})
 	}
 	capabilities := l.scheduler.CapabilityRows()
-	b, _ := json.Marshal(map[string]any{"state": state, "session": l.core.Session(), "elapsed_ms": l.elapsed / 1_000_000, "maximum_duration_ms": liveLimitNS / 1_000_000, "generation": l.scheduler.Generation(), "readings": readings, "capabilities": capabilities, "initialized": l.scheduler.Initialized(), "incidents": l.core.Incidents(), "error": l.failure, "requires_reconnect": l.reconnectNeeded, "start_origin": "manual", "source": "obd-live"})
+	b, _ := json.Marshal(map[string]any{"state": state, "workload": l.options.Workload, "session": l.core.Session(), "elapsed_ms": l.elapsed / 1_000_000, "maximum_duration_ms": liveLimitNS / 1_000_000, "generation": l.scheduler.Generation(), "readings": readings, "capabilities": capabilities, "initialized": l.scheduler.Initialized(), "discovery": l.scheduler.DiscoverySummary(l.elapsed), "incidents": l.core.Incidents(), "error": l.failure, "requires_reconnect": l.reconnectNeeded, "start_origin": "manual", "source": "obd-live"})
 	return string(b)
 }

@@ -92,3 +92,47 @@ def test_interrupted_live_prefix_requires_opt_in(live_exports, tmp_path):
     result = load_session(path, allow_incomplete=True)
     assert result['status'] == 'incomplete'
     assert result['live']['uncommitted_report_observations'] == 1
+
+
+@pytest.fixture(scope='module')
+def diagnostic_exports(tmp_path_factory):
+    root = Path(__file__).resolve().parents[2]
+    output = tmp_path_factory.mktemp('diagnostic')
+    binary = output/'live-fixture'
+    env = os.environ | {'GOCACHE': str(root/'.cache/go-build'), 'GOMODCACHE': str(root/'.cache/go-mod')}
+    subprocess.run(['go','build','-o',str(binary),'./cmd/live-fixture'], cwd=root/'core', env=env, check=True)
+    result = {}
+    for scenario in ('no_data','recovery'):
+        run = subprocess.run([str(binary),'--output',str(output/scenario),'--workload','discovery_diagnostic','--scenario',scenario], check=True, capture_output=True, text=True)
+        result[scenario] = Path(run.stdout.strip())
+    return result
+
+
+@pytest.mark.parametrize('scenario', ['no_data','recovery'])
+def test_diagnostic_raw_replay_preserves_unknown_and_recovery(diagnostic_exports, scenario):
+    result = load_session(diagnostic_exports[scenario])
+    assert result['live']['capability_report']['status'] == 'valid'
+    assert result['incident_count'] == 0
+    report = json.loads((diagnostic_exports[scenario]/'capability.json').read_text())
+    assert report['configuration']['initialization_version'] == 'obdlink-stp33-diagnostic-2'
+    assert len([tx for tx in report['transactions'] if tx['key']=='support']) >= 3
+    assert any(tx['key']=='can_status' and tx['outcome']=='ok' for tx in report['transactions'])
+    if scenario == 'no_data':
+        assert set(result['signal_coverage']) == {'electrical.adapter_voltage'}
+        assert report['capabilities'] and all(c['ecu']=='adapter' and c['key']=='adapter_voltage' for c in report['capabilities'])
+    else:
+        assert set(result['signal_coverage']) == {'electrical.adapter_voltage','powertrain.engine.rpm','powertrain.coolant.temperature'}
+
+
+@pytest.mark.parametrize('mutation', ['version','baud','status','workload'])
+def test_diagnostic_profile_or_status_corruption_rejected(diagnostic_exports, tmp_path, mutation):
+    path = tmp_path/'session'
+    shutil.copytree(diagnostic_exports['no_data'], path)
+    report_path=path/'capability.json'
+    report=json.loads(report_path.read_text())
+    if mutation=='version': report['configuration']['initialization_version']='obdlink-stp33-runtime-1'
+    if mutation=='workload': report['configuration']['workload']='combined'
+    if mutation=='baud': next(tx for tx in report['transactions'] if tx['key']=='init_baud_check')['adapter_status']=['250000']
+    if mutation=='status': next(tx for tx in report['transactions'] if tx['key']=='can_status')['adapter_status']=['T:OFF R:FF']
+    report_path.write_text(json.dumps(report))
+    with pytest.raises(ValidationError): load_session(path)

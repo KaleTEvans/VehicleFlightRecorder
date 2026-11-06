@@ -56,4 +56,29 @@ final class LiveRecorderTests: XCTestCase {
         try FileManager.default.copyItem(at: archive, to: output.appendingPathComponent(archive.lastPathComponent))
         try await history.close()
     }
+    func testNativeDiagnosticNoDataAndRecoveryExports() async throws {
+        for recovery in [false, true] {
+            let result = try DiscoveryDiagnosticFixture.make(recovery: recovery)
+            let snapshot = result.snapshot
+            XCTAssertTrue(snapshot.isDiagnostic)
+            XCTAssertTrue(snapshot.initialized)
+            let discovery = try XCTUnwrap(snapshot.discovery)
+            XCTAssertEqual(discovery.setupComplete, 21)
+            XCTAssertEqual(discovery.setupTotal, 21)
+            XCTAssertGreaterThanOrEqual(discovery.attempts, 3)
+            XCTAssertEqual(discovery.outcome, recovery ? "ok" : "no_data")
+            XCTAssertEqual(discovery.canStatus, "T:00 R:00")
+            XCTAssertEqual(snapshot.readings.contains { $0.signalId == "powertrain.engine.rpm" }, recovery)
+            XCTAssertEqual(snapshot.readings.contains { $0.signalId == "powertrain.coolant.temperature" }, recovery)
+            XCTAssertTrue(snapshot.readings.contains { $0.signalId == "electrical.adapter_voltage" })
+            let service = try RecorderService(history: result.root)
+            let archive = try await service.archive(result.sessionID)
+            let docs = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
+            let output = docs.appendingPathComponent("NativeAcceptance/Exports", isDirectory: true)
+            try FileManager.default.createDirectory(at: output, withIntermediateDirectories: true)
+            try FileManager.default.copyItem(at: archive, to: output.appendingPathComponent(archive.lastPathComponent))
+            try await service.close()
+        }
+    }
+
 }

@@ -28,6 +28,7 @@ struct LiveSessionInfo: Codable {
         case "coolant_only": return "Coolant only"
         case "voltage_only": return "Adapter voltage only"
         case "combined": return "Combined"
+        case "discovery_diagnostic": return "Discovery diagnostic"
         default: return "Unknown (\(workload))"
         }
     }
@@ -37,6 +38,7 @@ struct LiveSessionInfo: Codable {
         case "coolant_only": return "Coolant temperature"
         case "voltage_only": return "Adapter input voltage"
         case "combined": return "Engine RPM, coolant temperature, adapter input voltage"
+        case "discovery_diagnostic": return "Adapter voltage; RPM/coolant after valid ECU discovery"
         default: return "Unknown"
         }
     }

@@ -135,4 +135,37 @@ final class EvidenceNavigationTests: XCTestCase {
         }
     }
 
+    func testDiscoveryDiagnosticsShowNoDataAndLaterSupport() {
+        continueAfterFailure = false
+        let app = XCUIApplication()
+        app.launchArguments = ["--ui-test-discovery"]
+        app.launch()
+        let outcome = app.staticTexts["discovery-outcome"]
+        XCTAssertTrue(outcome.waitForExistence(timeout: 30), app.debugDescription)
+        XCTAssertEqual(outcome.label, "ECU discovery: No data returned")
+        XCTAssertEqual(app.staticTexts["discovery-setup"].label, "Adapter setup: 21/21")
+        XCTAssertTrue(app.staticTexts["discovery-unknown"].exists)
+        XCTAssertTrue(app.staticTexts["discovery-retry"].exists)
+        XCTAssertTrue(app.staticTexts["discovery-can-status"].label.contains("T:00 R:00"))
+        let screenshot = XCTAttachment(screenshot: app.screenshot())
+        screenshot.name = "Diagnostic no-data status (scripted)"
+        screenshot.lifetime = .keepAlways
+        add(screenshot)
+        let supported = app.buttons["Load supported reply fixture"]
+        for _ in 0..<4 {
+            if supported.exists && supported.isHittable { break }
+            app.collectionViews.firstMatch.swipeUp()
+        }
+        XCTAssertTrue(supported.isHittable, app.debugDescription)
+        supported.tap()
+        for _ in 0..<4 {
+            if outcome.isHittable { break }
+            app.collectionViews.firstMatch.swipeDown()
+        }
+        expectation(for: NSPredicate { _, _ in outcome.label == "ECU discovery: Response received" }, evaluatedWith: app)
+        waitForExpectations(timeout: 30)
+        XCTAssertFalse(app.staticTexts["diagnostic-fixture-error"].exists)
+        XCTAssertFalse(app.staticTexts["discovery-unknown"].exists)
+    }
+
 }

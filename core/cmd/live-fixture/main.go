@@ -19,8 +19,8 @@ func main() {
 }
 func run() error {
 	output := flag.String("output", "", "new session parent directory")
-	scenario := flag.String("scenario", "healthy", "healthy, reconnect, malformed, unsupported, timeout")
-	workload := flag.String("workload", "combined", "combined, rpm_only, coolant_only, voltage_only")
+	scenario := flag.String("scenario", "healthy", "healthy, reconnect, malformed, unsupported, timeout, no_data, recovery")
+	workload := flag.String("workload", "combined", "combined, rpm_only, coolant_only, voltage_only, discovery_diagnostic")
 	flag.Parse()
 	if *output == "" {
 		return fmt.Errorf("--output required")
@@ -29,7 +29,7 @@ func run() error {
 	if e != nil {
 		return e
 	}
-	valid := map[string]bool{"healthy": true, "reconnect": true, "malformed": true, "unsupported": true, "timeout": true}
+	valid := map[string]bool{"healthy": true, "reconnect": true, "malformed": true, "unsupported": true, "timeout": true, "no_data": true, "recovery": true}
 	if !valid[*scenario] {
 		return fmt.Errorf("unknown scripted scenario")
 	}
@@ -49,6 +49,13 @@ func run() error {
 		return e
 	}
 	replies := map[string]string{"STPC\r": "OK\r>", "ATD\r": "ATD\rOK\r>", "ATE0\r": "ATE0\rOK\r>", "ATL0\r": "OK\r>", "ATM0\r": "OK\r>", "ATS1\r": "OK\r>", "ATH1\r": "OK\r>", "ATD0\r": "OK\r>", "ATCAF1\r": "OK\r>", "ATCFC1\r": "OK\r>", "ATR1\r": "OK\r>", "ATAT0\r": "OK\r>", "STP33\r": "OK\r>", "STPTO500\r": "OK\r>", "STPR\r": "33\r>", "STI\r": "STN2255 v5.8.1\r>", "0100\r": "7E8 06 41 00 08 10 00 00\r7E9 06 41 00 00 10 00 00\r>", "010C\r": "7E8 04 41 0C 0C 80\r7E9 04 41 0C 0F A0\r>", "0105\r": "7E8 03 41 05 7B\r>", "STVR\r": "13.45\r>"}
+	replies["ATSH7DF\r"] = "OK\r>"
+	replies["STCAF0\r"] = "OK\r>"
+	replies["ATCRA\r"] = "OK\r>"
+	replies["STFA\r"] = "OK\r>"
+	replies["STPBRR\r"] = "500000\r>"
+	replies["ATCS\r"] = "T:00 R:00\r>"
+	supportAttempts := 0
 	if *scenario == "unsupported" {
 		replies["0100\r"] = "7E8 06 41 00 00 00 00 00\r>"
 	}
@@ -76,7 +83,7 @@ func run() error {
 			}
 			offline = false
 		}
-		if now == 80000000000 {
+		if now == 80000000000 && *workload != "discovery_diagnostic" {
 			if _, e = l.Mark("Scripted manual evidence", base+now); e != nil {
 				return e
 			}
@@ -95,6 +102,12 @@ func run() error {
 			continue
 		}
 		response, ok := replies[string(command)]
+		if string(command) == "0100\r" {
+			supportAttempts++
+			if *scenario == "no_data" || (*scenario == "recovery" && supportAttempts == 1) {
+				response = "NO DATA\r>"
+			}
+		}
 		if !ok {
 			return fmt.Errorf("unreviewed command %q", command)
 		}

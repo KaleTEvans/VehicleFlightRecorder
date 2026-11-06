@@ -178,3 +178,32 @@ func TestPromptWhitespaceAcrossEveryBoundary(t *testing.T) {
 		}
 	}
 }
+
+func TestDiagnosticAdapterRepliesAndLegacyInitialization(t *testing.T) {
+	legacy := Initialization()
+	steps, e := InitializationFor(DiagnosticInitializationVersion)
+	if e != nil || len(legacy) != 16 || len(steps) != 21 {
+		t.Fatal("versioned setup")
+	}
+	if _, e = ParseInitialization("init_baud_check", []byte("STPBRR\r500000\r>")); e != nil {
+		t.Fatal(e)
+	}
+	for _, reply := range []string{"250000\r>", "500000\rOK\r>", "500000", ">"} {
+		if _, e = ParseInitialization("init_baud_check", []byte(reply)); e == nil {
+			t.Fatal("bad baud reply accepted")
+		}
+	}
+	for _, reply := range []string{"T:00 R:00\r>", "ATCS\rT:OFF R:00\r>"} {
+		if _, e = ParseCANStatus([]byte(reply)); e != nil {
+			t.Fatal(e)
+		}
+	}
+	for _, reply := range []string{"?\r>", "OK\r>", "NO DATA\r>", "T:00\rR:00\r>", "T:00 R:00", ">"} {
+		if _, e = ParseCANStatus([]byte(reply)); e == nil {
+			t.Fatal("bad status accepted")
+		}
+	}
+	if _, e = Lookup("can_status"); e == nil {
+		t.Fatal("diagnostics leaked into offline catalog")
+	}
+}

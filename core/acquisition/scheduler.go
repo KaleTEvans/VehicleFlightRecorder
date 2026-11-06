@@ -1,5 +1,5 @@
-// Package acquisition prepares live acquisition using deterministic offline I/O.
-// No mobile package imports it. It has no transport, sockets or wall-clock loop.
+// Package acquisition owns bounded command admission and replayable evidence.
+// Callers supply transport bytes and monotonic time; it opens no transport itself.
 package acquisition
 
 import (
@@ -126,11 +126,15 @@ type Scheduler struct {
 	rawBytes                                             int
 	live                                                 bool
 	initIndex                                            int
+	initSteps                                            []obd.Definition
 	maxTransactions, maxRaw, maxRawRows, maxObservations int
 	rawSink                                              func(Raw) error
 }
 
 func New(anchorMS int64, specs []Schedule) (*Scheduler, error) {
+	return newScheduler(anchorMS, specs, false)
+}
+func newScheduler(anchorMS int64, specs []Schedule, live bool) (*Scheduler, error) {
 	if anchorMS <= 0 || anchorMS > 253402300799999 || len(specs) == 0 || len(specs) > 16 {
 		return nil, fmt.Errorf("invalid anchor or schedule size")
 	}
@@ -138,7 +142,11 @@ func New(anchorMS int64, specs []Schedule) (*Scheduler, error) {
 	s.maxTransactions, s.maxRaw, s.maxRawRows, s.maxObservations = MaxTransactions, MaxRawBytes, 4096, 2048
 	seen := map[string]bool{}
 	for _, spec := range specs {
-		if _, err := obd.Lookup(spec.Key); err != nil {
+		lookup := obd.Lookup
+		if live {
+			lookup = obd.LookupLive
+		}
+		if _, err := lookup(spec.Key); err != nil {
 			return nil, err
 		}
 		if seen[spec.Key] || spec.IntervalNS < Second/10 || spec.IntervalNS > 60*Second || spec.TimeoutNS < Second/10 || spec.TimeoutNS > 5*Second || spec.Priority < 0 || spec.Priority > 9 {
@@ -199,12 +207,12 @@ func (s *Scheduler) raw(kind, id string, now int64, data []byte) error {
 }
 func (s *Scheduler) eligible(key string) bool {
 	if s.live && obd.IsInitialization(key) {
-		return s.initIndex < len(obd.Initialization()) && obd.Initialization()[s.initIndex].Key == key
+		return s.initIndex < len(s.initSteps) && s.initSteps[s.initIndex].Key == key
 	}
-	if s.live && s.initIndex < len(obd.Initialization()) {
+	if s.live && s.initIndex < len(s.initSteps) {
 		return false
 	}
-	if key == "support" || key == "adapter_voltage" {
+	if key == "support" || key == "adapter_voltage" || (s.live && key == "can_status") {
 		return true
 	}
 	for _, row := range s.capabilities.Rows() {
@@ -450,6 +458,16 @@ func (s *Scheduler) Receive(generation int, now int64, data []byte) error {
 		}
 		tx.AdapterStatus = []string{value}
 		s.initIndex++
+		s.finish(now, "ok")
+		return nil
+	}
+	if s.live && tx.Key == "can_status" {
+		value, err := obd.ParseCANStatus(frames[0])
+		if err != nil {
+			s.finish(now, "protocol_error")
+			return err
+		}
+		tx.AdapterStatus = []string{value}
 		s.finish(now, "ok")
 		return nil
 	}

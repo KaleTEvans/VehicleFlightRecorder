@@ -72,7 +72,26 @@ final class EvidenceNavigationTests: XCTestCase {
         waitForExpectations(timeout: 15)
         let identifiers = rows.allElementsBoundByIndex.map(\.identifier)
         for (index, identifier) in identifiers.enumerated() {
-            app.buttons[identifier].tap()
+            let row = app.buttons[identifier]
+            let workload = row.staticTexts["session-workload-summary"].label
+            XCTAssertTrue(["RPM only", "Coolant only"].contains(workload))
+            row.tap()
+            let displayedWorkload = app.staticTexts["session-workload-value"]
+            for _ in 0..<4 {
+                if displayedWorkload.isHittable { break }
+                app.swipeUp()
+            }
+            XCTAssertTrue(displayedWorkload.waitForExistence(timeout: 10))
+            XCTAssertEqual(displayedWorkload.label, workload)
+            XCTAssertTrue(app.staticTexts[workload == "RPM only" ? "Engine RPM" : "Coolant temperature"].exists)
+            let noReadings = app.staticTexts["session-no-readings"]
+            for _ in 0..<3 {
+                if noReadings.isHittable { break }
+                app.swipeUp()
+            }
+            XCTAssertTrue(app.staticTexts["Engine running / stationary"].exists)
+            XCTAssertTrue(app.staticTexts["Simulated native test fixture"].exists)
+            XCTAssertTrue(noReadings.isHittable)
             let export = app.buttons["export-session-zip"]
             XCTAssertTrue(export.waitForExistence(timeout: 10), app.debugDescription)
             for _ in 0..<4 {

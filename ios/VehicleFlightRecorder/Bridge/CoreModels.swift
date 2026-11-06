@@ -4,6 +4,7 @@ struct SessionInfo: Codable, Identifiable {
     let sessionId: String
     let source: String?
     let profileId: String?
+    let live: LiveSessionInfo?
     let startTimeUnixMs: Int64
     let endTimeUnixMs: Int64?
     let state: String
@@ -15,6 +16,43 @@ struct SessionInfo: Codable, Identifiable {
     var duration: String {
         guard let end = endTimeUnixMs else { return "In progress / incomplete" }
         return String(format: "%02d:%02d", (end - startTimeUnixMs) / 60000, ((end - startTimeUnixMs) / 1000) % 60)
+    }
+}
+struct LiveSessionInfo: Codable {
+    let origin: String
+    let operatingState: String
+    let workload: String
+    var workloadTitle: String {
+        switch workload {
+        case "rpm_only": return "RPM only"
+        case "coolant_only": return "Coolant only"
+        case "voltage_only": return "Adapter voltage only"
+        case "combined": return "Combined"
+        default: return "Unknown (\(workload))"
+        }
+    }
+    var requestedReadings: String {
+        switch workload {
+        case "rpm_only": return "Engine RPM"
+        case "coolant_only": return "Coolant temperature"
+        case "voltage_only": return "Adapter input voltage"
+        case "combined": return "Engine RPM, coolant temperature, adapter input voltage"
+        default: return "Unknown"
+        }
+    }
+    var operatingStateTitle: String {
+        switch operatingState {
+        case "stationary_running": return "Engine running / stationary"
+        case "ignition_on_engine_off": return "Ignition on / engine off"
+        default: return "Unknown (\(operatingState))"
+        }
+    }
+    var originTitle: String {
+        switch origin {
+        case "physical": return "Physical adapter"
+        case "native-fixture": return "Simulated native test fixture"
+        default: return "Unknown (\(origin))"
+        }
     }
 }
 struct Reading: Codable, Identifiable {

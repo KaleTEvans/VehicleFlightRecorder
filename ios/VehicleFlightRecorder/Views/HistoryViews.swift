@@ -15,6 +15,11 @@ struct SessionsView: View {
                         VStack(alignment: .leading, spacing: 5) {
                             Text(row.session.started, style: .date).font(.headline)
                             Text("\(row.session.started.formatted(date: .omitted, time: .shortened)) · \(row.session.duration)")
+                            if let live = row.session.live {
+                                Text(live.workloadTitle).font(.subheadline)
+                                    .accessibilityIdentifier("session-workload-summary")
+                                Text(live.operatingStateTitle).font(.caption).foregroundStyle(.secondary)
+                            }
                             Text("\(row.session.observationCount) samples · \(row.session.incidentCount) incidents · \(model.sessionState(row.session))").font(.caption).foregroundStyle(.secondary)
                         }
                     }.accessibilityIdentifier("session-row-\(row.id)")
@@ -35,6 +40,22 @@ struct SessionDetailView: View {
     @State private var share: SessionShareRequest?
     var body: some View {
         List {
+            if let live = row.session.live {
+                Section("Recording setup") {
+                    LabeledContent("Workload") {
+                        Text(live.workloadTitle).accessibilityIdentifier("session-workload-value")
+                    }
+                    LabeledContent("Requested readings", value: live.requestedReadings)
+                    LabeledContent("Operating state", value: live.operatingStateTitle)
+                    LabeledContent("Origin", value: live.originTitle)
+                    Text("Workload and operating state are the selections made at Start; they do not confirm that measurements were received.")
+                        .font(.caption).foregroundStyle(.secondary)
+                    if row.session.observationCount == 0 {
+                        Text("No decoded readings were recorded. Raw adapter evidence may still be available in the session ZIP.")
+                            .accessibilityIdentifier("session-no-readings")
+                    }
+                }
+            }
             Section("Drive") {
                 LabeledContent("Source", value: row.session.source ?? "unknown")
                 LabeledContent("Profile", value: row.session.profileId ?? "unknown")

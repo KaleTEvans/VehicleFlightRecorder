@@ -44,6 +44,7 @@ final class RecorderTests: XCTestCase {
             let rows = try await service.sessions()
             XCTAssertEqual(rows.count, 1)
             XCTAssertEqual(rows[0].session.incidentCount, 1)
+            XCTAssertNil(rows[0].session.live) // Schema-1 mock history remains compatible.
             XCTAssertGreaterThan(rows[0].sizeBytes, 0)
         }
     }
@@ -72,12 +73,16 @@ final class RecorderTests: XCTestCase {
         await model.refresh(advance: false)
         XCTAssertNil(model.error)
         XCTAssertEqual(model.sessions.count, 2)
+        XCTAssertEqual(Set(model.sessions.compactMap { $0.session.live?.workload }), ["rpm_only", "coolant_only"])
         let documents = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
         let output = documents.appendingPathComponent("NativeAcceptance/Exports", isDirectory: true)
         try FileManager.default.createDirectory(at: output, withIntermediateDirectories: true)
         for row in model.sessions {
             XCTAssertEqual(row.session.observationCount, 0)
             XCTAssertEqual(row.session.state, "complete")
+            let live = try XCTUnwrap(row.session.live)
+            XCTAssertEqual(live.origin, "native-fixture")
+            XCTAssertEqual(live.operatingState, "stationary_running")
             let firstResult = await model.export(row.id)
             let first = try XCTUnwrap(firstResult)
             let bytes = try Data(contentsOf: first)

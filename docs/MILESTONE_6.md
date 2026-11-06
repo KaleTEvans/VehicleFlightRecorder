@@ -1,6 +1,6 @@
 # Milestone 6 — adapter initialization and standard OBD
 
-Status: PARTIALLY COMPLETE — November 3, 2026. Implementation/native fixture
+Status: PARTIALLY COMPLETE — updated November 6, 2026. Implementation/native fixture
 acceptance and signed TestFlight delivery passed; phone installation and physical
 stationary acceptance are tracked
 below. User authorized closing M5 and starting
@@ -257,5 +257,58 @@ using the already-saved phone recordings. No scanner connection or new recording
 is needed. Physical single-tap/repeat export and receipt of the original ZIPs remain
 pending. The RPM/coolant diagnosis and connected checklist remain on hold.
 Appetize was not updated; PR #5 remains draft and M6 is not physically accepted.
+
+## Retrieved phone evidence — November 6, 2026
+
+Both user-supplied ZIPs independently pass ZIP integrity, exact six-file layout,
+canonical session validation and raw/capability provenance replay. They match the
+requested separate physical workloads with operating state `stationary_running`.
+They were recorded on November 3 by build 7.1; exporting an older session does
+not replace the original acquisition-build metadata.
+
+| Session ZIP | Started (CST, November 3) | Duration | Requested workload | Decoded samples |
+| --- | --- | --- | --- | --- |
+| `live-8f5db243d65905d746ca5c98ff50e420.zip` | 5:30:34 p.m. | 50.433 s | RPM only | 0 |
+| `live-ff33e74ab5d7fac00ba8963ad98bca69.zip` | 5:34:09 p.m. | 48.074 s | Coolant only | 0 |
+
+SHA-256, in the same order:
+`d5286fcd23dfdb313dc1d4132960c6734e376b585e7317e69c3abe63ed2a06c7`,
+`c489cd9e24827931121171b9015756526f78397079e0eb30762b7df352cbb5ed`.
+Private original ZIPs and extracted evidence remain under ignored
+`.cache/physical-tests/2026-11-06/`; no phone raw files are committed or published.
+
+Each report retains 52 raw rows and 17 transactions: all 16 adapter setup steps
+succeeded, including `STPR` reporting 33 and `STI` reporting STN2255 v5.8.1.
+The subsequent `0100` supported-PID discovery received exactly `NO DATA\r\r>`.
+No support capabilities were established, so the scheduler withheld `010C`/`0105`
+measurement admission. Neither recording ran long enough for the 60-second
+support retry after this first response. No value was discarded by a measurement
+decoder: no RPM/coolant measurement command was sent in either capture.
+
+This establishes the immediate reason for zero samples, not why the adapter
+received no discovery data. It does not prove the vehicle lacks RPM/coolant
+support or justify bypassing discovery, inventing measurements, changing protocol
+presets or adding enhanced requests. The coolant recording includes a brief
+background/native scheduling gap after the no-data reply; it does not explain
+the earlier discovery response. Final report `disconnected` state accompanies
+manual session shutdown and does not by itself establish an unexpected link loss.
+
+Receipt confirms these two finalized sessions can be exported and reviewed;
+single-tap/repeat presentation on the phone has not separately been confirmed.
+No voltage ZIP was provided. M6 physical acquisition remains unaccepted. Review
+and any prepared targeted retest stay consolidated; no new car visit is requested
+by this evidence handoff.
+
+## Saved-session setup visibility — in progress
+
+The physical session metadata already stores workload, selected operating state
+and physical/fixture origin, but the Swift history model ignored those fields.
+The current change decodes that existing metadata, adds workload/state to the
+session list, and leads Drive details with recording setup and requested readings.
+Zero-sample recordings explicitly say that no decoded readings were recorded;
+requested workload and selected engine state are not presented as measured facts.
+It also preserves compatibility with schema-1 mock history. This is a current M6
+usability correction; it does not depend on the later visual redesign. Native
+verification and beta delivery are pending. Acquisition behavior is unchanged.
 
 **Milestone 7 not started.**

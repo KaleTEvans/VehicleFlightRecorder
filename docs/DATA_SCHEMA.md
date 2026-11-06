@@ -147,7 +147,7 @@ A live session uses `source: obd-live`, `profile_id: generic-obd-can11-500`,
 `vehicle_pack_version: none`, no `mock`, and required `live` configuration:
 `origin` (`physical`, `native-fixture`, `scripted-fixture`), `operating_state`
 (`unknown`, `ignition_on_engine_off`, `stationary_running`), `workload` (`combined`,
-`rpm_only`, `coolant_only`, `voltage_only`), `native_anchor_ns`,
+`rpm_only`, `coolant_only`, `voltage_only`, `discovery_diagnostic`), `native_anchor_ns`,
 `catalog_version: standard-live-can11-1`,
 `protocol_profile: can11-single-frame-headers-pci`,
 `report_file: capability.json`, `start_origin: manual`. Fixtures remain explicitly
@@ -177,6 +177,16 @@ statistics. Rates describe decoded receipt cadence across the full session,
 including setup. They do not establish underlying sensor refresh rates.
 `vehicle_identity: unknown` and `reference_comparison: unmeasured` remain honest
 until separately compared physical evidence is available.
+
+Regular workloads declare initialization `obdlink-stp33-runtime-1`. The opt-in
+`discovery_diagnostic` workload declares `obdlink-stp33-diagnostic-2`, requires its
+21-step setup and actual-baud readback, and adds fixed `can_status` transactions.
+Its support/status nominal intervals are 15 seconds, with failure backoff; regular
+schedules remain unchanged. Status replies are opaque adapter evidence in
+`adapter_status`, not canonical sensor observations or numeric counter/health
+claims. All RPM/coolant requests still require prior same-generation support.
+The updated reader is required for these new diagnostic exports; legacy exports
+remain readable without migration. See [M6 diagnostic delivery](MILESTONE_6.md#targeted-discovery-diagnostic-build--delivered-physical-test-pending).
 
 The raw ledger rows contain `session_id`, contiguous `sequence`, `generation`,
 `transaction_id` (empty for unsolicited bytes), `kind` (`requested`, `accepted`,

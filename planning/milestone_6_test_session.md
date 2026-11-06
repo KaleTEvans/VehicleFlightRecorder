@@ -1,7 +1,7 @@
 # Milestone 6 — one parked test visit
 
 Next-visit update: the [targeted diagnostic packet](milestone_6_diagnostic_session.md)
-supersedes this general checklist once its diagnostic build is delivered. Build 9.1
+on delivered build **10.1** supersedes this general checklist for the next visit. Build 9.1
 UI/export checks passed by user confirmation; no standalone repeat is needed.
 
 Status: PAUSED pending investigation of the reported zero-sample RPM/coolant

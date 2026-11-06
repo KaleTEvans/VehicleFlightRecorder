@@ -24,14 +24,20 @@ Apple confirmed the build VALID / IN_BETA_TESTING; real stationary acceptance
 is pending in [its report](docs/MILESTONE_6.md).
 Both requested zero-sample RPM/coolant phone ZIPs have been retrieved and validated.
 Adapter setup passed; supported-PID discovery returned `NO DATA`, leaving the
-measurement requests gated. The reason for that response remains unresolved; car
-testing stays paused pending a prepared targeted retest.
+measurement requests gated. The reason for that response remains unresolved. A
+[targeted parked diagnostic packet](planning/milestone_6_diagnostic_session.md) is
+now ready for TestFlight **10.1**, uploaded November 6 at 1:11 p.m. CST and
+confirmed VALID / IN_BETA_TESTING. This adds explicit runtime setup/readbacks,
+discovery/status capture and visible retry outcomes; it is not physical acceptance.
+The diagnostic source passed 29 hosted native tests, four UI tests and seven ZIP
+validations, plus Go/race checks, 122 Python tests and 29 script tests.
 The export correction and saved-session setup display passed 28 hosted native
 tests, three UI tests and five actual native ZIP validations. Build `0.1.0 (9.1)`
 uploaded on November 6 at 12:10 p.m. CST and is VALID / IN_BETA_TESTING. Session
 history now shows workload/state, and Drive details identifies requested readings
 and explicitly labels zero decoded samples. Existing recordings gain these labels
-after updating; no scanner connection or new car recording is needed.
+after updating; the user accepted all 9.1 UI/export checks. No standalone repeat
+of those checks is needed.
 
 | Milestone | Scope | Status / details |
 | --- | --- | --- |
@@ -73,14 +79,15 @@ simulator build or unsigned device compile does not establish these behaviors.
 
 ## Human acceptance sessions
 
-Use the [M6 one-visit parked checklist](planning/milestone_6_test_session.md).
-It is currently paused after review of the RPM/coolant phone exports. No new
-connected tests are requested until a targeted retest packet is prepared.
-Short individual recordings, combined capture and reconnect are grouped into one
-20–30 minute target visit, with reference-tool time extra. Do saved history,
+Use the [current M6 diagnostic visit checklist](planning/milestone_6_diagnostic_session.md)
+on **10.1**. It groups a two-minute diagnostic capture, an official-app reference,
+a conditional diagnostic repeat, and ordinary combined/reconnect continuation only
+when its prerequisites pass into one 15–25 minute parked visit. Do saved history,
 evidence navigation and exports afterward indoors, then return one evidence set.
-The [shared workflow](planning/physical_test_sessions.md) applies to later
-milestones and targeted retests; physical acceptance remains evidence-based.
+The older [general M6 checklist](planning/milestone_6_test_session.md) remains paused
+and is superseded for this visit. The [shared workflow](planning/physical_test_sessions.md)
+applies to later milestones and targeted retests; physical acceptance remains
+evidence-based.
 
 ## Develop and test in WSL
 

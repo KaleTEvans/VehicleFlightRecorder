@@ -346,7 +346,7 @@ Subsequent documentation changes do not alter the tested binary. PR #5 remains
 draft, Appetize is unchanged, and no additional car test is requested by this update.
 
 
-## Targeted discovery diagnostic build — in progress
+## Targeted discovery diagnostic build — delivered, physical test pending
 
 The user confirmed all build-9.1 history and single-tap/repeat export checks pass.
 These are closed human UI checks; the two earlier zero-sample phone ZIPs are also
@@ -383,8 +383,33 @@ in the canonical six-file live export. Python independently accepts both declare
 setup versions, verifies diagnostic schedules/readbacks/status receipt and
 same-generation support admission, and continues reading old phone ZIPs unchanged.
 
-Portable Go tests/vet, 122 Python tests and 29 script tests passed. Native fixture
-acceptance, signed delivery and the car run remain pending. The next human work
+Portable Go tests/vet, 122 Python tests and 29 script tests passed, together with
+race checks for acquisition/mobile/OBD, actionlint and formatting. The updated
+Python replay also independently revalidated both original physical ZIPs.
+
+[Native run 42274732219](https://github.com/KaleTEvans/VehicleFlightRecorder/actions/runs/42274732219)
+passed on source `24037f0f0bdab0c5e0caff3a98cb3d0185b80629`: 29 hosted tests,
+four UI tests and both device compile profiles, with zero failures. All seven
+actual native ZIPs validated in Python, including diagnostic no-data (voltage only,
+no invented ECU support) and later recovery (RPM/coolant only after support).
+The shared status view passed no-data/retry/status and later-success UI checks;
+existing history/repeated share-sheet regressions remain green.
+
+[Native artifact 13533686241](https://github.com/KaleTEvans/VehicleFlightRecorder/actions/runs/42274732219/artifacts/13533686241)
+has SHA-256 `35ac43756107f3c0153cbeb29e1551a87608ed44b7431be2aa0bc74a620f32ed`.
+Downloaded evidence is under ignored `build/milestone-6-native/24037f0/`; it remains
+explicitly synthetic.
+
+Signed `0.1.0 (10.1)` built that exact source through
+[run 42276904829](https://github.com/KaleTEvans/VehicleFlightRecorder/actions/runs/42276904829).
+Archive/export/signature checks passed, with `UPLOAD SUCCEEDED with no errors`
+at **19:11:05 UTC / 1:11:05 p.m. CST November 6**. Delivery ID:
+`e57aa5f8-3806-4b75-999c-26b37d91185d`. Read-only Apple inspection confirmed
+upload COMPLETE without errors/warnings, build VALID, `usesNonExemptEncryption: false`,
+and internal state IN_BETA_TESTING. Apple lists the processed build at
+19:11:47 UTC / 1:11:47 p.m. CST. Build 10.1 is available for internal TestFlight
+installation. Follow-up documentation does not alter that binary; Appetize is
+unchanged and PR #5 remains draft. The physical car run remains pending. The next human work
 uses only the [single targeted diagnostic packet](../planning/milestone_6_diagnostic_session.md)
 after delivery: D1, official-app reference, conditional D2, and ordinary combined /
 reconnect continuation only when their written prerequisites pass. History/export

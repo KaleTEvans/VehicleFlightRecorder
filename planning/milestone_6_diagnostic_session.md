@@ -1,9 +1,12 @@
 # Milestone 6 — targeted discovery diagnostic visit
 
-Status: DRAFT pending native acceptance and signed TestFlight delivery. Do not
-start this packet until its delivered build number is recorded below.
+Status: READY for one parked visit — November 6, 2026.
 
-Build: pending. This packet supersedes the paused general M6 checklist for the
+Build: **Vehicle Flight Recorder 0.1.0 (10.1)**, source
+`24037f0f0bdab0c5e0caff3a98cb3d0185b80629`. Native acceptance passed 29 hosted
+tests, four UI tests and seven actual native ZIP validations; signing/upload passed
+and Apple confirmed VALID / IN_BETA_TESTING. Uploaded at 1:11:05 p.m. CST.
+ This packet supersedes the paused general M6 checklist for the
 next visit. Build 9.1 history labels and single-tap/repeat export have human
 acceptance; do not repeat those standalone tests. The two November 3 zero-sample
 ZIPs are already received and validated. No road test is included.
@@ -40,8 +43,8 @@ Do not operate these controls while driving.
    allow MX+ transport connection; use Discover / Connect once if needed.
 2. Enable **Vehicle is parked**, select **Engine running / stationary**, then
    workload **Discovery diagnostic**. Optional reference note: `D1 before reference`.
-3. Tap **Start stationary recording** once and leave the app in the foreground
-   until its timer reaches **02:00**. Then **Stop and save**. The global 10-minute
+3. Tap **Start stationary recording** once and leave the app in the foreground with the screen awake
+   until its displayed elapsed time reaches **120 s (2 minutes)**. Then **Stop and save**. The global 10-minute
    guard remains a limit, not the target duration for this test.
 4. Note whether setup reaches **21/21**, the discovery outcome and attempt count,
    and whether adapter voltage, RPM and coolant appear with updating ages. Take
@@ -72,7 +75,7 @@ reference check only if the vehicle remains normal; do not keep retrying D1.
 
 **Only if D1 did not obtain both RPM and coolant**, repeat D1 once after R1, using
 reference note `D2 after reference`. Leave the car/engine conditions unchanged.
-Stop/save at **02:00**. This records whether the independent client or reconnection
+Stop/save at **120 s (2 minutes)**. This records whether the independent client or reconnection
 changed the outcome. Do not add factory resets, custom commands or more repeats.
 
 If neither diagnostic capture obtains the expected ECU readings, finish the visit
@@ -87,26 +90,30 @@ remains normal**, test the ordinary profile during this same visit:
 1. Select **Combined**, Engine running / stationary, with note `C1 ordinary profile`.
    This uses the existing 16-step setup, not diagnostic setup.
 2. Start and check that voltage/RPM/coolant ages update. If the expected ECU
-   readings remain absent at **01:30**, Stop/save, note that difference from the
+   readings remain absent at **90 s (1 minute 30 seconds)**, Stop/save, note that difference from the
    diagnostic profile, and skip C2. Do not force an incident on a failed prerequisite.
-3. If readings are present, tap **Mark Incident** once at about **01:30**. Continue
-   to **05:00**, then Stop/save. This retains the 60-second pre / 120-second post
-   evidence window in the same stationary recording.
+3. If readings remain fresh for the next minute, tap **Mark Incident** once at
+   about **150 s (2 minutes 30 seconds)**. Continue to **300 s (5 minutes)**, then Stop/save. This provides a stable
+   60-second pre-window and more than 120 seconds afterward, even if discovery
+   initially needed a retry. Note any intervening stale/missing readings instead
+   of treating the capture as a clean-window pass.
 
 ### C2 — conditional reconnect, about 3 minutes
 
 **Only after successful C1**, start a separate Combined recording with note
 `C2 reconnect`. After about 30 seconds of readings, unplug/replug the scanner and
 reconnect through iOS Bluetooth if required. Allow fresh initialization and at
-least 30 seconds of recovered readings; stop/save by **03:00**. Record whether
+least 30 seconds of recovered readings; stop/save by **180 s (3 minutes)**. Record whether
 recovery is automatic, requires Discover / Connect, or fails. Bluetooth recovery
 and adapter initialization are separate waits. No repeated manual incident is
 needed in this expected-gap capture.
 
 ## Finish indoors — one handoff
 
-- [ ] Export every recording actually created: D1, optional D2, optional C1/C2.
-  Use the workload/time/reference notes to identify them; keep originals.
+- [ ] In **Saved sessions, incidents and export**, open each recording actually
+  created (D1, optional D2, optional C1/C2) and tap **Export session ZIP**.
+  Use workload/start time and your case notes to identify them; keep originals.
+  The separate Export closed connection capture button is not the session ZIP.
 - [ ] For successful C1, open its saved incident and evidence timeline. Note any
   failure or incomplete-window label; an export alone does not establish capture.
 - [ ] Send all new ZIPs together, the R1 screenshot/error, and the notes below.

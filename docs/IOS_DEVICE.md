@@ -28,11 +28,11 @@ visit, with history/export and one evidence handoff afterward indoors. Per-case
 chat review is not required. Physical M6 acceptance and road/background
 qualification remain pending.
 
-**Current testing hold:** on November 6, both requested RPM/coolant phone ZIPs
+**Current physical diagnosis:** on November 6, both requested RPM/coolant phone ZIPs
 were independently validated. They retain build-7.1 setup success followed by
 `NO DATA` from `0100`, leaving measurement requests gated. Why discovery received
-no data remains unresolved; physical sampling is not accepted and no new car
-recording is requested until a targeted retest packet is prepared.
+no data remains unresolved; physical sampling is not accepted and the next connected work uses the delivered
+[targeted diagnostic packet](../planning/milestone_6_diagnostic_session.md).
 
 Build **0.1.0 (9.1)** is available for internal TestFlight installation. It adds
 workload/state to session history, requested readings and a zero-reading message
@@ -45,6 +45,16 @@ both device compile profiles and five actual native ZIP validations in
 uploaded that exact source on November 6 at 12:10:25 p.m. CST; Apple confirmed
 VALID / IN_BETA_TESTING. This preserves the build-8.1 export correction. OBD
 initialization, admission and decoders are unchanged. See [the report](MILESTONE_6.md).
+
+The current diagnostic beta is **0.1.0 (10.1)**, source
+`24037f0f0bdab0c5e0caff3a98cb3d0185b80629`. It passed 29 hosted / four UI tests,
+seven actual native ZIP validations, both device compile profiles and signed
+[run 42276904829](https://github.com/KaleTEvans/VehicleFlightRecorder/actions/runs/42276904829).
+Apple confirmed upload COMPLETE, build VALID and IN_BETA_TESTING after upload
+November 6 at 1:11:05 p.m. CST. Select the new Discovery diagnostic workload only
+for the [one-visit packet](../planning/milestone_6_diagnostic_session.md); regular
+workloads keep their prior initialization/schedules. This build collects the
+missing diagnosis evidence; successful physical ECU acquisition is still pending.
 
 ## User setup
 

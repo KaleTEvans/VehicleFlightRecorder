@@ -82,16 +82,22 @@ final class EvidenceNavigationTests: XCTestCase {
                 app.swipeUp()
             }
             XCTAssertTrue(displayedWorkload.waitForExistence(timeout: 10))
-            XCTAssertEqual(displayedWorkload.label, workload)
-            XCTAssertTrue(app.staticTexts[workload == "RPM only" ? "Engine RPM" : "Coolant temperature"].exists)
+            // LabeledContent exposes a combined label/value to accessibility.
+            XCTAssertEqual(displayedWorkload.label, "Workload, \(workload)")
+            let requested = workload == "RPM only" ? "Engine RPM" : "Coolant temperature"
+            XCTAssertTrue(app.staticTexts["Requested readings, \(requested)"].exists)
             let noReadings = app.staticTexts["session-no-readings"]
             for _ in 0..<3 {
                 if noReadings.isHittable { break }
                 app.swipeUp()
             }
-            XCTAssertTrue(app.staticTexts["Engine running / stationary"].exists)
-            XCTAssertTrue(app.staticTexts["Simulated native test fixture"].exists)
+            XCTAssertTrue(app.staticTexts["Operating state, Engine running / stationary"].exists)
+            XCTAssertTrue(app.staticTexts["Origin, Simulated native test fixture"].exists)
             XCTAssertTrue(noReadings.isHittable)
+            let setup = XCTAttachment(screenshot: app.screenshot())
+            setup.name = "Saved \(workload) recording setup"
+            setup.lifetime = .keepAlways
+            add(setup)
             let export = app.buttons["export-session-zip"]
             XCTAssertTrue(export.waitForExistence(timeout: 10), app.debugDescription)
             for _ in 0..<4 {

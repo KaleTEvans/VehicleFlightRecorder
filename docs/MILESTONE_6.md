@@ -595,7 +595,7 @@ ZIP SHA-256: `2d8e3f59716702322b7d2e70d42d66d991128645dd9ae10ffc068e87076c5796`.
 The original ZIP, extracted six-file session and validation summary remain private
 under ignored `.cache/physical-tests/2026-11-06/handoff-11.1/`.
 
-## Explicit CAN 29-bit diagnostic profile — implementation, acceptance pending
+## Explicit CAN 29-bit diagnostic profile — delivered, physical pending
 
 The user authorized implementing the next targeted profile after the physical
 11.1 handoff retained CAN 29/500. `can29_diagnostic` is a separate opt-in workload:
@@ -620,9 +620,34 @@ reconnect generation isolation, independent replay/corruption, native UI and ZIP
 Portable checks passed: full Go tests/vet, targeted CAN29 configuration/parser/
 reconnect tests, 144 Python tests, 29 script tests, race checks, formatting and
 actionlint. All four retained phone captures independently validate. Native
-acceptance and signed delivery are pending; no new build is ready for a car visit. The [new single-visit packet](../planning/milestone_6_can29_session.md)
-is draft pending delivery. It batches discovery/acquisition, conditional reconnect
+acceptance and signed delivery passed as recorded below. The new build is ready
+for one parked session; physical acquisition acceptance is still open. The [new single-visit packet](../planning/milestone_6_can29_session.md)
+is ready for 12.1. It batches discovery/acquisition, conditional reconnect
 and a later official-app SAE comparison, followed by one indoor ZIP handoff.
 M6 physical ECU acquisition/reference/reliability/manual gates remain open.
+
+Exact source `1340837ad24ef000d24e9dedf26e18ae9efa191e` passed
+[native run 42300865187](https://github.com/KaleTEvans/VehicleFlightRecorder/actions/runs/42300865187):
+**31 hosted tests, six UI tests, both device compile profiles and 13 native ZIP
+validations**, including CAN29 no-data/dual-responder recovery/timeout cases.
+All available incidents reconstructed independently. Both push/PR portable CI
+runs on that source passed. The native recovery export has 92 observations,
+the timeout/recovery export 87 including one preserved timeout, and the no-data
+export 19 adapter-voltage observations with four discovery NO DATA outcomes.
+These are scripted native fixtures, not new physical measurements.
+
+[Native artifact 13543509279](https://github.com/KaleTEvans/VehicleFlightRecorder/actions/runs/42300865187/artifacts/13543509279)
+has GitHub SHA-256 digest
+`c2ee605f9c8963b1ea8f02db1901a4d068a8dadd2cbb8b4a15f4d9f9a59385f4`.
+Downloaded evidence is under ignored `build/milestone-6-native/1340837/`.
+Signed [run 42302376611](https://github.com/KaleTEvans/VehicleFlightRecorder/actions/runs/42302376611)
+built the exact accepted source as **0.1.0 (12.1)**. Archive/export/signature
+verification passed; Apple returned UPLOAD SUCCEEDED with no errors at
+**22:11:57 UTC / 4:11:57 p.m. CST November 6, 2026**. Delivery UUID:
+`441594a2-3462-4a6e-bf6f-212db70f7252`. Read-only Apple API inspection confirmed
+build VALID / internal IN_BETA_TESTING, uploadedDate **22:13:53 UTC /
+4:13:53 p.m. CST**. The build is available for the ready single-visit packet.
+PR #5 remains draft; Appetize is unchanged. Documentation follow-ups do not
+alter the accepted/signed binary.
 
 **Milestone 7 not started.**

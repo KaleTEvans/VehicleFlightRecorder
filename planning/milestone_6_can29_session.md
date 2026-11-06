@@ -1,6 +1,10 @@
 # Milestone 6 — CAN 29-bit diagnostic session
 
-Status: DRAFT pending native acceptance and TestFlight delivery. Build: pending.
+Status: READY. Install **Vehicle Flight Recorder 0.1.0 (12.1)** from TestFlight.
+Source: `1340837ad24ef000d24e9dedf26e18ae9efa191e`. Uploaded November 6, 2026
+at **4:11:57 p.m. CST**; Apple confirmed VALID / internal IN_BETA_TESTING.
+This exact source passed 31 hosted native tests, six UI tests, both device compile
+profiles and independent validation of 13 native ZIP exports.
 Do not run this packet on 11.1. The prior handoff passed; no repeat is requested.
 This is one parked visit with a single saved session and an optional reconnect
 block only if initial ECU readings succeed. Export/review follows indoors.

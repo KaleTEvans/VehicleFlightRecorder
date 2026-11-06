@@ -12,43 +12,28 @@ vehicle packs. The diagnostic MVP takes priority over the later Driver Companion
 ## Current status
 
 **November 6, 2026:** Milestones 0–4 are complete and merged into `master`.
-[Milestone 5 is accepted and merged](https://github.com/KaleTEvans/VehicleFlightRecorder/pull/3).
-The installed iPhone/MX+ path passed the real firmware identity exchange, exported
-raw evidence, reconnect and lock/unlock checks. The user confirmed the flicker fix
-and build `0.1.0 (6.1)` automatic recovery in approximately 1–2 seconds after iOS
-Bluetooth reconnects. The recovery source passed 24 hosted native tests, two UI
-tests, device compile/signing and portable CI. Authorized offline acquisition
-foundations are included. M6 parked acquisition is implemented and native-validated;
-build `0.1.0 (7.1)` uploaded for TestFlight on November 3 at 1:44 p.m. CST.
-Apple confirmed the build VALID / IN_BETA_TESTING; real stationary acceptance
-is pending in [its report](docs/MILESTONE_6.md).
-Both requested zero-sample RPM/coolant phone ZIPs have been retrieved and validated.
-Adapter setup passed; supported-PID discovery returned `NO DATA`, leaving the
-measurement requests gated. The reason remains unresolved. The build-10.1 D1
-diagnostic retained successful setup and adapter voltage, but four attempts still
-returned `NO DATA`. The official OBDLink app subsequently showed RPM and coolant;
-its working protocol remains unknown. D2 was not run.
-The [short adapter handoff capture](planning/milestone_6_handoff_capture.md) shipped
-on TestFlight **0.1.0 (11.1)**, uploaded November 6 at **2:42:16 p.m. CST** and
-confirmed VALID / IN_BETA_TESTING. It reads only current protocol/description/baud
-before VFR resets or selects a profile, preserving raw evidence without vehicle
-polling. App cleanup/reconnection may already have changed the scanner state.
-The exact source passed 30 hosted native tests, five UI tests, ten native ZIP
-validations, Go/race checks, 129 Python tests and 29 script tests. Physical ECU
-acquisition remains unaccepted. The received physical 11.1 capture passed all
-three readbacks and retained **CAN 29-bit / 500 kbps**, compared with VFR's
-11-bit / 500 kbps acquisition profile. This is a concrete protocol/addressing lead,
-not a verified cause or an ECU measurement. An explicit 29-bit diagnostic profile and parser
-are implemented with portable validation; native acceptance/delivery must pass
-before the next batched car test; no repeat of the
-handoff is requested. See [the evidence review](docs/MILESTONE_6.md#physical-adapter-handoff-received--build-111).
-The export correction and saved-session setup display passed 28 hosted native
-tests, three UI tests and five actual native ZIP validations. Build `0.1.0 (9.1)`
-uploaded on November 6 at 12:10 p.m. CST and is VALID / IN_BETA_TESTING. Session
-history now shows workload/state, and Drive details identifies requested readings
-and explicitly labels zero decoded samples. Existing recordings gain these labels
-after updating; the user accepted all 9.1 UI/export checks. No standalone repeat
-of those checks is needed.
+[Milestone 5 is accepted and merged](https://github.com/KaleTEvans/VehicleFlightRecorder/pull/3):
+real MX+ firmware exchange/raw export, flicker correction, lock/unlock and automatic
+replug recovery (about 1–2 seconds after Bluetooth reconnects) passed on the phone.
+
+**Milestone 6 is in progress.** The user accepted build-9.1 history/zero-reading
+labels and export behavior. Earlier phone recordings retained successful setup
+but supported-PID discovery returned `NO DATA`, leaving RPM/coolant gated. The
+validated build-11.1 adapter handoff captured **CAN 29-bit / 500 kbps**, compared
+with VFR's previous **11-bit / 500 kbps** acquisition profile. This is a concrete
+addressing lead, not a proven cause or a successful ECU measurement.
+
+The new explicit **CAN 29-bit diagnostic** workload adds matching functional
+addressing, full responder IDs, strict setup/discovery gates and independently
+replayable six-file exports. Exact source `1340837ad24ef000d24e9dedf26e18ae9efa191e`
+passed **31 hosted native tests, six UI tests, both device compile profiles and
+13 native ZIP validations**, plus Go/vet/race, 144 Python tests and 29 script tests.
+All four retained phone captures still validate. TestFlight **0.1.0 (12.1)**
+uploaded November 6 at **4:11:57 p.m. CST** and is confirmed VALID /
+IN_BETA_TESTING. The [single parked-session packet](planning/milestone_6_can29_session.md)
+is ready. Physical ECU acquisition/reference/reconnect acceptance remains
+open in [the report](docs/MILESTONE_6.md); PR #5 stays draft. Appetize remains the
+mock recorder.
 
 | Milestone | Scope | Status / details |
 | --- | --- | --- |
@@ -90,14 +75,13 @@ simulator build or unsigned device compile does not establish these behaviors.
 
 ## Human acceptance sessions
 
-The [short M6 handoff checklist](planning/milestone_6_handoff_capture.md) is
-complete: the supplied 11.1 ZIP validated and retained all three adapter readbacks.
-No repeat of D1, D2, the handoff or accepted 9.1 UI/export checks is requested.
-The [next connected packet](planning/milestone_6_can29_session.md) is draft
-pending native validation/delivery of the implemented 29-bit diagnostic profile; the existing 11.1 binary does not support that
-acquisition profile. Earlier packets remain historical. The
-[shared workflow](planning/physical_test_sessions.md) keeps connected work in one
-batched visit, with retrieval/review indoors; physical ECU acceptance stays open.
+The [next parked-session checklist](planning/milestone_6_can29_session.md) is
+ready for **12.1**. It batches discovery/RPM/coolant, conditional
+reconnect and an official-app SAE comparison into one visit, with one ZIP export
+and evidence handoff afterward indoors. No repeats of D1/D2, adapter handoff or
+accepted 9.1 UI/export checks are requested. The
+[shared workflow](planning/physical_test_sessions.md) keeps connected work in
+large blocks; physical ECU acceptance stays open.
 
 ## Develop and test in WSL
 

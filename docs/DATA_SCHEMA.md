@@ -210,6 +210,10 @@ This profile permits up to 512 capability/statistic rows to cover its bounded
 8-bit responder namespace; existing profiles retain their 32-row reader bounds.
 Other byte/transaction/observation/duration budgets are unchanged. The updated
 Python reader is required for new CAN29 exports; prior recordings need no migration.
+Addressing references: [OBDLink FRPM E, headers/normal-fixed](https://www.scantool.net/scantool/downloads/678/obdlink_frpm_e.pdf#page=18)
+and [ELM327 DSJ, functional addressing and response filtering](https://www.elmelectronics.com/wp-content/uploads/2016/07/ELM327DS.pdf#page=41).
+These document the fixed header/response format; they do not identify this car's
+actual responders or establish successful physical acquisition.
 
 The `adapter_handoff` workload instead uses profile/catalog `adapter-state-only` /
 `adapter-state-1`, initialization `obdlink-adapter-handoff-1`, and selected protocol

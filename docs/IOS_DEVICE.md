@@ -22,10 +22,10 @@ Build `0.1.0 (7.1)` uploaded on November 3, 2026 at 1:44:51 p.m. CST from
 The exact source passed 26 hosted native tests, two UI tests, both device compile
 profiles and real native ZIP reconstruction. Apple confirmed VALID /
 IN_BETA_TESTING at 1:45 p.m. CST; see [the M6 report](MILESTONE_6.md). Update from transport-only build 6.1 before testing
-parked live controls. Use the [single M6 test-visit checklist](../planning/milestone_6_test_session.md):
-run short individual checks and conditional combined/reconnect cases in one parked
-visit, with history/export and one evidence handoff afterward indoors. Per-case
-chat review is not required. Physical M6 acceptance and road/background
+parked live controls. Its [original test-visit checklist](../planning/milestone_6_test_session.md)
+is paused; use the current targeted packet below after its build is delivered.
+Connected work stays in one parked visit, with history/export and one evidence
+handoff afterward indoors. Per-case chat review is not required. Physical M6 acceptance and road/background
 qualification remain pending.
 
 **Current physical diagnosis:** on November 6, both requested RPM/coolant phone ZIPs
@@ -33,8 +33,8 @@ were independently validated. They retain build-7.1 setup success followed by
 `NO DATA` from `0100`, leaving measurement requests gated. Why discovery received
 no data remains unresolved; physical sampling is not accepted. The build-10.1
 D1 diagnostic also returned no ECU data; the official app later showed RPM and
-coolant, but its working protocol is unknown. The next connected work uses the
-[short adapter handoff packet](../planning/milestone_6_handoff_capture.md) on 11.1.
+coolant, but its working protocol is unknown. The 11.1 handoff captured CAN 29/500; the next connected work uses the
+[new CAN29 packet](../planning/milestone_6_can29_session.md) on the delivered 12.1 build.
 
 Build **0.1.0 (9.1)** is available for internal TestFlight installation. It adds
 workload/state to session history, requested readings and a zero-reading message
@@ -58,7 +58,7 @@ the [earlier one-visit packet](../planning/milestone_6_diagnostic_session.md);
 regular workloads keep their prior initialization/schedules. D1 evidence is
 received; successful physical ECU acquisition is still pending.
 
-The current targeted beta is **0.1.0 (11.1)**, source
+The previous targeted beta **0.1.0 (11.1)** used source
 `540c385bb465ac6404ed67ab4f393923fe2274c7`. It passed 30 hosted native tests,
 five UI tests, ten native ZIP validations and both device compile profiles in
 [native run 42288515502](https://github.com/KaleTEvans/VehicleFlightRecorder/actions/runs/42288515502).
@@ -67,9 +67,26 @@ uploaded it November 6 at **2:42:16 p.m. CST**; Apple confirmed VALID /
 IN_BETA_TESTING. **Adapter handoff capture** reads only STPR, STPRS and STPBRR
 without reset/configuration or vehicle polling, then saves automatically. It may
 capture settings left by the reference app, although cleanup/reconnection may
-already have altered them. Run the linked short packet once; do not repeat D2
-on 10.1. Existing regular/diagnostic workloads keep their setup and schedules.
+already have altered them. The received physical handoff passed all three
+readbacks and retained CAN 29/500; no repeat of that packet or D2 is requested.
+Existing regular/diagnostic workloads keep their setup and schedules.
 The new mode intentionally records zero sensor samples. M6 remains unaccepted.
+
+The current targeted beta is **0.1.0 (12.1)**, source
+`1340837ad24ef000d24e9dedf26e18ae9efa191e`. Native
+[run 42300865187](https://github.com/KaleTEvans/VehicleFlightRecorder/actions/runs/42300865187)
+passed 31 hosted tests, six UI tests, 13 native ZIP validations and both device
+compile profiles. **CAN 29-bit diagnostic** explicitly selects the new protocol,
+uses matching standard functional addressing, retains full response IDs and gates
+RPM/coolant on same-generation supported-PID evidence. No automatic protocol
+search or enhanced Alfa/TCM interpretation is enabled. The
+[single parked packet](../planning/milestone_6_can29_session.md) batches acquisition,
+conditional reconnect and a later SAE reference comparison, then export indoors.
+Signed [run 42302376611](https://github.com/KaleTEvans/VehicleFlightRecorder/actions/runs/42302376611)
+uploaded **0.1.0 (12.1)** on November 6 at **4:11:57 p.m. CST**, with no errors.
+Apple confirmed build VALID / internal IN_BETA_TESTING (uploadedDate
+22:13:53 UTC / 4:13:53 p.m. CST). The packet is ready. Documentation updates
+after delivery do not change the tested/signed source.
 
 ## User setup
 

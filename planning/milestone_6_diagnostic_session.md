@@ -1,6 +1,8 @@
 # Milestone 6 — targeted discovery diagnostic visit
 
-Status: READY for one parked visit — November 6, 2026.
+Status: D1/reference evidence received. An unchanged D2 is not requested.
+The [adapter handoff packet](milestone_6_handoff_capture.md) supersedes this
+packet for the next visit once its new build is delivered; do not run it on 10.1.
 
 Build: **Vehicle Flight Recorder 0.1.0 (10.1)**, source
 `24037f0f0bdab0c5e0caff3a98cb3d0185b80629`. Native acceptance passed 29 hosted
@@ -10,6 +12,22 @@ and Apple confirmed VALID / IN_BETA_TESTING. Uploaded at 1:11:05 p.m. CST.
 next visit. Build 9.1 history labels and single-tap/repeat export have human
 acceptance; do not repeat those standalone tests. The two November 3 zero-sample
 ZIPs are already received and validated. No road test is included.
+
+Progress — November 6: D1 ZIP received and independently validated (124.462 s,
+all 21 setup steps successful, four no-data discovery replies, 22 voltage-only
+samples). The user confirmed this was before OBDLink, and reports successful SAE
+RPM/coolant readings there. OBDLink's detected protocol could not be found; record
+that field as unavailable. D2 evidence remains unconfirmed. Do not repeat D1 or
+make another car visit just to find the protocol. Return an already-saved D2 ZIP
+if one exists; the remaining case outcomes stay pending until confirmed.
+
+Protocol-investigation update: build 10.1 starts by closing/resetting the adapter
+and then selects its fixed profile. D2 can expose an order/readiness effect after
+the reference app, but cannot identify that app's prior settings. Keep any already
+saved D2 evidence. Do not make another car visit solely to perform D2 or find the
+protocol; a future diagnostic revision should read the adapter's current protocol
+number/string/baud before any VFR reset or protocol selection. Such a snapshot
+may be inconclusive if the reference app or reconnection already resets state.
 
 Plan **one 15–25 minute parked visit**, including optional continuation cases.
 Stop and save between recordings. No chat response, per-case upload or waiting
@@ -64,7 +82,11 @@ reference check only if the vehicle remains normal; do not keep retrying D1.
 1. Ensure VFR recording is stopped. Tap **Disconnect** in VFR, then close it.
 2. Open the official OBDLink app and connect to the same scanner. Observe standard
    Engine RPM and Engine coolant temperature for roughly 30 seconds.
-3. Save a screenshot with values/units, or the exact no-data/error result. Note
+3. Use the **SAE PIDs** engine RPM/coolant entries for this comparison. The user
+   reports two engine-ECU menus and different coolant availability under the TCM
+   menu; retain those as separate observations, without assuming addresses or that
+   a TCM-category temperature is the same parameter. Save a screenshot with the
+   exact parameter labels and values/units, or the exact no-data/error result. Note
    the selected/detected protocol if the app displays it; do not guess or force
    alternative protocols to obtain a reading. A configured gauge that remains
    blank is a result to report, not a reason to select unrelated enhanced PIDs.

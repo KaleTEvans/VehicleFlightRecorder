@@ -11,6 +11,8 @@ struct VehicleFlightRecorderApp: App {
                 HistoryExportUITestHost()
             } else if ProcessInfo.processInfo.arguments.contains("--ui-test-discovery") {
                 DiscoveryDiagnosticUITestHost()
+            } else if ProcessInfo.processInfo.arguments.contains("--ui-test-handoff") {
+                AdapterHandoffUITestHost()
             } else {
                 RecorderRootView()
             }

@@ -147,7 +147,7 @@ A live session uses `source: obd-live`, `profile_id: generic-obd-can11-500`,
 `vehicle_pack_version: none`, no `mock`, and required `live` configuration:
 `origin` (`physical`, `native-fixture`, `scripted-fixture`), `operating_state`
 (`unknown`, `ignition_on_engine_off`, `stationary_running`), `workload` (`combined`,
-`rpm_only`, `coolant_only`, `voltage_only`, `discovery_diagnostic`), `native_anchor_ns`,
+`rpm_only`, `coolant_only`, `voltage_only`, `discovery_diagnostic`, `adapter_handoff`), `native_anchor_ns`,
 `catalog_version: standard-live-can11-1`,
 `protocol_profile: can11-single-frame-headers-pci`,
 `report_file: capability.json`, `start_origin: manual`. Fixtures remain explicitly
@@ -187,6 +187,16 @@ schedules remain unchanged. Status replies are opaque adapter evidence in
 claims. All RPM/coolant requests still require prior same-generation support.
 The updated reader is required for these new diagnostic exports; legacy exports
 remain readable without migration. See [M6 diagnostic delivery](MILESTONE_6.md#targeted-discovery-diagnostic-build--delivered-physical-test-pending).
+
+The `adapter_handoff` workload instead uses profile/catalog `adapter-state-only` /
+`adapter-state-1`, initialization `obdlink-adapter-handoff-1`, and selected protocol
+`unmodified-adapter-state`. Its only transactions are the ordered current-state
+queries STPR, STPRS, STPBRR; there is no vehicle protocol selection. It permits
+no observations/capabilities/statistics or reconnect/retry, has a 15-second active
+owner-loop limit, and preserves missing/opaque readbacks without inferring a
+vehicle protocol. A completed capture means evidence collection ended, not that
+settings were recognized or vehicle communication succeeded. Use the updated
+reader for this new workload; prior exports remain valid without migration.
 
 The raw ledger rows contain `session_id`, contiguous `sequence`, `generation`,
 `transaction_id` (empty for unsolicited bytes), `kind` (`requested`, `accepted`,

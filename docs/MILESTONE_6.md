@@ -415,4 +415,115 @@ after delivery: D1, official-app reference, conditional D2, and ordinary combine
 reconnect continuation only when their written prerequisites pass. History/export
 and one evidence handoff follow indoors. No per-case chat/upload is required.
 
+## Diagnostic visit — initial user observations, November 6, 2026
+
+The user reports two separate engine ECUs in OBDLink. RPM was readable under
+either ECU and under the app's generic SAE PIDs category. Engine coolant was
+reported available under SAE PIDs and a transmission-control-module category,
+but absent from the individual engine-ECU menus. These are reported app selections;
+exact PID labels, CAN addresses, responder/module identity and the meaning of the
+TCM-category temperature have not been independently established. Do not merge
+ECUs or label a responder TCM from its address/menu position, or treat menu absence
+as a valid unsupported-PID response. Use the SAE engine RPM/coolant selections as
+the planned standard-OBD comparison; keep other temperature selections separate.
+
+The supplied VFR screenshot shows a completed 124-second recording, setup 21/21,
+four discovery attempts with No data returned, adapter voltage 13.11 V (valid,
+three seconds old) and CAN status as reported `T:00 R:00` (two seconds old).
+The screenshot does not establish bus health, exact protocol, raw request/reply
+provenance, build identity or whether it is D1 versus D2. Diagnostic session ZIPs,
+reference labels/units and protocol if shown remain pending. No new command,
+profile change or ECU mapping is justified solely by these menu observations.
+Follow the existing D2 conditional gate; if already D2 with no ECU readings,
+end the connected visit and skip C1/C2. One evidence handoff follows indoors.
+
+## Validated D1 diagnostic export — November 6, 2026
+
+The user supplied `live-d1dd3d808f5179464b8474742e35acab.zip` and confirmed it
+was recorded **before** the successful OBDLink comparison (D1). SHA-256:
+`fbd3145183a50b79318fd212876c26d8829a462396dd406d65025f6b8a5e9d46`.
+The original/extracted evidence is private under ignored
+`.cache/physical-tests/2026-11-06/`; no physical raw files are published.
+
+Independent validation passes ZIP integrity, exact six-file layout, finalized
+canonical records, both raw ledgers, configuration/readbacks and capability
+provenance. The session began at 1:46:06 p.m. CST, lasted 124.462 seconds, and
+records build 10.1 / physical origin / stationary_running / discovery_diagnostic.
+Its 55 transactions and 188 raw rows retain:
+
+- All 21 setup steps succeeded, including explicit functional header/normal
+  addressing/filter acknowledgements, actual configured baud 500000, preset 33
+  and STN firmware identity. Their physical command availability is now observed.
+- Four `0100` requests at elapsed 12.728, 43.333, 73.931 and 104.533 seconds each
+  received exactly `NO DATA\r\r>`. No valid ECU capability response was obtained.
+- Eight `ATCS` replies each reported `T:00 R:00`. These remain opaque adapter
+  evidence and do not establish healthy vehicle communication or a detected
+  vehicle protocol.
+- 22 decoded observations are all adapter input voltage. There are no RPM or
+  coolant requests/observations, and no ECU capability rows. No interrupted or
+  uncheckpointed evidence was found. Brief native lifecycle transitions are
+  logged; no acquisition-pause warning is present.
+
+The user could not find OBDLink's detected protocol. Record it as **unavailable**;
+that optional field is not a reason for another car visit. This ZIP establishes
+VFR's configured CAN 11-bit/500 kbps profile, not the protocol/addressing that
+OBDLink used for its successful SAE readings. Those are separate facts. The
+export does not capture the adapter's protocol before VFR resets/configures it.
+Do not infer a protocol change, unsupported ECU, failed decoder or verified ECU
+address map from these records alone.
+
+D1 and reference-app observations are received; D2 export/status and reference
+parameter labels/units remain unconfirmed. Do not ask to repeat D1 or locate the
+protocol in the car. Review any already-saved D2 ZIP when available; C1/C2 cannot
+be accepted from this D1 evidence. No implementation or new build is changed by
+this evidence review.
+
+## D2 interpretation and pre-reset protocol capture — design clarification
+
+D2 is a before/after-reference comparison of the same VFR workload, potentially
+revealing an order/readiness effect; it does not record OBDLink's commands or
+prove which app configuration differs. Source review confirms both setup variants
+begin STPC, ATD before selecting STP33. Thus build 10.1 overwrites reference-client
+runtime settings before STPR/STPBRR are recorded. Do not claim it preserves or
+identifies the working reference configuration.
+
+The adapter provides read-only STPR, STPRS and STPBRR queries (FRPM E pp. 33–34).
+A more informative future diagnostic revision would capture these on explicit
+user start before any close/default/protocol-selection command, with no power
+cycle between reference and VFR. This inspects shared accessory state, not the
+other app's private data or traffic. It remains conditional: OBDLink shutdown or
+accessory/client reconnection may already reset/change that state. Raw responses
+must be labeled pre-existing adapter configuration, not a verified vehicle
+protocol or permission to auto-select an unimplemented decoder/profile. If state
+is unavailable, a reference-app diagnostic log/report would be a separate source.
+No new initialization implementation is shipped by this clarification. Do not
+request an additional visit only for an unchanged D2 on 10.1.
+
+## Adapter-only handoff capture — implementation in progress
+
+The user did not run D2 and is willing to perform a handoff test if it can capture
+settings left by OBDLink. The new opt-in `adapter_handoff` workload is separate
+from Discovery diagnostic: only STPR, STPRS and STPBRR are sent, with optional
+command echo tolerated. No STPC, ATD, STP33, vehicle query, voltage read, protocol
+adoption or retry is part of this workload. An app/accessory reconnection may
+still alter shared state before VFR can read it, so the result is unverified.
+
+The versioned adapter-only contract is `profile_id` / protocol profile
+`adapter-state-only`, catalog `adapter-state-1`, initialization
+`obdlink-adapter-handoff-1`, selected protocol `unmodified-adapter-state`.
+It has zero measurement schedules, observations/capabilities and manual incidents.
+It auto-finalizes on three bounded readbacks, a transport loss, an unrecoverable
+framing/deadline outcome, or its 15-second active owner-loop limit. Evidence-write
+failures remain incomplete. It never reconnects/resynchronizes automatically.
+AUTO, ? and other complete opaque replies are retained rather than converted to
+vehicle protocol facts; ambiguity stays in the raw failure record.
+
+Native UI distinguishes adapter readbacks from telemetry and explains zero samples
+in handoff history. Python independently validates the adapter-only scope, exact
+three-command order, no retries/generation reuse, receipt bytes and both prior
+live setup versions. Existing recordings require no migration; new handoff
+exports require the updated reader. The new [one short handoff packet](../planning/milestone_6_handoff_capture.md)
+replaces another unchanged D2, with export/review indoors. Native acceptance and
+signed delivery remain pending; no test on 10.1 can exercise this new mode.
+
 **Milestone 7 not started.**

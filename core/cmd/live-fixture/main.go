@@ -29,7 +29,7 @@ func run() error {
 	if e != nil {
 		return e
 	}
-	valid := map[string]bool{"healthy": true, "reconnect": true, "malformed": true, "unsupported": true, "timeout": true, "no_data": true, "recovery": true}
+	valid := map[string]bool{"healthy": true, "reconnect": true, "malformed": true, "unsupported": true, "timeout": true, "no_data": true, "recovery": true, "handoff_retained": true, "handoff_unknown": true, "handoff_timeout": true}
 	if !valid[*scenario] {
 		return fmt.Errorf("unknown scripted scenario")
 	}
@@ -55,6 +55,15 @@ func run() error {
 	replies["STFA\r"] = "OK\r>"
 	replies["STPBRR\r"] = "500000\r>"
 	replies["ATCS\r"] = "T:00 R:00\r>"
+	if *workload == "adapter_handoff" {
+		replies["STPR\r"] = "34\r>"
+		replies["STPRS\r"] = "ISO 15765-4 CAN 29/500\r>"
+		if *scenario == "handoff_unknown" {
+			replies["STPR\r"] = "AUTO\r>"
+			replies["STPRS\r"] = "AUTO\r>"
+			replies["STPBRR\r"] = "?\r>"
+		}
+	}
 	supportAttempts := 0
 	if *scenario == "unsupported" {
 		replies["0100\r"] = "7E8 06 41 00 00 00 00 00\r>"
@@ -83,7 +92,7 @@ func run() error {
 			}
 			offline = false
 		}
-		if now == 80000000000 && *workload != "discovery_diagnostic" {
+		if now == 80000000000 && *workload != "discovery_diagnostic" && *workload != "adapter_handoff" {
 			if _, e = l.Mark("Scripted manual evidence", base+now); e != nil {
 				return e
 			}
@@ -116,6 +125,9 @@ func run() error {
 		}
 		if e = l.Accepted(gen, base+now+2000, command[1:]); e != nil {
 			return e
+		}
+		if *scenario == "handoff_timeout" {
+			continue
 		}
 		if *scenario == "timeout" && string(command) == "010C\r" && !timedOut {
 			timedOut = true

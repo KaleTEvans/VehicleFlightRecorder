@@ -81,4 +81,28 @@ final class LiveRecorderTests: XCTestCase {
         }
     }
 
+    func testNativeAdapterOnlyHandoffExports() async throws {
+        for kind in ["retained", "unknown", "timeout"] {
+            let result = try AdapterHandoffFixture.make(kind: kind)
+            XCTAssertEqual(result.snapshot.state, "complete")
+            XCTAssertFalse(result.snapshot.active)
+            XCTAssertTrue(result.snapshot.isHandoff)
+            XCTAssertTrue(result.snapshot.readings.isEmpty)
+            XCTAssertTrue(result.snapshot.capabilities.isEmpty)
+            let state = try XCTUnwrap(result.snapshot.adapterState)
+            XCTAssertEqual(state.captured, kind == "timeout" ? 0 : 3)
+            if kind == "retained" { XCTAssertEqual(state.protocolNumber, "34") }
+            if kind == "unknown" { XCTAssertEqual(state.protocolNumber, "AUTO"); XCTAssertEqual(state.baud, "?") }
+            let service = try RecorderService(history: result.root)
+            let rows = try await service.sessions()
+            XCTAssertEqual(rows.first?.session.profileId, "adapter-state-only")
+            let archive = try await service.archive(result.sessionID)
+            let docs = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
+            let output = docs.appendingPathComponent("NativeAcceptance/Exports", isDirectory: true)
+            try FileManager.default.createDirectory(at: output, withIntermediateDirectories: true)
+            try FileManager.default.copyItem(at: archive, to: output.appendingPathComponent(archive.lastPathComponent))
+            try await service.close()
+        }
+    }
+
 }

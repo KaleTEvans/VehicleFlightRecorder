@@ -10,6 +10,16 @@ const LiveCatalogVersion = "standard-live-can11-1"
 const InitializationVersion = "obdlink-stp33-runtime-1"
 const DiagnosticInitializationVersion = "obdlink-stp33-diagnostic-2"
 const DiagnosticWorkload = "discovery_diagnostic"
+const HandoffWorkload = "adapter_handoff"
+const HandoffInitializationVersion = "obdlink-adapter-handoff-1"
+const HandoffProfile = "adapter-state-only"
+const HandoffCatalog = "adapter-state-1"
+
+var handoffInitialization = []Definition{
+	{Key: "init_previous_protocol", Command: "STPR\r", Reference: STNReference + "#page=34"},
+	{Key: "init_previous_description", Command: "STPRS\r", Reference: STNReference + "#page=34"},
+	{Key: "init_previous_baud", Command: "STPBRR\r", Reference: STNReference + "#page=34"},
+}
 
 // Runtime-only configuration, FRPM E sections 7.2/8.6. No ATSP/NVM,
 // calibration, ECU mutation, arbitrary CAN frame or reboot command is admitted.
@@ -37,6 +47,9 @@ func Initialization() []Definition { return append([]Definition(nil), initializa
 // Diagnostic setup preserves the legacy sequence and adds only fixed runtime
 // addressing/filter settings and actual-baud readback after protocol selection.
 func InitializationFor(version string) ([]Definition, error) {
+	if version == HandoffInitializationVersion {
+		return append([]Definition(nil), handoffInitialization...), nil
+	}
 	if version == InitializationVersion {
 		return Initialization(), nil
 	}
@@ -59,6 +72,7 @@ func InitializationFor(version string) ([]Definition, error) {
 func IsInitialization(key string) bool { return strings.HasPrefix(key, "init_") }
 func LookupLive(key string) (Definition, error) {
 	steps, _ := InitializationFor(DiagnosticInitializationVersion)
+	steps = append(steps, handoffInitialization...)
 	for _, d := range steps {
 		if d.Key == key {
 			return d, nil
@@ -95,6 +109,12 @@ func ParseInitialization(key string, frame []byte) (string, error) {
 			continue
 		}
 		result = append(result, line)
+	}
+	if strings.HasPrefix(key, "init_previous_") {
+		if len(result) != 1 || len(result[0]) > 128 {
+			return "", fmt.Errorf("ambiguous adapter handoff readback")
+		}
+		return result[0], nil
 	}
 	if len(result) != 1 {
 		return "", fmt.Errorf("missing/ambiguous initialization acknowledgement")

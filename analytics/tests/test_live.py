@@ -136,3 +136,42 @@ def test_diagnostic_profile_or_status_corruption_rejected(diagnostic_exports, tm
     if mutation=='status': next(tx for tx in report['transactions'] if tx['key']=='can_status')['adapter_status']=['T:OFF R:FF']
     report_path.write_text(json.dumps(report))
     with pytest.raises(ValidationError): load_session(path)
+
+
+@pytest.fixture(scope='module')
+def handoff_exports(tmp_path_factory):
+    root=Path(__file__).resolve().parents[2]
+    output=tmp_path_factory.mktemp('handoff')
+    binary=output/'live-fixture'
+    env=os.environ|{'GOCACHE':str(root/'.cache/go-build'),'GOMODCACHE':str(root/'.cache/go-mod')}
+    subprocess.run(['go','build','-o',str(binary),'./cmd/live-fixture'],cwd=root/'core',env=env,check=True)
+    result={}
+    for scenario in ('handoff_retained','handoff_unknown','handoff_timeout'):
+        run=subprocess.run([str(binary),'--output',str(output/scenario),'--workload','adapter_handoff','--scenario',scenario],check=True,capture_output=True,text=True)
+        result[scenario]=Path(run.stdout.strip())
+    return result
+
+
+@pytest.mark.parametrize('scenario',['handoff_retained','handoff_unknown','handoff_timeout'])
+def test_adapter_only_handoff_replay(handoff_exports,scenario):
+    result=load_session(handoff_exports[scenario])
+    assert result['state']=='complete' and result['observation_count']==0 and result['incident_count']==0
+    report=json.loads((handoff_exports[scenario]/'capability.json').read_text())
+    assert report['protocol_profile']=='adapter-state-only'
+    assert report['configuration']['selected_protocol']=='unmodified-adapter-state'
+    assert set(t['key'] for t in report['transactions']) <= {'init_previous_protocol','init_previous_description','init_previous_baud'}
+    assert not report['observations'] and not report['capabilities']
+    if scenario=='handoff_timeout':assert report['transactions'][0]['outcome']=='timeout'
+    else:assert len(report['transactions'])==3 and report['transactions'][0]['adapter_status']==(['34'] if scenario=='handoff_retained' else ['AUTO'])
+
+
+@pytest.mark.parametrize('mutation',['profile','version','readback','scope'])
+def test_handoff_does_not_invent_vehicle_configuration(handoff_exports,tmp_path,mutation):
+    path=tmp_path/'session';shutil.copytree(handoff_exports['handoff_retained'],path)
+    report_path=path/'capability.json';report=json.loads(report_path.read_text())
+    if mutation=='profile':report['configuration']['selected_protocol']='ISO15765-4-CAN11-500'
+    if mutation=='version':report['configuration']['initialization_version']='obdlink-stp33-diagnostic-2'
+    if mutation=='readback':report['transactions'][0]['adapter_status']=['33']
+    if mutation=='scope':report['protocol_profile']='can11-single-frame-headers-pci'
+    report_path.write_text(json.dumps(report))
+    with pytest.raises(ValidationError):load_session(path)

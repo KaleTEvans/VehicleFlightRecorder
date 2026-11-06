@@ -207,3 +207,21 @@ func TestDiagnosticAdapterRepliesAndLegacyInitialization(t *testing.T) {
 		t.Fatal("diagnostics leaked into offline catalog")
 	}
 }
+
+func TestHandoffOpaqueReadbacksNeverRequireOurSelectedProtocol(t *testing.T) {
+	steps, e := InitializationFor(HandoffInitializationVersion)
+	if e != nil || len(steps) != 3 {
+		t.Fatal(e)
+	}
+	for _, value := range []string{"34", "AUTO", "?", "ISO 15765-4 CAN 29/500", "500000"} {
+		result, e := ParseInitialization("init_previous_protocol", []byte("STPR\r"+value+"\r>"))
+		if e != nil || result != value {
+			t.Fatalf("readback lost %q: %v", value, e)
+		}
+	}
+	for _, value := range []string{">", "34\rEXTRA\r>", "34", "34\r>\r>"} {
+		if _, e := ParseInitialization("init_previous_protocol", []byte(value)); e == nil {
+			t.Fatal("ambiguous readback")
+		}
+	}
+}

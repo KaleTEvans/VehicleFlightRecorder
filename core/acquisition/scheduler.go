@@ -135,7 +135,7 @@ func New(anchorMS int64, specs []Schedule) (*Scheduler, error) {
 	return newScheduler(anchorMS, specs, false)
 }
 func newScheduler(anchorMS int64, specs []Schedule, live bool) (*Scheduler, error) {
-	if anchorMS <= 0 || anchorMS > 253402300799999 || len(specs) == 0 || len(specs) > 16 {
+	if anchorMS <= 0 || anchorMS > 253402300799999 || (!live && len(specs) == 0) || len(specs) > 16 {
 		return nil, fmt.Errorf("invalid anchor or schedule size")
 	}
 	s := &Scheduler{active: -1, drain: -1, report: Report{Version: 1, Kind: "offline-acquisition", Source: "synthetic", Profile: obd.Profile, Catalog: obd.CatalogVersion, AnchorMS: anchorMS, Generation: 1, State: "ready", Vehicle: "unknown", Reference: "unmeasured", Schedule: append([]Schedule(nil), specs...)}}

@@ -8,7 +8,15 @@ import (
 // NewLive retains the offline engine's ordered admission/failure invariants but
 // uses an explicit live schema, setup gate and separately bounded test budget.
 func NewLive(anchorMS int64, specs []Schedule, config LiveConfiguration) (*Scheduler, error) {
-	if config.SessionID == "" || config.NativeAnchorNS < 0 || config.Protocol != "ISO15765-4-CAN11-500" {
+	handoff := config.Workload == obd.HandoffWorkload
+	if !handoff && len(specs) == 0 {
+		return nil, fmt.Errorf("measurement workload needs a schedule")
+	}
+	protocol := "ISO15765-4-CAN11-500"
+	if handoff {
+		protocol = "unmodified-adapter-state"
+	}
+	if config.SessionID == "" || config.NativeAnchorNS < 0 || config.Protocol != protocol {
 		return nil, fmt.Errorf("invalid live configuration")
 	}
 	if config.Origin != "physical" && config.Origin != "native-fixture" && config.Origin != "scripted-fixture" {
@@ -19,7 +27,7 @@ func NewLive(anchorMS int64, specs []Schedule, config LiveConfiguration) (*Sched
 		return nil, err
 	}
 	diagnostic := config.Workload == obd.DiagnosticWorkload
-	if diagnostic != (config.Initialization == obd.DiagnosticInitializationVersion) {
+	if diagnostic != (config.Initialization == obd.DiagnosticInitializationVersion) || handoff != (config.Initialization == obd.HandoffInitializationVersion) || (handoff && len(specs) != 0) {
 		return nil, fmt.Errorf("diagnostic workload/version mismatch")
 	}
 	for _, spec := range specs {
@@ -41,6 +49,10 @@ func NewLive(anchorMS int64, specs []Schedule, config LiveConfiguration) (*Sched
 	s.report.Kind = "live-acquisition"
 	s.report.Source = "obd-live"
 	s.report.Catalog = obd.LiveCatalogVersion
+	if handoff {
+		s.report.Catalog = obd.HandoffCatalog
+		s.report.Profile = obd.HandoffProfile
+	}
 	s.report.Configuration = &config
 	init := []entry{}
 	for _, d := range steps {
@@ -154,4 +166,24 @@ func (s *Scheduler) DiscoverySummary(now int64) map[string]any {
 		}
 	}
 	return map[string]any{"attempts": attempts, "outcome": outcome, "adapter_status": status, "next_attempt_ms": next, "can_status": can, "can_status_age_ms": age, "setup_complete": s.initIndex, "setup_total": len(s.initSteps)}
+}
+
+// AdapterStateReadback reports only raw, current-generation readback values.
+// It does not identify which client left them or certify a vehicle protocol.
+func (s *Scheduler) AdapterStateReadback() map[string]any {
+	values := map[string]any{"protocol": "", "description": "", "baud": "", "captured": 0}
+	names := map[string]string{"init_previous_protocol": "protocol", "init_previous_description": "description", "init_previous_baud": "baud"}
+	captured := 0
+	for _, tx := range s.report.Transactions {
+		if tx.Generation != s.report.Generation {
+			continue
+		}
+		name, ok := names[tx.Key]
+		if ok && tx.Outcome == "ok" && len(tx.AdapterStatus) == 1 {
+			values[name] = tx.AdapterStatus[0]
+			captured++
+		}
+	}
+	values["captured"] = captured
+	return values
 }

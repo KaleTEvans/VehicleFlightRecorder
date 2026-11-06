@@ -29,6 +29,7 @@ struct LiveSessionInfo: Codable {
         case "voltage_only": return "Adapter voltage only"
         case "combined": return "Combined"
         case "discovery_diagnostic": return "Discovery diagnostic"
+        case "adapter_handoff": return "Adapter handoff capture"
         default: return "Unknown (\(workload))"
         }
     }
@@ -39,6 +40,7 @@ struct LiveSessionInfo: Codable {
         case "voltage_only": return "Adapter input voltage"
         case "combined": return "Engine RPM, coolant temperature, adapter input voltage"
         case "discovery_diagnostic": return "Adapter voltage; RPM/coolant after valid ECU discovery"
+        case "adapter_handoff": return "Adapter protocol settings only; no vehicle readings"
         default: return "Unknown"
         }
     }

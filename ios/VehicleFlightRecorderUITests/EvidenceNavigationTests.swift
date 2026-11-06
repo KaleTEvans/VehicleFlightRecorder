@@ -168,4 +168,36 @@ final class EvidenceNavigationTests: XCTestCase {
         XCTAssertFalse(app.staticTexts["discovery-unknown"].exists)
     }
 
+    func testAdapterHandoffDisplaysUnverifiedAndUnknownSettings() {
+        continueAfterFailure = false
+        let app = XCUIApplication()
+        app.launchArguments = ["--ui-test-handoff"]
+        app.launch()
+        let count = app.staticTexts["handoff-count"]
+        XCTAssertTrue(count.waitForExistence(timeout: 30), app.debugDescription)
+        XCTAssertEqual(count.label, "Adapter settings captured: 3/3")
+        XCTAssertEqual(app.staticTexts["handoff-protocol"].label, "Protocol number: 34")
+        XCTAssertTrue(app.staticTexts["handoff-caveat"].exists)
+        XCTAssertFalse(app.staticTexts["discovery-outcome"].exists)
+        let shot = XCTAttachment(screenshot: app.screenshot())
+        shot.name = "Unverified adapter handoff snapshot (scripted)"
+        shot.lifetime = .keepAlways
+        add(shot)
+        let unknown = app.buttons["Show unknown settings fixture"]
+        for _ in 0..<4 {
+            if unknown.exists && unknown.isHittable { break }
+            app.collectionViews.firstMatch.swipeUp()
+        }
+        XCTAssertTrue(unknown.isHittable, app.debugDescription)
+        unknown.tap()
+        for _ in 0..<4 {
+            if app.staticTexts["handoff-protocol"].isHittable { break }
+            app.collectionViews.firstMatch.swipeDown()
+        }
+        expectation(for: NSPredicate { _, _ in app.staticTexts["handoff-protocol"].label == "Protocol number: AUTO" }, evaluatedWith: app)
+        waitForExpectations(timeout: 30)
+        XCTAssertEqual(app.staticTexts["handoff-baud"].label, "Baud rate reply: ?")
+        XCTAssertFalse(app.staticTexts["handoff-fixture-error"].exists)
+    }
+
 }

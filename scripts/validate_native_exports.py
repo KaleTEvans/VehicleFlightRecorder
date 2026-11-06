@@ -10,7 +10,7 @@ from vehicle_flight_recorder.incidents import reconstruct
 
 root = Path(sys.argv[1])
 archives = sorted((root / 'Exports').glob('*.zip'))
-if len(archives) < 7:
+if len(archives) < 10:
     raise SystemExit('Expected native baseline, zero-sample and diagnostic no-data/recovery ZIP exports')
 expected = {'session.json', 'observations.jsonl', 'events.jsonl', 'incidents.jsonl', 'raw/transport.jsonl'}
 scenarios = set()
@@ -18,6 +18,7 @@ results = []
 live_count = 0
 zero_workloads = set()
 diagnostic_cases = set()
+handoff_cases = set()
 for archive in archives:
     destination = root / 'unpacked' / archive.stem
     with zipfile.ZipFile(archive) as source:
@@ -36,7 +37,18 @@ for archive in archives:
     summary = load_session(destination)
     if summary['state'] != 'complete':
         raise SystemExit('Native test export must be finalized')
-    if metadata['schema_version'] == 2 and metadata['live']['workload'] == 'discovery_diagnostic':
+    if metadata['schema_version'] == 2 and metadata['live']['workload'] == 'adapter_handoff':
+        report=json.loads((destination/'capability.json').read_text())
+        if summary['observation_count'] or summary['incident_count'] or report['protocol_profile']!='adapter-state-only' or report['configuration']['selected_protocol']!='unmodified-adapter-state':
+            raise SystemExit('Handoff must not claim vehicle acquisition')
+        if not report['transactions'] or any(t['key'] not in {'init_previous_protocol','init_previous_description','init_previous_baud'} for t in report['transactions']):
+            raise SystemExit('Unexpected handoff command')
+        first=report['transactions'][0]
+        if first['outcome']=='timeout': handoff_cases.add('timeout')
+        elif first['adapter_status']==['34']: handoff_cases.add('retained')
+        elif first['adapter_status']==['AUTO']: handoff_cases.add('unknown')
+        else: raise SystemExit('Missing native handoff fixture coverage')
+    elif metadata['schema_version'] == 2 and metadata['live']['workload'] == 'discovery_diagnostic':
         report = json.loads((destination/'capability.json').read_text())
         if summary['incident_count'] != 0 or report['configuration']['initialization_version'] != 'obdlink-stp33-diagnostic-2':
             raise SystemExit('Invalid native diagnostic fixture identity')
@@ -61,7 +73,7 @@ for archive in archives:
         reconstructed.mkdir(exist_ok=True)
         (reconstructed / f'{archive.stem}.json').write_text(json.dumps(reconstruction, indent=2) + '\n')
     results.append(summary)
-if live_count < 5 or diagnostic_cases != {'no_data','recovery'} or not {'rpm_only', 'coolant_only'} <= zero_workloads or not {'healthy_drive', 'voltage_tcm_dropout'} <= scenarios:
+if live_count < 8 or handoff_cases != {'retained','unknown','timeout'} or diagnostic_cases != {'no_data','recovery'} or not {'rpm_only', 'coolant_only'} <= zero_workloads or not {'healthy_drive', 'voltage_tcm_dropout'} <= scenarios:
     raise SystemExit('Native test scenario coverage is incomplete')
 (root / 'python-validation.json').write_text(json.dumps(results, indent=2) + '\n')
-print(f'Validated {len(archives)} native ZIP exports, including zero-sample RPM/coolant and diagnostic no-data/recovery evidence; reconstructed all available incidents')
+print(f'Validated {len(archives)} native ZIP exports, including zero-sample RPM/coolant and diagnostic/handoff retained-unknown-timeout evidence; reconstructed all available incidents')

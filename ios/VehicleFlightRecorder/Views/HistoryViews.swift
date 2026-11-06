@@ -50,7 +50,9 @@ struct SessionDetailView: View {
                     LabeledContent("Origin", value: live.originTitle)
                     Text("Workload and operating state are the selections made at Start; they do not confirm that measurements were received.")
                         .font(.caption).foregroundStyle(.secondary)
-                    if row.session.observationCount == 0 {
+                    if live.workload == "adapter_handoff" {
+                        Text("No vehicle readings were requested. This session preserves adapter-state readbacks.")
+                    } else if row.session.observationCount == 0 {
                         Text("No decoded readings were recorded. Raw adapter evidence may still be available in the session ZIP.")
                             .accessibilityIdentifier("session-no-readings")
                     }

@@ -272,9 +272,20 @@ func (s Session) Validate() error {
 		return err
 	}
 	if s.SchemaVersion == LiveSchemaVersion {
-		if s.Live == nil || s.Mock != nil || s.Source != "obd-live" || s.ProfileID != "generic-obd-can11-500" || s.VehiclePackVersion != "none" || s.Live.ReportFile != "capability.json" || s.Live.NativeAnchorNS < 0 || s.Live.StartOrigin != "manual" || s.Live.Catalog != "standard-live-can11-1" || s.Live.Protocol != "can11-single-frame-headers-pci" {
+		if s.Live == nil || s.Mock != nil || s.Source != "obd-live" || s.VehiclePackVersion != "none" || s.Live.ReportFile != "capability.json" || s.Live.NativeAnchorNS < 0 || s.Live.StartOrigin != "manual" {
 			return fmt.Errorf("invalid live session contract")
 		}
+		profile, catalog, protocol := "generic-obd-can11-500", "standard-live-can11-1", "can11-single-frame-headers-pci"
+		if s.Live.Workload == "adapter_handoff" {
+			if s.ObservationCount != 0 || s.IncidentCount != 0 {
+				return fmt.Errorf("adapter handoff cannot contain measurements/incidents")
+			}
+			profile, catalog, protocol = "adapter-state-only", "adapter-state-1", "adapter-state-only"
+		}
+		if s.ProfileID != profile || s.Live.Catalog != catalog || s.Live.Protocol != protocol {
+			return fmt.Errorf("live workload/profile mismatch")
+		}
+
 		switch s.Live.Origin {
 		case "physical", "native-fixture", "scripted-fixture":
 		default:
@@ -286,7 +297,7 @@ func (s Session) Validate() error {
 			return fmt.Errorf("invalid operating state")
 		}
 		switch s.Live.Workload {
-		case "combined", "rpm_only", "coolant_only", "voltage_only", "discovery_diagnostic":
+		case "combined", "rpm_only", "coolant_only", "voltage_only", "discovery_diagnostic", "adapter_handoff":
 		default:
 			return fmt.Errorf("invalid live workload")
 		}

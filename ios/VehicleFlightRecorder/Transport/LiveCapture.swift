@@ -56,6 +56,8 @@ struct LiveSnapshot: Decodable {
     let state: String
     let workload: String?
     let discovery: LiveDiscovery?
+    let adapterState: AdapterStateReadback?
+    var isHandoff: Bool { workload == "adapter_handoff" }
     var isDiagnostic: Bool { workload == "discovery_diagnostic" }
     let elapsedMs: Int64
     let initialized: Bool
@@ -103,5 +105,16 @@ struct LiveDiscovery: Decodable {
         case "protocol_error": return "Unrecognized response"
         default: return outcome.replacingOccurrences(of: "_", with: " ").capitalized
         }
+    }
+}
+
+struct AdapterStateReadback: Decodable {
+    let protocolNumber: String
+    let description: String
+    let baud: String
+    let captured: Int
+    enum CodingKeys: String, CodingKey {
+        case protocolNumber = "protocol"
+        case description, baud, captured
     }
 }

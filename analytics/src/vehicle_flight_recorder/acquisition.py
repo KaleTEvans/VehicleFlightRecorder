@@ -15,7 +15,9 @@ DIAGNOSTIC_INITIALIZATION = dict(list(INITIALIZATION.items())[:13] + [
     ('init_functional_header', b'ATSH7DF\r'), ('init_normal_addressing', b'STCAF0\r'),
     ('init_receive_defaults', b'ATCRA\r'), ('init_automatic_filters', b'STFA\r'),
     ('init_baud_check', b'STPBRR\r')] + list(INITIALIZATION.items())[13:])
-LIVE_COMMANDS = COMMANDS | DIAGNOSTIC_INITIALIZATION | {'can_status': b'ATCS\r'}
+HANDOFF_INITIALIZATION = {'init_previous_protocol': b'STPR\r', 'init_previous_description': b'STPRS\r', 'init_previous_baud': b'STPBRR\r'}
+ALL_INITIALIZATION = DIAGNOSTIC_INITIALIZATION | HANDOFF_INITIALIZATION
+LIVE_COMMANDS = COMMANDS | ALL_INITIALIZATION | {'can_status': b'ATCS\r'}
 
 
 def support_bits(data):
@@ -34,11 +36,15 @@ def support_bits(data):
 
 def initialization_value(key, raw):
     try:
+        require(all(b in (9,10,13) or 32 <= b <= 126 for b in raw), 'initialization ASCII')
         text = raw.strip().decode('ascii')
         require(text.endswith('>') and text.count('>') == 1, 'initialization prompt')
         lines = [x.strip() for x in text[:-1].replace('\n', '\r').split('\r') if x.strip()]
-        lines = [x for x in lines if ''.join(x.upper().split()) != DIAGNOSTIC_INITIALIZATION[key].decode().strip()]
+        lines = [x for x in lines if ''.join(x.upper().split()) != ALL_INITIALIZATION[key].decode().strip()]
         require(len(lines) == 1, 'ambiguous initialization reply')
+        if key in HANDOFF_INITIALIZATION:
+            require(len(lines[0]) <= 128 and all(c == '\t' or 32 <= ord(c) <= 126 for c in lines[0]), 'handoff readback shape')
+            return lines[0]
         if key == 'init_identity': require(re.fullmatch(r'STN[0-9]{4} v[0-9]+(?:\.[0-9]+){1,3}', lines[0]), 'firmware identity')
         else: require(lines[0] == ('33' if key == 'init_protocol_check' else '500000' if key == 'init_baud_check' else 'OK'), 'initialization acknowledgement/protocol')
         return lines[0]
@@ -67,7 +73,7 @@ def replay_values(key, raw):
 
     This is an offline integrity check, not an alternative acquisition/parser loop.
     """
-    if key in DIAGNOSTIC_INITIALIZATION or key == "can_status": return {}
+    if key in ALL_INITIALIZATION or key == "can_status": return {}
     raw = raw.strip(b" \t\r\n")
     if not raw.endswith(b">") or raw.count(b">") != 1 or len(raw) > 8192:
         return {}
@@ -136,8 +142,10 @@ def _validate_acquisition(path, *, allow_incomplete=False):
     live = version == 2
     fields(report, "report_version kind source protocol_profile catalog_version anchor_unix_ms duration_ns generation state vehicle_identity reference_comparison schedule raw transactions observations capabilities statistics issues" + (' configuration' if live else ''))
     commands = LIVE_COMMANDS if live else COMMANDS
+    handoff = live and isinstance(report.get('configuration'),dict) and report['configuration'].get('workload')=='adapter_handoff'
+    profile,catalog = ('adapter-state-only','adapter-state-1') if handoff else ('can11-single-frame-headers-pci','standard-live-can11-1')
     require((report['kind'], report['source'], report['protocol_profile'], report['catalog_version']) ==
-            (('live-acquisition', 'obd-live', 'can11-single-frame-headers-pci', 'standard-live-can11-1') if live else
+            (('live-acquisition', 'obd-live', profile, catalog) if live else
              ('offline-acquisition', 'synthetic', 'can11-single-frame-headers-pci', 'standard-offline-1')), 'unsupported source/profile/catalog')
     require(report['vehicle_identity'] == 'unknown' and report['reference_comparison'] == 'unmeasured', 'unproven vehicle/reference claim')
     if not live: require(len(data) <= 8 * 1024 * 1024, '8 MiB offline report limit')
@@ -145,11 +153,11 @@ def _validate_acquisition(path, *, allow_incomplete=False):
         config = report['configuration']
         fields(config, 'app_version bridge_version reference_note sensor_refresh_rate enhanced_pack maximum_duration_ns minimum_admission_ns session_id origin operating_state workload native_anchor_ns initialization_version selected_protocol connections')
         require(isinstance(config['session_id'], str) and re.fullmatch(r'live-[0-9a-f]{32}', config['session_id']), 'live session identity')
-        require(config['origin'] in ('physical', 'native-fixture', 'scripted-fixture') and config['operating_state'] in ('unknown', 'ignition_on_engine_off', 'stationary_running') and config['workload'] in ('combined', 'rpm_only', 'coolant_only', 'voltage_only', 'discovery_diagnostic'), 'live configuration')
+        require(config['origin'] in ('physical', 'native-fixture', 'scripted-fixture') and config['operating_state'] in ('unknown', 'ignition_on_engine_off', 'stationary_running') and config['workload'] in ('combined', 'rpm_only', 'coolant_only', 'voltage_only', 'discovery_diagnostic', 'adapter_handoff'), 'live configuration')
         diagnostic = config['workload'] == 'discovery_diagnostic'
-        init_steps = DIAGNOSTIC_INITIALIZATION if diagnostic else INITIALIZATION
-        require(config['initialization_version'] == ('obdlink-stp33-diagnostic-2' if diagnostic else 'obdlink-stp33-runtime-1') and config['selected_protocol'] == 'ISO15765-4-CAN11-500' and config['app_version'] == '0.1.0' and type(config['bridge_version']) is int and config['bridge_version'] == 1, 'configuration version/protocol')
-        require(config['sensor_refresh_rate'] == 'unknown' and config['enhanced_pack'] == 'none' and config['maximum_duration_ns'] == 600*10**9 and config['minimum_admission_ns'] == 5*10**8, 'unsupported live policy')
+        init_steps = HANDOFF_INITIALIZATION if handoff else DIAGNOSTIC_INITIALIZATION if diagnostic else INITIALIZATION
+        require(config['initialization_version'] == ('obdlink-adapter-handoff-1' if handoff else 'obdlink-stp33-diagnostic-2' if diagnostic else 'obdlink-stp33-runtime-1') and config['selected_protocol'] == ('unmodified-adapter-state' if handoff else 'ISO15765-4-CAN11-500') and config['app_version'] == '0.1.0' and type(config['bridge_version']) is int and config['bridge_version'] == 1, 'configuration version/protocol')
+        require(config['sensor_refresh_rate'] == 'unknown' and config['enhanced_pack'] == 'none' and config['maximum_duration_ns'] == (15 if handoff else 600)*10**9 and config['minimum_admission_ns'] == 5*10**8, 'unsupported live policy')
         require(isinstance(config['reference_note'], str) and len(config['reference_note'].encode()) <= 512, 'reference note')
         _integer(config['native_anchor_ns'], 'native anchor')
         require(isinstance(config['connections'], list) and len(config['connections']) <= 16, 'connection budget')
@@ -180,7 +188,7 @@ def _validate_acquisition(path, *, allow_incomplete=False):
     require(schedule, "empty schedule")
     if live:
         require(list(schedule)[:len(init_steps)] == list(init_steps), 'missing/reordered initialization configuration')
-        selected = {'combined': {'support', 'rpm', 'coolant', 'adapter_voltage'}, 'rpm_only': {'support', 'rpm'}, 'coolant_only': {'support', 'coolant'}, 'voltage_only': {'adapter_voltage'}, 'discovery_diagnostic': {'support', 'rpm', 'coolant', 'adapter_voltage', 'can_status'}}[config['workload']]
+        selected = {'combined': {'support', 'rpm', 'coolant', 'adapter_voltage'}, 'rpm_only': {'support', 'rpm'}, 'coolant_only': {'support', 'coolant'}, 'voltage_only': {'adapter_voltage'}, 'discovery_diagnostic': {'support', 'rpm', 'coolant', 'adapter_voltage', 'can_status'}, 'adapter_handoff': set()}[config['workload']]
         require(set(schedule)-set(init_steps) == selected, 'workload/configuration mismatch')
         require(all(schedule[k] == dict(key=k, interval_ns=60*10**9, timeout_ns=2*10**9, priority=0) for k in init_steps), 'initialization schedule')
         for key in selected:
@@ -285,6 +293,10 @@ def _validate_acquisition(path, *, allow_incomplete=False):
                 elif tx['key'] in {'rpm','coolant'}:
                     pid = 12 if tx['key']=='rpm' else 5
                     require(any(mask & (1 << (32-pid)) for mask in support_by_generation[gen].values()), 'measurement requested without prior same-generation advertised support')
+    if handoff:
+        require(generation == 1 and len(config['connections']) <= 1 and len(report['transactions']) <= 3, 'handoff must not reconnect or retry')
+        require([t['key'] for t in report['transactions']] == list(HANDOFF_INITIALIZATION)[:len(report['transactions'])], 'handoff command sequence')
+    if handoff: require(not report['observations'] and not report['capabilities'] and not report['statistics'], 'handoff cannot claim vehicle/voltage measurements')
     groups, observed_pairs = defaultdict(list), set()
     for observation in report['observations']:
         fields(observation, "transaction_id generation ecu signal_id value unit receive_ns mapped_unix_ms measurement_unix_ms decoder_version")

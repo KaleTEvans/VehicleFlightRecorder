@@ -16,7 +16,8 @@ struct TransportDebugView: View {
                     Text("Vehicle Flight Recorder").font(.headline)
                     Text("Transport: \(model.state)")
                     Text(model.notice)
-                    Text("Standard OBD stationary testing · generic CAN 11-bit / 500 kbps. Enhanced Alfa / TCM signals are not enabled.").font(.caption)
+                    if workload == "adapter_handoff" { Text("Adapter-only handoff capture · VFR leaves the vehicle protocol unchanged.").font(.caption) }
+                    else { Text("Standard OBD stationary testing · generic CAN 11-bit / 500 kbps. Enhanced Alfa / TCM signals are not enabled.").font(.caption) }
                     if let error = model.error { Text(error).foregroundStyle(.red).textSelection(.enabled) }
                     Button("Discover / Connect") { Task { await model.connect() } }.disabled(model.busy)
                     Button("Disconnect") { Task { await model.disconnect() } }.disabled(model.busy)
@@ -30,6 +31,7 @@ struct TransportDebugView: View {
                     Picker("Workload", selection: $workload) {
                         Text("Combined").tag("combined")
                         Text("Discovery diagnostic").tag("discovery_diagnostic")
+                        Text("Adapter handoff capture").tag("adapter_handoff")
                         Text("RPM only").tag("rpm_only")
                         Text("Coolant only").tag("coolant_only")
                         Text("Adapter voltage only").tag("voltage_only")
@@ -39,20 +41,22 @@ struct TransportDebugView: View {
                     }
                     TextField("Reference tool / reading (optional)", text: $reference)
                         .disabled(model.live?.active == true)
-                    Text("Explicit Start enables documented adapter setup and read-only OBD requests. Keep parked; each session ends after 10 minutes of elapsed native time when the owner loop runs. Background continuity is unverified.").font(.caption)
-                    Button("Start stationary recording") {
+                    if workload == "adapter_handoff" {
+                        Text("Capture the adapter state after using OBDLink. Leave the scanner powered. This mode sends only three read-only settings queries and saves automatically, normally within a few seconds; its active owner-loop limit is 15 seconds. App reconnection may already change the prior state.").font(.caption)
+                    } else { Text("Explicit Start enables documented adapter setup and read-only OBD requests. Keep parked; each session ends after 10 minutes of elapsed native time when the owner loop runs. Background continuity is unverified.").font(.caption) }
+                    Button(workload == "adapter_handoff" ? "Capture adapter settings" : "Start stationary recording") {
                         Task { await model.startLive(operatingState: operatingState, workload: workload, reference: String(reference.prefix(256))) }
                     }.disabled(!parked || model.busy || model.live?.active == true)
                     if let live = model.live {
                         Text("Recorder: \(live.state) · \(live.elapsedMs / 1000) s")
                         LiveDiscoveryStatusView(live: live)
-                        if !live.isDiagnostic {
+                        if !live.isDiagnostic && !live.isHandoff {
                             Button("Mark Incident") { Task { await model.markLive() } }
                                 .disabled(model.busy || !live.active)
                         }
                         Button("Stop and save") { Task { await model.stopLive() } }
                             .disabled(model.busy || !live.active)
-                        if !live.isDiagnostic { Text("\(live.incidents.count) manual incident(s). Allow 60 seconds before marking and 120 seconds afterward for a full window.").font(.caption) }
+                        if !live.isDiagnostic && !live.isHandoff { Text("\(live.incidents.count) manual incident(s). Allow 60 seconds before marking and 120 seconds afterward for a full window.").font(.caption) }
                         ForEach(live.readings) { row in
                             VStack(alignment: .leading) {
                                 Text(row.signalId).font(.caption)
@@ -114,7 +118,22 @@ struct LiveDiscoveryStatusView: View {
     let live: LiveSnapshot
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
-            if let discovery = live.discovery {
+            if live.isHandoff {
+                if let state = live.adapterState {
+                    Text("Adapter settings captured: \(state.captured)/3")
+                        .accessibilityIdentifier("handoff-count")
+                    Text("Protocol number: \(state.protocolNumber.isEmpty ? "Not received" : state.protocolNumber)")
+                        .accessibilityIdentifier("handoff-protocol")
+                    Text("Protocol description: \(state.description.isEmpty ? "Not received" : state.description)")
+                    Text("Baud rate reply: \(state.baud.isEmpty ? "Not received" : state.baud)")
+                        .accessibilityIdentifier("handoff-baud")
+                    Text("Read before any VFR reset or protocol selection. These are unverified adapter settings; OBDLink cleanup or reconnection may already have changed them.")
+                        .font(.caption).accessibilityIdentifier("handoff-caveat")
+                    if !live.active && state.captured < 3 {
+                        Text("Some settings were not received. The completed capture preserves the available raw evidence.").font(.caption)
+                    }
+                }
+            } else if let discovery = live.discovery {
                 Text("Adapter setup: \(discovery.setupComplete)/\(discovery.setupTotal)")
                     .accessibilityIdentifier("discovery-setup")
                 Text(live.initialized ? "Adapter setup verified" : "Waiting for verified adapter initialization").font(.caption)

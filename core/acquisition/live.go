@@ -13,7 +13,7 @@ func NewLive(anchorMS int64, specs []Schedule, config LiveConfiguration) (*Sched
 		return nil, fmt.Errorf("measurement workload needs a schedule")
 	}
 	protocol := "ISO15765-4-CAN11-500"
-	can29 := config.Workload == obd.CAN29Workload
+	can29 := config.Protocol == "ISO15765-4-CAN29-500"
 	if can29 {
 		protocol = "ISO15765-4-CAN29-500"
 	}
@@ -30,8 +30,29 @@ func NewLive(anchorMS int64, specs []Schedule, config LiveConfiguration) (*Sched
 	if err != nil {
 		return nil, err
 	}
-	diagnostic := config.Workload == obd.DiagnosticWorkload || can29
-	if (config.Workload == obd.DiagnosticWorkload) != (config.Initialization == obd.DiagnosticInitializationVersion) || can29 != (config.Initialization == obd.CAN29InitializationVersion) || handoff != (config.Initialization == obd.HandoffInitializationVersion) || (handoff && len(specs) != 0) {
+	diagnostic := config.Workload == obd.DiagnosticWorkload || config.Workload == obd.CAN29Workload
+	expected := obd.InitializationVersion
+	switch config.Workload {
+	case obd.HandoffWorkload:
+		expected = obd.HandoffInitializationVersion
+	case obd.DiagnosticWorkload:
+		if can29 {
+			return nil, fmt.Errorf("CAN11 diagnostic cannot use CAN29")
+		}
+		expected = obd.DiagnosticInitializationVersion
+	case obd.CAN29Workload:
+		if !can29 {
+			return nil, fmt.Errorf("CAN29 diagnostic requires CAN29")
+		}
+		expected = obd.CAN29InitializationVersion
+	case "combined", "rpm_only", "coolant_only", "voltage_only":
+		if can29 {
+			expected = obd.CAN29RuntimeInitializationVersion
+		}
+	default:
+		return nil, fmt.Errorf("unknown live workload")
+	}
+	if config.Initialization != expected || (handoff && len(specs) != 0) {
 		return nil, fmt.Errorf("diagnostic workload/version mismatch")
 	}
 	for _, spec := range specs {

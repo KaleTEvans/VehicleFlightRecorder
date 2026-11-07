@@ -134,4 +134,45 @@ final class LiveRecorderTests: XCTestCase {
         }
     }
 
+    func testNativeRegularCAN29WorkloadsIncidentsAndRecoveryExports() async throws {
+        for kind in ["reconnect", "partial", "rpm_only", "coolant_only", "voltage_only", "no_data"] {
+            let result = try RegularCAN29Fixture.make(kind: kind)
+            let snapshot = result.snapshot
+            XCTAssertEqual(snapshot.state, "complete")
+            XCTAssertEqual(snapshot.protocolProfile, StationaryProtocol.can29.rawValue)
+            XCTAssertFalse(snapshot.isDiagnostic)
+            XCTAssertEqual(snapshot.discovery?.setupComplete, 21)
+            if kind == "reconnect" {
+                XCTAssertTrue(result.clearedOnReconnect)
+                XCTAssertEqual(snapshot.generation, 2)
+                XCTAssertEqual(snapshot.incidents.first?.status, "captured")
+                XCTAssertEqual(snapshot.readings.count, 7)
+                XCTAssertEqual(Set(snapshot.readings.filter { $0.ecu != "adapter" }.map { $0.ecu }), Set(["18DAF110", "18DAF117", "18DAF118"]))
+            } else if kind == "partial" { XCTAssertEqual(snapshot.incidents.first?.status, "partial") }
+            else { XCTAssertTrue(snapshot.incidents.isEmpty) }
+            let expected: Set<String>
+            switch kind {
+            case "rpm_only": expected = ["powertrain.engine.rpm"]
+            case "coolant_only": expected = ["powertrain.coolant.temperature"]
+            case "voltage_only", "no_data": expected = ["electrical.adapter_voltage"]
+            default: expected = ["powertrain.engine.rpm", "powertrain.coolant.temperature", "electrical.adapter_voltage"]
+            }
+            XCTAssertEqual(Set(snapshot.readings.map { $0.signalId }), expected)
+            let service = try RecorderService(history: result.root)
+            let rows = try await service.sessions()
+            XCTAssertEqual(rows.first?.session.live?.protocolTitle, "CAN 29-bit / 500 kbps")
+            if let incident = snapshot.incidents.first {
+                let detail = try await service.incident(session: result.sessionID, id: incident.incidentId, offset: 0)
+                XCTAssertFalse(detail.timeline.isEmpty)
+                XCTAssertEqual(detail.incident.status, kind == "partial" ? "partial" : "captured")
+            }
+            let archive = try await service.archive(result.sessionID)
+            let docs = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
+            let output = docs.appendingPathComponent("NativeAcceptance/Exports", isDirectory: true)
+            try FileManager.default.createDirectory(at: output, withIntermediateDirectories: true)
+            try FileManager.default.copyItem(at: archive, to: output.appendingPathComponent(archive.lastPathComponent))
+            try await service.close()
+        }
+    }
+
 }

@@ -24,8 +24,8 @@ import Foundation
     func refresh() async { await run(marksBusy: false) { _ in } }
     func connect() async { await run { try $0.connect() } }
     func disconnect() async { await run { $0.disconnect() } }
-    func startLive(operatingState: String, workload: String, reference: String) async {
-        await run { try $0.startLive(operatingState: operatingState, workload: workload, reference: reference) }
+    func startLive(operatingState: String, workload: String, reference: String, protocolProfile: String = "") async {
+        await run { try $0.startLive(operatingState: operatingState, workload: workload, reference: reference, protocolProfile: protocolProfile) }
     }
     func stopLive() async { await run { try $0.stopLive() } }
     func markLive() async { await run { try $0.markLive() } }

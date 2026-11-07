@@ -19,6 +19,8 @@ struct SessionsView: View {
                                 Text(live.workloadTitle).font(.subheadline)
                                     .accessibilityIdentifier("session-workload-summary")
                                 Text(live.operatingStateTitle).font(.caption).foregroundStyle(.secondary)
+                                Text(live.protocolTitle).font(.caption).foregroundStyle(.secondary)
+                                    .accessibilityIdentifier("session-profile-summary")
                             }
                             Text("\(row.session.observationCount) samples · \(row.session.incidentCount) incidents · \(model.sessionState(row.session))").font(.caption).foregroundStyle(.secondary)
                         }
@@ -45,6 +47,7 @@ struct SessionDetailView: View {
                     LabeledContent("Workload") {
                         Text(live.workloadTitle).accessibilityIdentifier("session-workload-value")
                     }
+                    LabeledContent("OBD protocol") { Text(live.protocolTitle).accessibilityIdentifier("session-protocol-value") }
                     LabeledContent("Requested readings", value: live.requestedReadings)
                     LabeledContent("Operating state", value: live.operatingStateTitle)
                     LabeledContent("Origin", value: live.originTitle)
@@ -73,6 +76,7 @@ struct SessionDetailView: View {
                 if row.incidents.isEmpty { Text("No incidents recorded") }
                 ForEach(row.incidents) { incident in
                     NavigationLink { IncidentDetailView(incident: incident, service: model.service) } label: { IncidentRow(incident: incident) }
+                        .accessibilityIdentifier("session-incident-\(incident.id)")
                 }
             }
             Section {

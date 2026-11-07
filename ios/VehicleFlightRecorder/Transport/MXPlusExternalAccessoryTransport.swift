@@ -171,13 +171,13 @@ final class MXPlusExternalAccessoryTransport: NSObject, VehicleTransport, Stream
             notice = metadata.sorted(by: { $0.key < $1.key }).map { "\($0.key): \($0.value)" }.joined(separator: " • ")
         } catch { notice = error.localizedDescription; pump.fail(error.localizedDescription); releaseSession() }
     }
-    func startLive(operatingState: String, workload: String, reference: String) throws {
+    func startLive(operatingState: String, workload: String, reference: String, protocolProfile: String = "") throws {
         if let live, try decodeCore(LiveSnapshot.self, live.core.snapshot()).active {
             throw VehicleTransportError.failed("A stationary session is already active")
         }
         disconnect() // Close any M5 identity exchange before creating a fresh generation.
         let sessions = root.deletingLastPathComponent().appendingPathComponent("Sessions", isDirectory: true)
-        live = try GoLiveSession(root: sessions, operatingState: operatingState, workload: workload, reference: reference)
+        live = try GoLiveSession(root: sessions, operatingState: operatingState, workload: workload, reference: reference, protocolProfile: protocolProfile)
         capture = nil
         liveAcquisitionEnabled = true
         try connect()

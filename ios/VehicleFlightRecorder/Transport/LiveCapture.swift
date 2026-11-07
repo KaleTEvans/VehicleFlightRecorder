@@ -5,11 +5,12 @@ import VehicleFlightRecorderCore
 // calls this object; Swift never constructs diagnostic command bytes.
 final class GoLiveSession {
     let core: MobileLiveRecorder
-    init(root: URL, operatingState: String, workload: String, reference: String, origin: String = "physical", wallMS: Int64? = nil, nativeNS: Int64? = nil, requestedBridgeVersion: Int64 = RecorderService.supportedBridgeVersion) throws {
+    init(root: URL, operatingState: String, workload: String, reference: String, protocolProfile: String? = nil, origin: String = "physical", wallMS: Int64? = nil, nativeNS: Int64? = nil, requestedBridgeVersion: Int64 = RecorderService.supportedBridgeVersion) throws {
         guard MobileBridgeVersion() == requestedBridgeVersion, requestedBridgeVersion == RecorderService.supportedBridgeVersion else {
             throw BridgeFailure(category: "unsupported_version", operation: "initializeLive", detail: "Native/core bridge versions are incompatible")
         }
-        let options = ["origin": origin, "operating_state": operatingState, "workload": workload, "reference_note": reference]
+        var options = ["origin": origin, "operating_state": operatingState, "workload": workload, "reference_note": reference]
+        if let protocolProfile, !protocolProfile.isEmpty { options["protocol_profile"] = protocolProfile }
         let json = String(decoding: try JSONSerialization.data(withJSONObject: options), as: UTF8.self)
         var error: NSError?
         guard let value = MobileNewLiveRecorder(root.path, json, wallMS ?? Self.wall(), nativeNS ?? TransportClock.nanoseconds(), &error) else {
@@ -55,6 +56,9 @@ final class GoLiveCapture: TransportCapture {
 struct LiveSnapshot: Decodable {
     let state: String
     let workload: String?
+    let protocolProfile: String?
+    let generation: Int?
+    var protocolTitle: String { StationaryProtocol.title(protocolProfile) }
     let discovery: LiveDiscovery?
     let adapterState: AdapterStateReadback?
     var isHandoff: Bool { workload == "adapter_handoff" }

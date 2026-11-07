@@ -1,5 +1,16 @@
 import Foundation
 
+enum StationaryProtocol: String, CaseIterable {
+    case can11 = "can11-single-frame-headers-pci"
+    case can29 = "can29-normal-fixed-single-frame-headers-pci"
+    var title: String { self == .can29 ? "CAN 29-bit / 500 kbps" : "CAN 11-bit / 500 kbps" }
+    static func title(_ raw: String?) -> String {
+        if raw == "adapter-state-only" { return "Adapter settings only" }
+        guard let raw, let value = Self(rawValue: raw) else { return "Unknown / not recorded" }
+        return value.title
+    }
+}
+
 struct SessionInfo: Codable, Identifiable {
     let sessionId: String
     let source: String?
@@ -22,6 +33,8 @@ struct LiveSessionInfo: Codable {
     let origin: String
     let operatingState: String
     let workload: String
+    let protocolProfile: String?
+    var protocolTitle: String { StationaryProtocol.title(protocolProfile) }
     var workloadTitle: String {
         switch workload {
         case "rpm_only": return "RPM only"

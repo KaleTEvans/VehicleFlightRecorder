@@ -9,6 +9,8 @@ struct TransportDebugView: View {
     @State private var operatingState = "ignition_on_engine_off"
     @State private var workload = "combined"
     @State private var reference = ""
+    @AppStorage("stationaryProtocolProfile") private var protocolProfile = StationaryProtocol.can29.rawValue
+    private var isRegularWorkload: Bool { ["combined", "rpm_only", "coolant_only", "voltage_only"].contains(workload) }
     var body: some View {
         NavigationStack {
             List {
@@ -18,7 +20,7 @@ struct TransportDebugView: View {
                     Text(model.notice)
                     if workload == "adapter_handoff" { Text("Adapter-only handoff capture · VFR leaves the vehicle protocol unchanged.").font(.caption) }
                     else if workload == "can29_diagnostic" { Text("Standard OBD stationary diagnostic · CAN 29-bit / 500 kbps. Enhanced Alfa / TCM signals are not enabled.").font(.caption) }
-                    else { Text("Standard OBD stationary testing · generic CAN 11-bit / 500 kbps. Enhanced Alfa / TCM signals are not enabled.").font(.caption) }
+                    else { Text("Standard OBD stationary testing · \(isRegularWorkload ? StationaryProtocol.title(protocolProfile) : StationaryProtocol.can11.title). Enhanced Alfa / TCM signals are not enabled.").font(.caption) }
                     if let error = model.error { Text(error).foregroundStyle(.red).textSelection(.enabled) }
                     Button("Discover / Connect") { Task { await model.connect() } }.disabled(model.busy)
                     Button("Disconnect") { Task { await model.disconnect() } }.disabled(model.busy)
@@ -38,6 +40,15 @@ struct TransportDebugView: View {
                         Text("Coolant only").tag("coolant_only")
                         Text("Adapter voltage only").tag("voltage_only")
                     }.disabled(model.live?.active == true)
+                    if isRegularWorkload {
+                        Picker("OBD protocol", selection: $protocolProfile) {
+                            ForEach(StationaryProtocol.allCases, id: \.rawValue) { profile in
+                                Text(profile.title).tag(profile.rawValue)
+                            }
+                        }.disabled(model.live?.active == true)
+                            .accessibilityIdentifier("stationary-protocol-picker")
+                        Text("Select the vehicle's tested profile. CAN 29-bit / 500 kbps passed initial acquisition on this test car; no automatic protocol search is performed.").font(.caption)
+                    }
                     if workload == "discovery_diagnostic" || workload == "can29_diagnostic" {
                         Text("Record about 2 minutes, then Stop and save. This mode records discovery attempts, adapter CAN status and voltage; RPM/coolant wait for valid support evidence. Keep this app open and the vehicle parked.").font(.caption)
                     }
@@ -47,7 +58,7 @@ struct TransportDebugView: View {
                         Text("Capture the adapter state after using OBDLink. Leave the scanner powered. This mode sends only three read-only settings queries and saves automatically, normally within a few seconds; its active owner-loop limit is 15 seconds. App reconnection may already change the prior state.").font(.caption)
                     } else { Text("Explicit Start enables documented adapter setup and read-only OBD requests. Keep parked; each session ends after 10 minutes of elapsed native time when the owner loop runs. Background continuity is unverified.").font(.caption) }
                     Button(workload == "adapter_handoff" ? "Capture adapter settings" : "Start stationary recording") {
-                        Task { await model.startLive(operatingState: operatingState, workload: workload, reference: String(reference.prefix(256))) }
+                        Task { await model.startLive(operatingState: operatingState, workload: workload, reference: String(reference.prefix(256)), protocolProfile: isRegularWorkload ? protocolProfile : "") }
                     }.disabled(!parked || model.busy || model.live?.active == true)
                     if let live = model.live {
                         Text("Recorder: \(live.state) · \(live.elapsedMs / 1000) s")
@@ -136,10 +147,8 @@ struct LiveDiscoveryStatusView: View {
                     }
                 }
             } else if let discovery = live.discovery {
-                if live.workload == "can29_diagnostic" {
-                    Text("Profile: CAN 29-bit / 500 kbps").font(.caption)
-                        .accessibilityIdentifier("discovery-can29-profile")
-                }
+                Text("Profile: \(live.protocolTitle)").font(.caption)
+                    .accessibilityIdentifier(live.protocolProfile == StationaryProtocol.can29.rawValue ? "discovery-can29-profile" : "discovery-profile")
                 Text("Adapter setup: \(discovery.setupComplete)/\(discovery.setupTotal)")
                     .accessibilityIdentifier("discovery-setup")
                 Text(live.initialized ? "Adapter setup verified" : "Waiting for verified adapter initialization").font(.caption)

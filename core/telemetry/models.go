@@ -276,7 +276,8 @@ func (s Session) Validate() error {
 			return fmt.Errorf("invalid live session contract")
 		}
 		profile, catalog, protocol := "generic-obd-can11-500", "standard-live-can11-1", "can11-single-frame-headers-pci"
-		if s.Live.Workload == "can29_diagnostic" {
+		regular := s.Live.Workload == "combined" || s.Live.Workload == "rpm_only" || s.Live.Workload == "coolant_only" || s.Live.Workload == "voltage_only"
+		if s.Live.Workload == "can29_diagnostic" || (regular && s.Live.Protocol == "can29-normal-fixed-single-frame-headers-pci") {
 			profile, catalog, protocol = "generic-obd-can29-500", "standard-live-can29-1", "can29-normal-fixed-single-frame-headers-pci"
 		}
 		if s.Live.Workload == "adapter_handoff" {

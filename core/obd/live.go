@@ -12,6 +12,7 @@ const DiagnosticInitializationVersion = "obdlink-stp33-diagnostic-2"
 const DiagnosticWorkload = "discovery_diagnostic"
 const CAN29Workload = "can29_diagnostic"
 const CAN29InitializationVersion = "obdlink-stp34-diagnostic-1"
+const CAN29RuntimeInitializationVersion = "obdlink-stp34-runtime-1"
 const CAN29Profile = "can29-normal-fixed-single-frame-headers-pci"
 const CAN29Catalog = "standard-live-can29-1"
 const HandoffWorkload = "adapter_handoff"
@@ -57,7 +58,7 @@ func InitializationFor(version string) ([]Definition, error) {
 	if version == InitializationVersion {
 		return Initialization(), nil
 	}
-	if version != DiagnosticInitializationVersion && version != CAN29InitializationVersion {
+	if version != DiagnosticInitializationVersion && version != CAN29InitializationVersion && version != CAN29RuntimeInitializationVersion {
 		return nil, fmt.Errorf("unknown initialization version")
 	}
 	steps := Initialization()
@@ -72,7 +73,7 @@ func InitializationFor(version string) ([]Definition, error) {
 	result := append([]Definition{}, steps[:13]...)
 	result = append(result, extra...)
 	result = append(result, steps[13:]...)
-	if version == CAN29InitializationVersion {
+	if version == CAN29InitializationVersion || version == CAN29RuntimeInitializationVersion {
 		for i := range result {
 			switch result[i].Key {
 			case "init_protocol":

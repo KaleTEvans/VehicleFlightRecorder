@@ -355,3 +355,55 @@ extension TransportTests {
         }
     }
 }
+
+extension TransportTests {
+    func testOrdinaryCAN29OwnerAutomaticallyReopensSameLiveSession() async throws {
+        let executor = TransportExecutor(), directory = DirectoryFixture()
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString).appendingPathComponent("ConnectionCaptures")
+        let transport = MXPlusExternalAccessoryTransport(root: root, executor: executor, directory: directory)
+        var time: TimeInterval = 0
+        var path = ""
+        defer { executor.submit { transport.disconnect(); try? FileManager.default.removeItem(at: root.deletingLastPathComponent()) } }
+        try await onTransport(executor) {
+            transport.pump.now = { time }
+            directory.accessories = [AccessoryDescriptor(id: 1, protocols: ["com.obdlink"], metadata: ["source": "fixture"])]
+            try transport.startLive(operatingState: "stationary_running", workload: "combined", reference: "Synthetic native owner CAN29 reconnect test", protocolProfile: StationaryProtocol.can29.rawValue)
+            let live = try XCTUnwrap(transport.live)
+            path = live.core.path()
+            let streams = try XCTUnwrap(directory.last)
+            transport.stream(streams.input, handle: .openCompleted)
+            transport.stream(streams.output, handle: .openCompleted)
+            transport.tick()
+            XCTAssertEqual(try decodeCore(LiveSnapshot.self, live.core.snapshot()).protocolProfile, StationaryProtocol.can29.rawValue)
+            time = 1
+            directory.accessories = []
+            directory.changed?()
+        }
+        try await onTransport(executor) {
+            XCTAssertEqual(transport.state, .failed)
+            time = 1.25
+            directory.accessories = [AccessoryDescriptor(id: 2, protocols: ["com.obdlink"], metadata: ["source": "fixture"])]
+            directory.changed?()
+        }
+        try await onTransport(executor) {
+            XCTAssertEqual(directory.opens, 1)
+            time = 5
+            transport.tick() // No user reconnect call or additional notification.
+            XCTAssertEqual(directory.opens, 2)
+            XCTAssertEqual(transport.state, .connecting)
+            let live = try XCTUnwrap(transport.live)
+            XCTAssertEqual(live.core.path(), path)
+            let streams = try XCTUnwrap(directory.last)
+            transport.stream(streams.input, handle: .openCompleted)
+            transport.stream(streams.output, handle: .openCompleted)
+            transport.tick()
+            let snapshot = try decodeCore(LiveSnapshot.self, live.core.snapshot())
+            XCTAssertEqual(snapshot.generation, 2)
+            XCTAssertEqual(snapshot.protocolProfile, StationaryProtocol.can29.rawValue)
+            XCTAssertTrue(snapshot.readings.isEmpty)
+            XCTAssertFalse(snapshot.initialized)
+            try transport.stopLive()
+            XCTAssertEqual(try decodeCore(LiveSnapshot.self, live.core.snapshot()).state, "complete")
+        }
+    }
+}

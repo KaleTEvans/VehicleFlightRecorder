@@ -261,3 +261,29 @@ Independent future OBD/GPS/motion sources must define their own source timestamp
 clock alignment, sequence and late-arrival admission before extending the current
 single-source ordered recorder. Receipt mapping here does not silently authorize
 asynchronous ingestion or sensor fusion.
+
+### Explicit protocol choice for ordinary live workloads
+
+The mobile Start options accept optional `protocol_profile` only for `combined`,
+`rpm_only`, `coolant_only` and `voltage_only`: either the existing CAN11 profile
+or `can29-normal-fixed-single-frame-headers-pci`. Omission/empty retains the legacy
+CAN11 core default. A nonempty option on either diagnostic or adapter handoff
+workload is rejected rather than silently overriding its fixed contract.
+
+Regular CAN29 sessions retain their ordinary workload names, declare
+`generic-obd-can29-500` / `standard-live-can29-1` / CAN29 protocol profile, and use
+initialization `obdlink-stp34-runtime-1`. Its 21 setup steps are the same fixed
+CAN29 addressing/readbacks as the diagnostic setup, but ordinary schedules remain
+support 60 s, RPM 2 s, coolant/voltage 5 s when requested, with existing admission
+and failure backoff; there is no `can_status` polling. Voltage-only schedules
+perform no supported-PID or ECU-measurement request. No AUTO profile choice,
+protocol probing, enhanced data or ECU write is introduced.
+
+The current Python reader validates workload, profile/catalog, runtime version,
+selected protocol and exact schedule together. Older CAN11, diagnostic, handoff
+and schema-1 mock exports remain readable without migration. New runtime exports
+require this updated reader. Manual windows and truthful partial/gap semantics
+are unchanged. A reconnect retains session/profile identity, clears cached
+readings/capabilities, repeats setup and requires fresh same-generation support.
+The JSON snapshot adds actual `protocol_profile`; history decodes the existing
+metadata field to label the profile alongside workload/state.

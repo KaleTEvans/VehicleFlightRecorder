@@ -25,10 +25,11 @@ const liveLimitNS int64 = 600 * acquisition.Second
 const handoffLimitNS int64 = 15 * acquisition.Second
 
 type liveOptions struct {
-	Origin         string `json:"origin"`
-	OperatingState string `json:"operating_state"`
-	Workload       string `json:"workload"`
-	ReferenceNote  string `json:"reference_note"`
+	Origin          string `json:"origin"`
+	OperatingState  string `json:"operating_state"`
+	Workload        string `json:"workload"`
+	ReferenceNote   string `json:"reference_note"`
+	ProtocolProfile string `json:"protocol_profile,omitempty"`
 }
 
 // LiveRecorder serializes Go admission/storage. Its caller supplies native
@@ -60,6 +61,10 @@ func NewLiveRecorder(root, options string, wallMS, nativeNS int64) (result *Live
 	if len(config.ReferenceNote) > 512 {
 		return nil, fmt.Errorf("reference note exceeds 512 bytes")
 	}
+	regular := config.Workload == "combined" || config.Workload == "rpm_only" || config.Workload == "coolant_only" || config.Workload == "voltage_only"
+	if config.ProtocolProfile != "" && (!regular || (config.ProtocolProfile != obd.Profile && config.ProtocolProfile != obd.CAN29Profile)) {
+		return nil, fmt.Errorf("explicit profile requires a regular workload and a supported fixed profile")
+	}
 	if err = os.MkdirAll(root, 0700); err != nil {
 		return nil, err
 	}
@@ -73,8 +78,8 @@ func NewLiveRecorder(root, options string, wallMS, nativeNS int64) (result *Live
 	}
 	id := "live-" + hex.EncodeToString(nonce[:])
 	profile, catalog, protocol, selectedProtocol := "generic-obd-can11-500", obd.LiveCatalogVersion, obd.Profile, "ISO15765-4-CAN11-500"
-	can29 := config.Workload == obd.CAN29Workload
-	diagnostic := config.Workload == obd.DiagnosticWorkload || can29
+	can29 := config.Workload == obd.CAN29Workload || config.ProtocolProfile == obd.CAN29Profile
+	diagnostic := config.Workload == obd.DiagnosticWorkload || config.Workload == obd.CAN29Workload
 	if can29 {
 		profile, catalog, protocol, selectedProtocol = "generic-obd-can29-500", obd.CAN29Catalog, obd.CAN29Profile, "ISO15765-4-CAN29-500"
 	}
@@ -89,6 +94,9 @@ func NewLiveRecorder(root, options string, wallMS, nativeNS int64) (result *Live
 	}
 	interval := 60 * acquisition.Second
 	initialization := obd.InitializationVersion
+	if can29 {
+		initialization = obd.CAN29RuntimeInitializationVersion
+	}
 	if diagnostic {
 		interval = 15 * acquisition.Second
 		initialization = obd.DiagnosticInitializationVersion
@@ -584,6 +592,7 @@ func (l *LiveRecorder) Snapshot() (result string) {
 		readings = append(readings, map[string]any{"signal_id": o.Signal, "ecu": o.ECU, "value": o.Value, "unit": o.Unit, "quality": quality, "age_ms": (l.elapsed - o.ReceiveNS) / 1_000_000, "generation": o.Generation})
 	}
 	capabilities := l.scheduler.CapabilityRows()
-	b, _ := json.Marshal(map[string]any{"state": state, "workload": l.options.Workload, "session": l.core.Session(), "elapsed_ms": l.elapsed / 1_000_000, "maximum_duration_ms": l.limitNS / 1_000_000, "generation": l.scheduler.Generation(), "readings": readings, "capabilities": capabilities, "initialized": l.scheduler.Initialized(), "discovery": l.scheduler.DiscoverySummary(l.elapsed), "adapter_state": l.scheduler.AdapterStateReadback(), "incidents": l.core.Incidents(), "error": l.failure, "requires_reconnect": l.reconnectNeeded, "start_origin": "manual", "source": "obd-live"})
+	session := l.core.Session()
+	b, _ := json.Marshal(map[string]any{"protocol_profile": session.Live.Protocol, "state": state, "workload": l.options.Workload, "session": session, "elapsed_ms": l.elapsed / 1_000_000, "maximum_duration_ms": l.limitNS / 1_000_000, "generation": l.scheduler.Generation(), "readings": readings, "capabilities": capabilities, "initialized": l.scheduler.Initialized(), "discovery": l.scheduler.DiscoverySummary(l.elapsed), "adapter_state": l.scheduler.AdapterStateReadback(), "incidents": l.core.Incidents(), "error": l.failure, "requires_reconnect": l.reconnectNeeded, "start_origin": "manual", "source": "obd-live"})
 	return string(b)
 }

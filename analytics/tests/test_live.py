@@ -243,3 +243,54 @@ def test_independent_can29_parser_address_and_duplicate_isolation():
         assert replay_values('rpm',f'{address} 04 41 0C 1A F8\r>'.encode(),True)=={}
     assert replay_values('rpm',b'18DAF110 04 41 0C 00 00\r18DAF110 broken\r18DAF118 04 41 0C 0F A0\r>',True)=={'18DAF118':1000}
     assert support_bits(b'18DAF110 06 41 00 08 10 00 00\r18DAF110 broken\r>',True)=={}
+
+@pytest.fixture(scope='module')
+def regular_can29_exports(tmp_path_factory):
+    root=Path(__file__).resolve().parents[2]
+    output=tmp_path_factory.mktemp('regular-can29')
+    binary=output/'live-fixture'
+    env=os.environ|{'GOCACHE':str(root/'.cache/go-build'),'GOMODCACHE':str(root/'.cache/go-mod')}
+    subprocess.run(['go','build','-o',str(binary),'./cmd/live-fixture'],cwd=root/'core',env=env,check=True)
+    cases=[('combined','healthy'),('rpm_only','healthy'),('coolant_only','healthy'),('voltage_only','healthy'),('combined','reconnect'),('combined','no_data'),('combined','timeout')]
+    exports={}
+    for workload,scenario in cases:
+        run=subprocess.run([str(binary),'--output',str(output/f'{workload}-{scenario}'),'--profile','can29','--workload',workload,'--scenario',scenario],check=True,capture_output=True,text=True)
+        exports[workload,scenario]=Path(run.stdout.strip())
+    return exports
+
+
+@pytest.mark.parametrize('workload,scenario',[('combined','healthy'),('rpm_only','healthy'),('coolant_only','healthy'),('voltage_only','healthy'),('combined','reconnect'),('combined','no_data'),('combined','timeout')])
+def test_regular_can29_manual_replay(regular_can29_exports,workload,scenario):
+    path=regular_can29_exports[workload,scenario]
+    result=load_session(path)
+    report=json.loads((path/'capability.json').read_text())
+    assert result['profile_id']=='generic-obd-can29-500'
+    assert report['configuration']['initialization_version']=='obdlink-stp34-runtime-1'
+    assert report['protocol_profile']=='can29-normal-fixed-single-frame-headers-pci'
+    assert not any(t['key']=='can_status' for t in report['transactions'])
+    expected={'combined':{'powertrain.engine.rpm','powertrain.coolant.temperature','electrical.adapter_voltage'},'rpm_only':{'powertrain.engine.rpm'},'coolant_only':{'powertrain.coolant.temperature'},'voltage_only':{'electrical.adapter_voltage'}}[workload]
+    if scenario=='no_data':expected={'electrical.adapter_voltage'}
+    assert set(result['signal_coverage'])==expected
+    incident=result['incidents'][0]
+    assert incident['manual'] is True
+    assert incident['status']==('partial' if scenario=='reconnect' else 'captured')
+    assert reconstruct(path,incident['incident_id'])
+    if scenario=='reconnect': assert report['generation']==2
+    if scenario=='timeout': assert result['live']['capability_report']['outcomes']['timeout']>=1
+    if workload=='voltage_only': assert not any(t['key'] in {'support','rpm','coolant'} for t in report['transactions'])
+
+
+@pytest.mark.parametrize('mutation',['initialization','diagnostic_schedule','metadata_profile','workload','selected_protocol'])
+def test_regular_can29_contract_rejects_crossed_configuration(regular_can29_exports,tmp_path,mutation):
+    path=tmp_path/'session';shutil.copytree(regular_can29_exports['combined','healthy'],path)
+    report_path=path/'capability.json';report=json.loads(report_path.read_text())
+    if mutation=='initialization':report['configuration']['initialization_version']='obdlink-stp34-diagnostic-1'
+    if mutation=='diagnostic_schedule':next(s for s in report['schedule'] if s['key']=='support')['interval_ns']=15*10**9
+    if mutation=='selected_protocol':report['configuration']['selected_protocol']='ISO15765-4-CAN11-500'
+    if mutation in ('metadata_profile','workload'):
+        p=path/'session.json';metadata=json.loads(p.read_text())
+        if mutation=='metadata_profile':metadata['live']['protocol_profile']='can11-single-frame-headers-pci'
+        else:metadata['live']['workload']='can29_diagnostic';report['configuration']['workload']='can29_diagnostic'
+        p.write_text(json.dumps(metadata))
+    report_path.write_text(json.dumps(report))
+    with pytest.raises(ValidationError):load_session(path)

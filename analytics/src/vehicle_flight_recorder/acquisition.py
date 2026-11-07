@@ -155,7 +155,7 @@ def _validate_acquisition(path, *, allow_incomplete=False):
     fields(report, "report_version kind source protocol_profile catalog_version anchor_unix_ms duration_ns generation state vehicle_identity reference_comparison schedule raw transactions observations capabilities statistics issues" + (' configuration' if live else ''))
     commands = LIVE_COMMANDS if live else COMMANDS
     handoff = live and isinstance(report.get('configuration'),dict) and report['configuration'].get('workload')=='adapter_handoff'
-    can29 = live and isinstance(report.get('configuration'),dict) and report['configuration'].get('workload')=='can29_diagnostic'
+    can29 = live and report['protocol_profile']=='can29-normal-fixed-single-frame-headers-pci'
     profile,catalog = ('can29-normal-fixed-single-frame-headers-pci','standard-live-can29-1') if can29 else ('adapter-state-only','adapter-state-1') if handoff else ('can11-single-frame-headers-pci','standard-live-can11-1')
     require((report['kind'], report['source'], report['protocol_profile'], report['catalog_version']) ==
             (('live-acquisition', 'obd-live', profile, catalog) if live else
@@ -168,8 +168,10 @@ def _validate_acquisition(path, *, allow_incomplete=False):
         require(isinstance(config['session_id'], str) and re.fullmatch(r'live-[0-9a-f]{32}', config['session_id']), 'live session identity')
         require(config['origin'] in ('physical', 'native-fixture', 'scripted-fixture') and config['operating_state'] in ('unknown', 'ignition_on_engine_off', 'stationary_running') and config['workload'] in ('combined', 'rpm_only', 'coolant_only', 'voltage_only', 'discovery_diagnostic', 'can29_diagnostic', 'adapter_handoff'), 'live configuration')
         diagnostic = config['workload'] in ('discovery_diagnostic','can29_diagnostic')
+        regular = config['workload'] in ('combined','rpm_only','coolant_only','voltage_only')
+        require((regular or (can29 == (config['workload']=='can29_diagnostic'))), 'workload/protocol mismatch')
         init_steps = HANDOFF_INITIALIZATION if handoff else CAN29_INITIALIZATION if can29 else DIAGNOSTIC_INITIALIZATION if diagnostic else INITIALIZATION
-        require(config['initialization_version'] == ('obdlink-stp34-diagnostic-1' if can29 else 'obdlink-adapter-handoff-1' if handoff else 'obdlink-stp33-diagnostic-2' if diagnostic else 'obdlink-stp33-runtime-1') and config['selected_protocol'] == ('ISO15765-4-CAN29-500' if can29 else 'unmodified-adapter-state' if handoff else 'ISO15765-4-CAN11-500') and config['app_version'] == '0.1.0' and type(config['bridge_version']) is int and config['bridge_version'] == 1, 'configuration version/protocol')
+        require(config['initialization_version'] == (('obdlink-stp34-diagnostic-1' if diagnostic else 'obdlink-stp34-runtime-1') if can29 else 'obdlink-adapter-handoff-1' if handoff else 'obdlink-stp33-diagnostic-2' if diagnostic else 'obdlink-stp33-runtime-1') and config['selected_protocol'] == ('ISO15765-4-CAN29-500' if can29 else 'unmodified-adapter-state' if handoff else 'ISO15765-4-CAN11-500') and config['app_version'] == '0.1.0' and type(config['bridge_version']) is int and config['bridge_version'] == 1, 'configuration version/protocol')
         require(config['sensor_refresh_rate'] == 'unknown' and config['enhanced_pack'] == 'none' and config['maximum_duration_ns'] == (15 if handoff else 600)*10**9 and config['minimum_admission_ns'] == 5*10**8, 'unsupported live policy')
         require(isinstance(config['reference_note'], str) and len(config['reference_note'].encode()) <= 512, 'reference note')
         _integer(config['native_anchor_ns'], 'native anchor')

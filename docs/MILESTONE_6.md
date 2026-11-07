@@ -765,4 +765,36 @@ ZIP SHA-256: `e94cbebdc127ee2b25deded3cd6766619d2ddeae9ab59f009d1ebb603ee8e668`.
 The original ZIP, extracted `vfr3-session/` and `vfr3-validation-summary.json`
 remain private under ignored `.cache/physical-tests/2026-11-06/can29-12.1/`.
 
+## Ordinary CAN29 recording — implementation, acceptance pending
+
+Following the accepted two-minute diagnostic baseline, the user authorized
+proceeding with the remaining M6 work. The next change separates ordinary
+workload from protocol selection: Combined, RPM-only, Coolant-only and Adapter-
+voltage-only accept an explicit CAN11 or CAN29 profile. Omitted core options
+retain legacy CAN11; the native test-car UI defaults to CAN29, clearly labels
+and remembers that selection, and prevents changing it during an active session.
+It is not automatic vehicle/protocol identification. Diagnostic/handoff modes
+keep their fixed scope and reject an explicit override.
+
+Regular CAN29 declares `obdlink-stp34-runtime-1` and reuses the tested fixed
+21-step addressing/readback sequence. Ordinary schedules and manual incident
+windows remain; diagnostic CAN-status polling is absent. Active status and
+history show the actual declared protocol. Reconnect preserves one session and
+its profile, clears old measurements/capabilities and requires fresh setup/support.
+No new decoder, threshold, ECU mapping, enhanced signal or M7 policy is added.
+
+Tests exercise all ordinary workload/profile combinations and legacy default,
+complete/partial manual incidents, same-session reconnect/cache invalidation,
+no-data/timeout and independent replay/reconstruction/corruption. Native coverage
+adds the actual owner-loop accessory replacement path, ordinary history/manual
+navigation and six native exports. All six retained phone captures still validate.
+Portable Go tests/vet, 156 Python tests and 29 script tests passed; targeted
+ordinary-profile replay/reconstruction and all six retained phone exports also
+validate. OBD/acquisition/mobile race checks also passed. Native/delivery results will
+be recorded after completion. The
+[remaining one-visit packet](../planning/milestone_6_final_session.md) is draft
+pending delivery; it groups individual workloads and a Combined incident/reconnect
+recording, then one indoor retrieval block. No repeat diagnostic baseline or
+reference screenshot is requested. M6 remains open and PR #5 stays draft.
+
 **Milestone 7 not started.**

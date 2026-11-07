@@ -231,4 +231,49 @@ final class EvidenceNavigationTests: XCTestCase {
         add(screenshot)
     }
 
+    func testOrdinaryCAN29HistoryAndManualEvidenceAfterReconnect() {
+        continueAfterFailure = false
+        let app = XCUIApplication()
+        app.launchArguments = ["--ui-test-regular-can29"]
+        app.launch()
+        let status = app.staticTexts["regular-manual-status"]
+        XCTAssertTrue(status.waitForExistence(timeout: 30), app.debugDescription)
+        XCTAssertEqual(status.label, "Manual incident: captured")
+        XCTAssertEqual(app.staticTexts["regular-generations"].label, "Connection generations: 2")
+        XCTAssertEqual(app.staticTexts["discovery-can29-profile"].label, "Profile: CAN 29-bit / 500 kbps")
+        let saved = app.buttons["Saved sessions, incidents and export"]
+        for _ in 0..<6 {
+            if saved.isHittable { break }
+            app.collectionViews.firstMatch.swipeUp()
+        }
+        XCTAssertTrue(saved.isHittable, app.debugDescription)
+        saved.tap()
+        let row = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH %@", "session-row-")).firstMatch
+        XCTAssertTrue(row.waitForExistence(timeout: 15), app.debugDescription)
+        row.tap()
+        XCTAssertEqual(app.staticTexts["session-workload-value"].label, "Combined")
+        XCTAssertEqual(app.staticTexts["session-protocol-value"].label, "CAN 29-bit / 500 kbps")
+        let incident = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH %@", "session-incident-")).firstMatch
+        for _ in 0..<8 {
+            if incident.exists && incident.isHittable { break }
+            app.collectionViews.firstMatch.swipeUp()
+        }
+        XCTAssertTrue(incident.isHittable, app.debugDescription)
+        incident.tap()
+        let evidence = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH %@", "trigger-evidence-")).firstMatch
+        XCTAssertTrue(evidence.waitForExistence(timeout: 15), app.debugDescription)
+        for _ in 0..<6 {
+            if evidence.isHittable { break }
+            app.swipeUp()
+        }
+        evidence.tap()
+        let heading = app.staticTexts["canonical-evidence-heading"]
+        expectation(for: NSPredicate { _, _ in heading.exists && heading.isHittable }, evaluatedWith: app)
+        waitForExpectations(timeout: 15)
+        let screenshot = XCTAttachment(screenshot: app.screenshot())
+        screenshot.name = "Ordinary CAN29 manual evidence after later reconnect (scripted)"
+        screenshot.lifetime = .keepAlways
+        add(screenshot)
+    }
+
 }

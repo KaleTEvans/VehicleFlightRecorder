@@ -22,6 +22,7 @@ func run() error {
 	output := flag.String("output", "", "new session parent directory")
 	scenario := flag.String("scenario", "healthy", "healthy, reconnect, malformed, unsupported, timeout, no_data, recovery")
 	workload := flag.String("workload", "combined", "combined, rpm_only, coolant_only, voltage_only, discovery_diagnostic, can29_diagnostic, adapter_handoff")
+	profile := flag.String("profile", "", "optional regular-workload protocol: can11 or can29")
 	flag.Parse()
 	if *output == "" {
 		return fmt.Errorf("--output required")
@@ -34,7 +35,18 @@ func run() error {
 	if !valid[*scenario] {
 		return fmt.Errorf("unknown scripted scenario")
 	}
-	options, _ := json.Marshal(map[string]string{"origin": "scripted-fixture", "operating_state": "stationary_running", "workload": *workload, "reference_note": "Unmeasured scripted transcript; no physical reference comparison"})
+	optionValues := map[string]string{"origin": "scripted-fixture", "operating_state": "stationary_running", "workload": *workload, "reference_note": "Unmeasured scripted transcript; no physical reference comparison"}
+	if *profile != "" {
+		switch *profile {
+		case "can11":
+			optionValues["protocol_profile"] = "can11-single-frame-headers-pci"
+		case "can29":
+			optionValues["protocol_profile"] = "can29-normal-fixed-single-frame-headers-pci"
+		default:
+			return fmt.Errorf("unknown fixed profile")
+		}
+	}
+	options, _ := json.Marshal(optionValues)
 	const anchor int64 = 1700000000000
 	const base int64 = 1000000000000
 	l, e := mobile.NewLiveRecorder(root, string(options), anchor, base)
@@ -65,7 +77,7 @@ func run() error {
 			replies["STPBRR\r"] = "?\r>"
 		}
 	}
-	if *workload == "can29_diagnostic" {
+	if *workload == "can29_diagnostic" || *profile == "can29" {
 		replies["STP34\r"] = "OK\r>"
 		replies["ATSH18DB33F1\r"] = "OK\r>"
 		replies["STPR\r"] = "34\r>"
@@ -124,7 +136,7 @@ func run() error {
 				response = "NO DATA\r>"
 			}
 		}
-		if *workload == "can29_diagnostic" {
+		if *workload == "can29_diagnostic" || *profile == "can29" {
 			response = strings.NewReplacer("7E8", "18DAF110", "7E9", "18DAF118").Replace(response)
 		}
 		if !ok {

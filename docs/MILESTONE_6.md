@@ -713,4 +713,56 @@ ZIP SHA-256: `398c50c24235ecff36e1f2f1b0a59b76b1d20fe3359a6504598960b2be2b3ce4`.
 Original ZIP, both screenshots, extracted session, validation summary and comparison
 notes remain private under ignored `.cache/physical-tests/2026-11-06/can29-12.1/`.
 
+## Two-minute pre-unplug baseline verified — VFR3, build 12.1
+
+The user identified `VFR3.zip` as the recording **before unplugging the scanner**.
+It independently validates as physical CAN29 diagnostic session
+`live-c8cde8284a610d375eb72e3bee946b5b`, build 12.1 / MX+ / iOS 26.6.2. It ran
+**November 6, 2026, 6:15:50.720–6:17:53.475 p.m. CST**, lasting **122.755 seconds**.
+This precedes VFR2 (6:20:39–6:21:44 p.m.); attachment numbering is not chronology.
+
+The complete six-file export contains **187 observations, 516 raw rows, 110
+successful transactions and one cancelled in-flight RPM request**. All 21 setup
+steps and seven supported-PID discoveries succeeded. There are no acquisition
+issues, timeouts, NO DATA, decode errors or uncheckpointed evidence.
+
+| Source | Samples | Recorded range |
+| --- | ---: | --- |
+| RPM / 18DAF110 | 37 | 937–975 rpm |
+| RPM / 18DAF117 | 37 | 935.5–975 rpm |
+| RPM / 18DAF118 | 37 | 936–975 rpm |
+| SAE coolant / 18DAF110 | 19 | 67–74 °C |
+| SAE coolant / 18DAF117 | 19 | 67–74 °C |
+| SAE coolant / 18DAF118 | 19 | 66–73 °C |
+| Adapter input voltage | 19 | 12.47–12.51 V |
+
+The final RPM request was stream-accepted and received three responder lines, but
+had not received its terminating prompt when Stop cleanup disconnected the
+transport at 122.735593 s, about 20 ms before finalization. Its raw bytes are
+preserved and its outcome is cancelled; no observations are invented from that
+unfinished transaction. Final RPM capability rows consequently say unavailable
+while retaining advertised/observed evidence. This is consistent with orderly
+cancellation during Stop, not a decoder failure or proof of a physical unplug.
+
+Median consecutive receipt gaps were about **2.781 s RPM**, **5.645 s coolant**,
+**5.643 s voltage**; maxima 4.321 / 6.381 / 7.210 s respectively. Brief native
+lifecycle changes were recorded, including background intervals; this single
+recording does not qualify general background reliability. Per-responder values
+remain distinct and are not assigned physical module names.
+
+**The planned two-minute baseline-duration/acquisition check is now satisfied.**
+This supersedes the VFR2-only duration limitation above; do not request a repeat.
+VFR3 and VFR2 demonstrate successful acquisition in two separate sessions. Each
+contains only one connection generation, so automatic recovery through a physical
+unplug/replug during an active recording is still unverified. User labeling
+establishes VFR3 as pre-unplug; it does not by itself identify how VFR2 was started
+or whether VFR recovered without manual intervention. Reconnect clarification
+remains about work already performed; no new car visit is requested. Manual/
+remaining reliability gates and ordinary-profile qualification stay open; PR #5
+remains draft. This evidence review does not alter the delivered app or close M6.
+
+ZIP SHA-256: `e94cbebdc127ee2b25deded3cd6766619d2ddeae9ab59f009d1ebb603ee8e668`.
+The original ZIP, extracted `vfr3-session/` and `vfr3-validation-summary.json`
+remain private under ignored `.cache/physical-tests/2026-11-06/can29-12.1/`.
+
 **Milestone 7 not started.**

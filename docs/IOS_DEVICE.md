@@ -97,6 +97,14 @@ diagnostic mode, not ordinary 11-bit workloads. The ZIP contains no reconnect;
 that outcome is being clarified without requesting another car visit. Remaining
 M6 manual/reliability/extended acceptance remains open; see [the report](MILESTONE_6.md).
 
+**Two-minute baseline received:** the user-identified pre-unplug VFR3 session
+independently validates 122.755 seconds, 187 observations, 110 successful
+transactions and one expected in-flight cancellation during Stop cleanup. RPM/
+coolant from the same three responder IDs and adapter voltage remain present.
+This closes the earlier duration gap. VFR3 precedes VFR2; both are separate
+single-connection recordings, so automatic active-session reconnect is not proven.
+No baseline/reference repeat or additional car visit is requested.
+
 ## User setup
 
 Status update — October 30, 2026: Apple Developer enrollment is approved. The

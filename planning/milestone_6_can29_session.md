@@ -1,11 +1,13 @@
 # Milestone 6 — CAN 29-bit diagnostic session
 
-Status: CORE ACQUISITION RECEIVED AND VERIFIED. The supplied build-12.1 ZIP
-contains 65.101 seconds, 87 measurements and three successful CAN29 responders.
-The later OBDLink screenshot suffices for a basic RPM/temperature/voltage comparison.
-Reconnect remains unconfirmed; it is not present in this ZIP. No repeat of baseline
-acquisition/reference or an extra car visit is requested. See
-[the evidence review](../docs/MILESTONE_6.md#physical-can29-acquisition-verified--vfr2-build-121).
+Status: TWO-MINUTE BASELINE RECEIVED AND VERIFIED. VFR3 is the user-identified
+pre-unplug recording: 122.755 seconds, 187 observations, three successful CAN29
+responders, 110 successful transactions and one expected cancellation at Stop.
+VFR2 is a later separate 65.101-second recording with 87 measurements. Both validate.
+The later OBDLink screenshot suffices for a basic comparison. No baseline/reference
+repeat is requested. Reconnect remains unconfirmed: neither ZIP contains a second
+connection generation. Clarification concerns tests already performed, not a new
+car visit. See [the baseline evidence review](../docs/MILESTONE_6.md#two-minute-pre-unplug-baseline-verified--vfr3-build-121).
 The original instructions below remain as the record of the planned test.
 
 Build: **Vehicle Flight Recorder 0.1.0 (12.1)**.

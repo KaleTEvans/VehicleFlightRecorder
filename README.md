@@ -28,15 +28,16 @@ addressing, full responder IDs, strict setup/discovery gates and independently
 replayable six-file exports. Exact source `1340837ad24ef000d24e9dedf26e18ae9efa191e`
 passed **31 hosted native tests, six UI tests, both device compile profiles and
 13 native ZIP validations**, plus Go/vet/race, 144 Python tests and 29 script tests.
-All five retained phone captures validate. TestFlight **0.1.0 (12.1)**
+All six retained phone captures validate. TestFlight **0.1.0 (12.1)**
 uploaded November 6 at **4:11:57 p.m. CST** and is confirmed VALID /
 IN_BETA_TESTING. The [single parked-session packet](planning/milestone_6_can29_session.md)
-has returned physical results: **87 observations from three responding CAN IDs**,
-including RPM/coolant and adapter voltage, with 63 successful transactions. The
+has returned physical results: a **122.755-second pre-unplug baseline with 187
+observations**, plus a later 65-second session with 87 observations. Both retain
+RPM/coolant from three distinct CAN IDs and adapter voltage. The
 later OBDLink screenshot provides a basic reference comparison. Reconnect and
 remaining physical/manual acceptance stay open in [the report](docs/MILESTONE_6.md);
-PR #5 stays draft. Ordinary modes still use the prior 11-bit profile; this capture verifies initial
-acquisition in the explicit CAN29 diagnostic mode. Appetize remains mock.
+PR #5 stays draft. Ordinary modes still use the prior 11-bit profile; these captures
+verify baseline acquisition in the explicit CAN29 diagnostic mode. Appetize remains mock.
 
 | Milestone | Scope | Status / details |
 | --- | --- | --- |
@@ -80,8 +81,9 @@ simulator build or unsigned device compile does not establish these behaviors.
 
 The [12.1 parked-session packet](planning/milestone_6_can29_session.md) returned
 validated ECU acquisition and a basic later OBDLink comparison. The supplied ZIP
-is 65 seconds on one connection; reconnect outcome is being clarified from work
-already performed. No repeat of baseline/reference, D1/D2, adapter handoff or
+now includes the requested two-minute pre-unplug baseline; each supplied ZIP
+has one connection, so reconnect outcome is being clarified from work already
+performed. No repeat of baseline/reference, D1/D2, adapter handoff or
 accepted 9.1 UI checks is requested. Remaining connected checks will be grouped
 into a future large block using the [shared workflow](planning/physical_test_sessions.md),
 with retrieval/review indoors. Full M6 physical acceptance stays open.

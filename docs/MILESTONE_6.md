@@ -650,4 +650,67 @@ build VALID / internal IN_BETA_TESTING, uploadedDate **22:13:53 UTC /
 PR #5 remains draft; Appetize is unchanged. Documentation follow-ups do not
 alter the accepted/signed binary.
 
+## Physical CAN29 acquisition verified — VFR2, build 12.1
+
+The user supplied `VFR2.zip` and VFR/OBDLink screenshots. The physical session
+`live-af1129593cd04473c608ef8cdcb899ca` ran on MX+ / iOS 26.6.2 / build **12.1**
+from **November 6, 2026, 6:20:39.136 to 6:21:44.237 p.m. CST** (65.101 seconds).
+The six-file ZIP independently validates, including canonical/report/raw replay:
+**87 observations, 63 successful transactions, 284 raw rows**, no acquisition
+issues, no timeouts/NO DATA/decode failures and no uncheckpointed evidence.
+
+All 21 setup steps completed, including STP34, functional header and protocol/baud
+readbacks. Four supported-PID transactions returned three distinct responders:
+`18DAF110`, `18DAF117`, `18DAF118`. Each advertised RPM and coolant support and
+subsequently supplied valid Mode 01 PID 0C/05 values. Addresses remain opaque;
+this capture does not identify which is ECM/TCM or establish three physical ECUs.
+
+| Source | Samples | Recorded range |
+| --- | ---: | --- |
+| RPM / 18DAF110 | 17 | 917.5–971 rpm |
+| RPM / 18DAF117 | 17 | 920–971 rpm |
+| RPM / 18DAF118 | 17 | 921–969 rpm |
+| SAE coolant / 18DAF110 | 9 | 78–79 °C |
+| SAE coolant / 18DAF117 | 9 | 78–79 °C |
+| SAE coolant / 18DAF118 | 9 | 78 °C |
+| Adapter input voltage | 9 | 12.47–12.52 V |
+
+The VFR screenshot at 45 elapsed seconds matches the last retained raw-derived
+readings: voltage 12.50 V, all three coolant values 78 °C, and RPM 958.5 / 959 /
+962 for the respective IDs (the third RPM row is below the visible image crop).
+The later OBDLink screenshot at 6:25 shows RPM 963, Engine Temp **177.8 °F =
+81 °C**, Battery **12.5 V** and speed 0. It is sufficient for the requested basic
+reference check; no additional screenshot is requested. The values are consistent
+with a later idle/warming comparison, but it is not a simultaneous accuracy test
+and the gauge screenshot does not expose selected PID/responder identity. Its
+Battery label does not establish the same underlying voltage source as VFR.
+
+Measured median consecutive receipt gaps were about 2.785 s for RPM and 5.956 s
+for coolant; maxima about 4.053 / 6.713 s. Adapter-voltage median gap was 5.911 s.
+Report full-session rate/gap statistics include initial setup and should not be
+read as a promised steady polling/sensor-refresh rate. Brief lifecycle changes
+are recorded without observed transaction failures; background continuity is
+still unqualified. There is one connection generation and one final disconnect
+12 ms before manual stop, consistent with native stopLive() cleanup closing the
+transport before finalization. It is not evidence of unplug/replug recovery.
+
+**Accepted at this scope:** real CAN29 supported-PID discovery, per-responder
+RPM/coolant and adapter-voltage acquisition, native display/raw provenance and
+successful save/export, plus a qualitative later reference comparison. This
+resolves the zero-ECU-data symptom for the explicit 29-bit diagnostic profile.
+It supports the addressing/profile explanation without proving which individual
+setup difference caused every earlier failure. Regular Combined/RPM-only/coolant-
+only modes still use the old profile and are not qualified by this result.
+
+**Still open:** the planned two-minute/reconnect block (this ZIP is 65 seconds,
+with no second connection), manual-incident physical acceptance, and remaining
+M6 stationary/reliability gates. Reconnect outcome is being clarified from tests
+already performed; no additional car visit or repeated baseline/reference capture
+is requested. Future connected work remains batched. PR #5 stays draft; this
+review ships no new app behavior and does not close M6 or start M7.
+
+ZIP SHA-256: `398c50c24235ecff36e1f2f1b0a59b76b1d20fe3359a6504598960b2be2b3ce4`.
+Original ZIP, both screenshots, extracted session, validation summary and comparison
+notes remain private under ignored `.cache/physical-tests/2026-11-06/can29-12.1/`.
+
 **Milestone 7 not started.**

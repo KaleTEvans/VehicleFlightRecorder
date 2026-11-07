@@ -21,19 +21,22 @@ labels and export behavior. Earlier phone recordings retained successful setup
 but supported-PID discovery returned `NO DATA`, leaving RPM/coolant gated. The
 validated build-11.1 adapter handoff captured **CAN 29-bit / 500 kbps**, compared
 with VFR's previous **11-bit / 500 kbps** acquisition profile. This is a concrete
-addressing lead, not a proven cause or a successful ECU measurement.
+addressing lead; the handoff alone was not a successful ECU measurement.
 
 The new explicit **CAN 29-bit diagnostic** workload adds matching functional
 addressing, full responder IDs, strict setup/discovery gates and independently
 replayable six-file exports. Exact source `1340837ad24ef000d24e9dedf26e18ae9efa191e`
 passed **31 hosted native tests, six UI tests, both device compile profiles and
 13 native ZIP validations**, plus Go/vet/race, 144 Python tests and 29 script tests.
-All four retained phone captures still validate. TestFlight **0.1.0 (12.1)**
+All five retained phone captures validate. TestFlight **0.1.0 (12.1)**
 uploaded November 6 at **4:11:57 p.m. CST** and is confirmed VALID /
 IN_BETA_TESTING. The [single parked-session packet](planning/milestone_6_can29_session.md)
-is ready. Physical ECU acquisition/reference/reconnect acceptance remains
-open in [the report](docs/MILESTONE_6.md); PR #5 stays draft. Appetize remains the
-mock recorder.
+has returned physical results: **87 observations from three responding CAN IDs**,
+including RPM/coolant and adapter voltage, with 63 successful transactions. The
+later OBDLink screenshot provides a basic reference comparison. Reconnect and
+remaining physical/manual acceptance stay open in [the report](docs/MILESTONE_6.md);
+PR #5 stays draft. Ordinary modes still use the prior 11-bit profile; this capture verifies initial
+acquisition in the explicit CAN29 diagnostic mode. Appetize remains mock.
 
 | Milestone | Scope | Status / details |
 | --- | --- | --- |
@@ -75,13 +78,13 @@ simulator build or unsigned device compile does not establish these behaviors.
 
 ## Human acceptance sessions
 
-The [next parked-session checklist](planning/milestone_6_can29_session.md) is
-ready for **12.1**. It batches discovery/RPM/coolant, conditional
-reconnect and an official-app SAE comparison into one visit, with one ZIP export
-and evidence handoff afterward indoors. No repeats of D1/D2, adapter handoff or
-accepted 9.1 UI/export checks are requested. The
-[shared workflow](planning/physical_test_sessions.md) keeps connected work in
-large blocks; physical ECU acceptance stays open.
+The [12.1 parked-session packet](planning/milestone_6_can29_session.md) returned
+validated ECU acquisition and a basic later OBDLink comparison. The supplied ZIP
+is 65 seconds on one connection; reconnect outcome is being clarified from work
+already performed. No repeat of baseline/reference, D1/D2, adapter handoff or
+accepted 9.1 UI checks is requested. Remaining connected checks will be grouped
+into a future large block using the [shared workflow](planning/physical_test_sessions.md),
+with retrieval/review indoors. Full M6 physical acceptance stays open.
 
 ## Develop and test in WSL
 

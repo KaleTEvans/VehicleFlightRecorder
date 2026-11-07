@@ -28,7 +28,7 @@ Connected work stays in one parked visit, with history/export and one evidence
 handoff afterward indoors. Per-case chat review is not required. Physical M6 acceptance and road/background
 qualification remain pending.
 
-**Current physical diagnosis:** on November 6, both requested RPM/coolant phone ZIPs
+**Earlier physical diagnosis (superseded by the 12.1 result below):** on November 6, both requested RPM/coolant phone ZIPs
 were independently validated. They retain build-7.1 setup success followed by
 `NO DATA` from `0100`, leaving measurement requests gated. Why discovery received
 no data remains unresolved; physical sampling is not accepted. The build-10.1
@@ -87,6 +87,15 @@ uploaded **0.1.0 (12.1)** on November 6 at **4:11:57 p.m. CST**, with no errors.
 Apple confirmed build VALID / internal IN_BETA_TESTING (uploadedDate
 22:13:53 UTC / 4:13:53 p.m. CST). The packet is ready. Documentation updates
 after delivery do not change the tested/signed source.
+
+**Physical 12.1 result received:** VFR2 independently validates 65.101 seconds,
+87 observations and 63 successful transactions. Three CAN29 responders advertised
+and supplied RPM/coolant; adapter voltage was also recorded. The VFR screenshot
+matches the retained values and the later OBDLink screenshot suffices for a basic
+reference comparison. This qualifies initial acquisition in the explicit CAN29
+diagnostic mode, not ordinary 11-bit workloads. The ZIP contains no reconnect;
+that outcome is being clarified without requesting another car visit. Remaining
+M6 manual/reliability/extended acceptance remains open; see [the report](MILESTONE_6.md).
 
 ## User setup
 

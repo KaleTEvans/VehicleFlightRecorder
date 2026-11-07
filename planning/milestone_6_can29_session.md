@@ -1,6 +1,14 @@
 # Milestone 6 — CAN 29-bit diagnostic session
 
-Status: READY. Install **Vehicle Flight Recorder 0.1.0 (12.1)** from TestFlight.
+Status: CORE ACQUISITION RECEIVED AND VERIFIED. The supplied build-12.1 ZIP
+contains 65.101 seconds, 87 measurements and three successful CAN29 responders.
+The later OBDLink screenshot suffices for a basic RPM/temperature/voltage comparison.
+Reconnect remains unconfirmed; it is not present in this ZIP. No repeat of baseline
+acquisition/reference or an extra car visit is requested. See
+[the evidence review](../docs/MILESTONE_6.md#physical-can29-acquisition-verified--vfr2-build-121).
+The original instructions below remain as the record of the planned test.
+
+Build: **Vehicle Flight Recorder 0.1.0 (12.1)**.
 Source: `1340837ad24ef000d24e9dedf26e18ae9efa191e`. Uploaded November 6, 2026
 at **4:11:57 p.m. CST**; Apple confirmed VALID / internal IN_BETA_TESTING.
 This exact source passed 31 hosted native tests, six UI tests, both device compile

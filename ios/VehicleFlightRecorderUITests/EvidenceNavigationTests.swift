@@ -251,8 +251,8 @@ final class EvidenceNavigationTests: XCTestCase {
         let row = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH %@", "session-row-")).firstMatch
         XCTAssertTrue(row.waitForExistence(timeout: 15), app.debugDescription)
         row.tap()
-        XCTAssertEqual(app.staticTexts["session-workload-value"].label, "Combined")
-        XCTAssertEqual(app.staticTexts["session-protocol-value"].label, "CAN 29-bit / 500 kbps")
+        XCTAssertEqual(app.staticTexts["session-workload-value"].label, "Workload, Combined")
+        XCTAssertEqual(app.staticTexts["session-protocol-value"].label, "OBD protocol, CAN 29-bit / 500 kbps")
         let incident = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH %@", "session-incident-")).firstMatch
         for _ in 0..<8 {
             if incident.exists && incident.isHittable { break }

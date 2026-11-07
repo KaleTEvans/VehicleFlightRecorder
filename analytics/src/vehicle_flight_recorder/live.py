@@ -23,6 +23,7 @@ class LiveEvidence:
             self.report = _decode(f.read(16*1024*1024+1), 'capability.json')
         require(self.report['report_version'] == 2, 'live session requires report 2')
         config, live = self.report['configuration'], metadata['live']
+        require((live['protocol_profile'], live['catalog_version']) == (self.report['protocol_profile'], self.report['catalog_version']), 'session/report profile or catalog mismatch')
         require(config['session_id'] == metadata['session_id'] and self.report['anchor_unix_ms'] == metadata['start_time_unix_ms'], 'foreign report/session anchor')
         for key in ('origin', 'operating_state', 'workload', 'native_anchor_ns'):
             require(config[key] == live[key], 'session/report configuration mismatch')

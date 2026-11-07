@@ -280,16 +280,20 @@ def test_regular_can29_manual_replay(regular_can29_exports,workload,scenario):
     if workload=='voltage_only': assert not any(t['key'] in {'support','rpm','coolant'} for t in report['transactions'])
 
 
-@pytest.mark.parametrize('mutation',['initialization','diagnostic_schedule','metadata_profile','workload','selected_protocol'])
+@pytest.mark.parametrize('mutation',['initialization','diagnostic_schedule','metadata_profile','metadata_envelope','workload','selected_protocol'])
 def test_regular_can29_contract_rejects_crossed_configuration(regular_can29_exports,tmp_path,mutation):
     path=tmp_path/'session';shutil.copytree(regular_can29_exports['combined','healthy'],path)
     report_path=path/'capability.json';report=json.loads(report_path.read_text())
     if mutation=='initialization':report['configuration']['initialization_version']='obdlink-stp34-diagnostic-1'
     if mutation=='diagnostic_schedule':next(s for s in report['schedule'] if s['key']=='support')['interval_ns']=15*10**9
     if mutation=='selected_protocol':report['configuration']['selected_protocol']='ISO15765-4-CAN11-500'
-    if mutation in ('metadata_profile','workload'):
+    if mutation in ('metadata_profile','metadata_envelope','workload'):
         p=path/'session.json';metadata=json.loads(p.read_text())
         if mutation=='metadata_profile':metadata['live']['protocol_profile']='can11-single-frame-headers-pci'
+        elif mutation=='metadata_envelope':
+            metadata['profile_id']='generic-obd-can11-500'
+            metadata['live']['protocol_profile']='can11-single-frame-headers-pci'
+            metadata['live']['catalog_version']='standard-live-can11-1'
         else:metadata['live']['workload']='can29_diagnostic';report['configuration']['workload']='can29_diagnostic'
         p.write_text(json.dumps(metadata))
     report_path.write_text(json.dumps(report))

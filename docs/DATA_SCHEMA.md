@@ -280,7 +280,8 @@ perform no supported-PID or ECU-measurement request. No AUTO profile choice,
 protocol probing, enhanced data or ECU write is introduced.
 
 The current Python reader validates workload, profile/catalog, runtime version,
-selected protocol and exact schedule together. Older CAN11, diagnostic, handoff
+selected protocol and exact schedule together. Session and report profile/catalog
+identity must match; internally coherent relabeling of metadata alone is rejected. Older CAN11, diagnostic, handoff
 and schema-1 mock exports remain readable without migration. New runtime exports
 require this updated reader. Manual windows and truthful partial/gap semantics
 are unchanged. A reconnect retains session/profile identity, clears cached

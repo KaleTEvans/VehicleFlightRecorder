@@ -1,21 +1,22 @@
 # Milestone 6 — adapter initialization and standard OBD
 
-Status: PARTIALLY COMPLETE — updated November 6, 2026. Implementation/native fixture
-acceptance and signed TestFlight delivery passed; phone installation and physical
-stationary acceptance are tracked
-below. User authorized closing M5 and starting
-M6. M5 PR #3 merged as `94c5949`; implementation branch is
-`codex/milestone-6-live-acquisition`. No successful M6 physical acquisition is claimed; the reported device issue is
-recorded below.
+Status: PARTIALLY COMPLETE — updated November 6, 2026. Build 12.1 physical
+CAN29 diagnostic acquisition is verified: VFR3 provides the requested two-minute
+pre-unplug baseline; VFR2 and the later OBDLink screenshot provide additional
+acquisition/reference evidence. The new ordinary-workload profile choice passed
+native acceptance and is delivered in TestFlight 13.1. Physical ordinary/manual/reconnect gates remain open; see the
+latest sections below. M5 PR #3 is accepted and merged as `94c5949`; M6 remains
+on `codex/milestone-6-live-acquisition` in draft PR #5. M7 is not started.
 
 ## Implemented scope
 
 - Keep M5 discovery/recovery and Simulator mock UI; opening an accessory sends no
   application commands. Only an explicit parked-session Start enables live setup.
 - Go owns fixed documented runtime setup, per-generation initialization and the
-  read allowlist. Initial physical profile is ISO 15765-4 CAN, 11-bit, 500 kbps:
-  STP 33, headers/PCI on, no DLC, bounded response timeout. No automatic protocol
-  brute force, reset/reboot, NVM protocol write, ECU write or calibration.
+  read allowlist. Retain ISO 15765-4 CAN11 / 500 and add explicit CAN29 / 500 with matching
+  addressing, headers/PCI, no DLC and bounded response timeout. Setup uses
+  documented runtime defaults. No automatic protocol search, factory reset,
+  reboot, NVM protocol write, ECU write or calibration.
 - Initial verified catalog: mode 01 block 00, RPM 0C, coolant 05, STVR adapter
   input voltage. Other decoders remain unimplemented, not ECU-unsupported.
 - Reuse the offline framing/scheduler as explicit live mode; leave version-1
@@ -765,7 +766,7 @@ ZIP SHA-256: `e94cbebdc127ee2b25deded3cd6766619d2ddeae9ab59f009d1ebb603ee8e668`.
 The original ZIP, extracted `vfr3-session/` and `vfr3-validation-summary.json`
 remain private under ignored `.cache/physical-tests/2026-11-06/can29-12.1/`.
 
-## Ordinary CAN29 recording — implementation, acceptance pending
+## Ordinary CAN29 recording — delivered, physical acceptance pending
 
 Following the accepted two-minute diagnostic baseline, the user authorized
 proceeding with the remaining M6 work. The next change separates ordinary
@@ -790,11 +791,49 @@ adds the actual owner-loop accessory replacement path, ordinary history/manual
 navigation and six native exports. All six retained phone captures still validate.
 Portable Go tests/vet, 156 Python tests and 29 script tests passed; targeted
 ordinary-profile replay/reconstruction and all six retained phone exports also
-validate. OBD/acquisition/mobile race checks also passed. Native/delivery results will
-be recorded after completion. The
-[remaining one-visit packet](../planning/milestone_6_final_session.md) is draft
-pending delivery; it groups individual workloads and a Combined incident/reconnect
+validate. OBD/acquisition/mobile race checks also passed. Native/delivery results are recorded below. The
+[remaining one-visit packet](../planning/milestone_6_final_session.md) is ready
+for 13.1; it groups individual workloads and a Combined incident/reconnect
 recording, then one indoor retrieval block. No repeat diagnostic baseline or
 reference screenshot is requested. M6 remains open and PR #5 stays draft.
+
+Ordinary-mode native acceptance: source
+`0044c1e5f0ec181e86da8d1deb3de221f33145b5` passed
+[run 42322608517](https://github.com/KaleTEvans/VehicleFlightRecorder/actions/runs/42322608517):
+**33 hosted tests, seven UI tests, both device compile profiles and 19 native ZIP
+validations**, with all available incidents independently reconstructed. The six
+new ordinary-mode exports cover a full incident followed by a later reconnect,
+an honest partial incident, RPM-only, coolant-only, voltage-only and combined
+NO DATA. The full incident export lasts 281 s, retains one captured manual incident
+and two connection generations; the early-stop export lasts 36 s with one partial
+incident. Native UI navigated ordinary history, the stored profile and manual
+trigger evidence; its screenshot was inspected under ignored
+`build/milestone-6-native/0044c1e/`.
+
+The first [run 42321330670](https://github.com/KaleTEvans/VehicleFlightRecorder/actions/runs/42321330670)
+passed all 33 hosted tests but failed one new UI assertion: SwiftUI exposed
+`Workload, Combined`, while the test expected only `Combined`. The corrected
+assertions match the combined label/value behavior already used in prior tests;
+no production app change was needed. The rerun above is fully green.
+
+[Native artifact 13553419209](https://github.com/KaleTEvans/VehicleFlightRecorder/actions/runs/42322608517/artifacts/13553419209)
+has GitHub SHA-256
+`3b7ac59d7f6a6f5e94e415a508f56d2502f473c87067a6c7e28b234a62bc5c98`.
+A reader-only follow-up, `b94044feedc4f044b76028b979f5df012b48dcd4`, adds an
+explicit session/report profile-and-catalog equality check, including internally
+consistent CAN11 relabeling of a CAN29 session. All **157 Python tests** and both
+push/PR CI checks pass. Core/iOS sources are identical to the native-tested commit;
+all 19 downloaded native ZIPs and all six retained phone captures also validate
+with this strengthened reader. No iOS code changed in that follow-up.
+
+Signed [run 42323927967](https://github.com/KaleTEvans/VehicleFlightRecorder/actions/runs/42323927967)
+built **0.1.0 (13.1)** from the exact native-tested `0044c1e` source.
+Archive/export/signature verification passed. Apple returned UPLOAD SUCCEEDED
+with no errors at **01:28:21 UTC November 7 / 7:28:21 p.m. CST November 6, 2026**.
+Delivery UUID: `1cd0ddc2-8080-4ddf-8248-0a2b963d49e7`.
+Read-only Apple API inspection confirmed build VALID / internal IN_BETA_TESTING,
+with uploadedDate **01:29:02 UTC November 7 / 7:29:02 p.m. CST November 6**.
+The final-session packet is ready for 13.1; physical ordinary/manual/reconnect
+acceptance is still open. PR #5 stays draft.
 
 **Milestone 7 not started.**

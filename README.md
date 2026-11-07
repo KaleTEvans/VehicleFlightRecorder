@@ -16,28 +16,29 @@ vehicle packs. The diagnostic MVP takes priority over the later Driver Companion
 real MX+ firmware exchange/raw export, flicker correction, lock/unlock and automatic
 replug recovery (about 1–2 seconds after Bluetooth reconnects) passed on the phone.
 
-**Milestone 6 is in progress.** The user accepted build-9.1 history/zero-reading
-labels and export behavior. Earlier phone recordings retained successful setup
-but supported-PID discovery returned `NO DATA`, leaving RPM/coolant gated. The
-validated build-11.1 adapter handoff captured **CAN 29-bit / 500 kbps**, compared
-with VFR's previous **11-bit / 500 kbps** acquisition profile. This is a concrete
-addressing lead; the handoff alone was not a successful ECU measurement.
+**Milestone 6 is in progress.** Build-12.1 CAN29 diagnostic acquisition is
+physically verified: VFR3 retained **187 readings over 122.755 seconds**, and VFR2
+retained 87 readings in a later session. Three distinct CAN IDs supplied RPM and
+coolant, with adapter voltage preserved separately. The later OBDLink screenshot
+provides a basic sequential reference comparison. Reconnect remains unverified
+in these separate single-connection exports; no repeat baseline is requested.
 
-The new explicit **CAN 29-bit diagnostic** workload adds matching functional
-addressing, full responder IDs, strict setup/discovery gates and independently
-replayable six-file exports. Exact source `1340837ad24ef000d24e9dedf26e18ae9efa191e`
-passed **31 hosted native tests, six UI tests, both device compile profiles and
-13 native ZIP validations**, plus Go/vet/race, 144 Python tests and 29 script tests.
-All six retained phone captures validate. TestFlight **0.1.0 (12.1)**
-uploaded November 6 at **4:11:57 p.m. CST** and is confirmed VALID /
-IN_BETA_TESTING. The [single parked-session packet](planning/milestone_6_can29_session.md)
-has returned physical results: a **122.755-second pre-unplug baseline with 187
-observations**, plus a later 65-second session with 87 observations. Both retain
-RPM/coolant from three distinct CAN IDs and adapter voltage. The
-later OBDLink screenshot provides a basic reference comparison. Reconnect and
-remaining physical/manual acceptance stay open in [the report](docs/MILESTONE_6.md);
-PR #5 stays draft. Ordinary modes still use the prior 11-bit profile; these captures
-verify baseline acquisition in the explicit CAN29 diagnostic mode. Appetize remains mock.
+Regular Combined, RPM-only, Coolant-only and Adapter-voltage-only now have an
+explicit CAN11/CAN29 protocol choice. The native test-car UI defaults to CAN29
+and remembers the selection; the core retains CAN11 when the option is omitted.
+Actual profile labels appear in status/history. CAN29 regular modes use the tested
+addressing/readbacks with ordinary schedules and manual incident windows. This
+is an explicit selection, not automatic vehicle identification or protocol search.
+
+Exact native source `0044c1e5f0ec181e86da8d1deb3de221f33145b5` passed **33 hosted
+tests, seven UI tests, both device compile profiles and 19 native ZIP validations**.
+Go/vet/race and 29 script tests passed; the current reader passes **157 Python
+tests**, checks session/report profile consistency, and independently revalidates
+all 19 native ZIPs and all six retained phone captures. TestFlight **0.1.0 (13.1)**
+uploaded November 6 at **7:28:21 p.m. CST** and is confirmed VALID /
+IN_BETA_TESTING. The [remaining single-visit packet](planning/milestone_6_final_session.md)
+is ready. Physical ordinary/manual/reconnect acceptance stays open in
+[the report](docs/MILESTONE_6.md); PR #5 remains draft. Appetize remains mock.
 
 | Milestone | Scope | Status / details |
 | --- | --- | --- |
@@ -72,21 +73,21 @@ incidents and a six-file ZIP with exact raw/transaction provenance. Opening a
 connection alone still sends no commands; Start enables live acquisition. TestFlight build `6.1` is transport-only; build `7.1` adds these live controls.
 Update before performing M6 stationary tests. See [Milestone 6](docs/MILESTONE_6.md) for validation status and limits.
 
-Physical ECU support, actual sampling rates and reference comparisons remain
-pending stationary acceptance. Automatic trip start/stop, user-facing recording
+Initial CAN29 diagnostic ECU acquisition/rates have physical evidence; ordinary
+workload, manual-window and reconnect acceptance remain open. Automatic trip start/stop, user-facing recording
 confirmations and road/background qualification belong to Milestone 7. An uploaded
 simulator build or unsigned device compile does not establish these behaviors.
 
 ## Human acceptance sessions
 
-The [12.1 parked-session packet](planning/milestone_6_can29_session.md) returned
-validated ECU acquisition and a basic later OBDLink comparison. The supplied ZIP
-now includes the requested two-minute pre-unplug baseline; each supplied ZIP
-has one connection, so reconnect outcome is being clarified from work already
-performed. No repeat of baseline/reference, D1/D2, adapter handoff or
-accepted 9.1 UI checks is requested. Remaining connected checks will be grouped
-into a future large block using the [shared workflow](planning/physical_test_sessions.md),
-with retrieval/review indoors. Full M6 physical acceptance stays open.
+The [remaining M6 packet](planning/milestone_6_final_session.md) is ready for
+**13.1**. It groups conditional ignition-on/engine-off, individual
+RPM/coolant, a full Combined manual window, reconnect during that same recording,
+and an intentionally shortened second incident into one **10–15 minute parked
+visit**. Export/review follows indoors. The accepted diagnostic baseline, prior
+reference screenshots and 9.1 UI checks are not requested again. Follow the
+[shared workflow](planning/physical_test_sessions.md); full M6 physical acceptance
+remains open.
 
 ## Develop and test in WSL
 

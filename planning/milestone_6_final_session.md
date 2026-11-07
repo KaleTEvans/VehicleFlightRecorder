@@ -1,7 +1,11 @@
 # Milestone 6 — ordinary CAN29 recording and incident acceptance
 
-Status: DRAFT pending native acceptance and TestFlight delivery. Build: pending.
-No car visit is requested until this packet is marked READY with its build.
+Status: READY. Install **Vehicle Flight Recorder 0.1.0 (13.1)** from TestFlight.
+Native app source: `0044c1e5f0ec181e86da8d1deb3de221f33145b5`.
+Uploaded **November 6, 2026, 7:28:21 p.m. CST**; Apple confirmed VALID /
+internal IN_BETA_TESTING. Native acceptance passed 33 hosted tests, seven UI tests,
+both device compile profiles and 19 actual native ZIP validations. The current
+independent reader passes 157 tests and revalidates every native export.
 VFR3's two-minute CAN29 baseline and the VFR2/OBDLink comparison are accepted;
 do not repeat those diagnostic recordings or reference screenshots.
 
@@ -54,9 +58,11 @@ F4 testing. Do not switch back to the diagnostic workload to force a pass.
 
 1. Start Combined with Engine running / stationary and CAN 29-bit / 500 kbps.
    Confirm fresh RPM, coolant and adapter voltage appear.
-2. After **01:15**, tap **Mark Incident** once. Keep recording for another **two
-   full minutes**. This gives the first incident its 60 s pre / 120 s post window.
-3. At about **03:30**, unplug the scanner once **while F4 is still recording**.
+2. After **01:15**, tap **Mark Incident** once and note the app timer. Keep recording
+   for another **two full minutes**. This gives the first incident its 60 s pre /
+   120 s post window.
+3. Wait **at least 2 min 15 s after the first mark** (about **03:30** if you marked
+   at 01:15), then unplug the scanner once **while F4 is still recording**.
    **Do not press Stop, quit VFR or start a replacement recording.** Wait for the
    connection loss, plug the scanner back in, and reconnect iOS Bluetooth if needed.
 4. Keep VFR open. Allow up to **60 seconds after Bluetooth reconnection** for
@@ -67,8 +73,9 @@ F4 testing. Do not switch back to the diagnostic workload to force a pass.
 5. If recovery fails, Stop and save the same F4 session; skip the next mark. Keep
    the successful first incident and the failed recovery as evidence. Do not repeat
    F1–F3 or return for another test.
-6. If recovery succeeds, wait until **at least 04:30** and allow about 15 s of fresh
-   readings after recovery. Tap **Mark Incident** a second time, then **Stop and
+6. If recovery succeeds, wait **at least 3 min 15 s after the first mark** (about
+   **04:30** if you marked at 01:15), and allow at least 15 s of fresh readings
+   after recovery. Tap **Mark Incident** a second time, then **Stop and
    save about 10 s later**. This second incident should show an honest partial
    window; the two marks are sufficiently separated to avoid merging their windows.
 

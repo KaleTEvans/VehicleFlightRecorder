@@ -8,7 +8,9 @@ The later OBDLink screenshot suffices for a basic comparison. No baseline/refere
 repeat is requested. Reconnect remains unconfirmed: neither ZIP contains a second
 connection generation. Clarification concerns tests already performed, not a new
 car visit. See [the baseline evidence review](../docs/MILESTONE_6.md#two-minute-pre-unplug-baseline-verified--vfr3-build-121).
-The original instructions below remain as the record of the planned test.
+The [remaining ordinary-mode packet](milestone_6_final_session.md) is ready for
+build 13.1. The original instructions below remain as the record of the diagnostic
+test; they are not an additional baseline request.
 
 Build: **Vehicle Flight Recorder 0.1.0 (12.1)**.
 Source: `1340837ad24ef000d24e9dedf26e18ae9efa191e`. Uploaded November 6, 2026

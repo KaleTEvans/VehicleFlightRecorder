@@ -16,6 +16,26 @@ edge cases remain listed in the M5 report.
 
 ## Milestone 6 beta
 
+**Current ordinary-mode beta: 0.1.0 (13.1), ready in internal TestFlight.** It adds an explicit
+CAN11/CAN29 choice for Combined, RPM-only, Coolant-only and Adapter-voltage-only,
+with the selected profile shown in status/history. The test-car UI defaults to
+CAN29 and remembers it; omitted core options remain CAN11. The native app source
+`0044c1e5f0ec181e86da8d1deb3de221f33145b5` passed 33 hosted tests, seven UI tests,
+both device compile profiles and 19 real native ZIP validations in
+[run 42322608517](https://github.com/KaleTEvans/VehicleFlightRecorder/actions/runs/42322608517).
+The updated independent reader passes 157 Python tests and revalidates all native
+and retained phone exports. Signed
+[run 42323927967](https://github.com/KaleTEvans/VehicleFlightRecorder/actions/runs/42323927967)
+uploaded **13.1** November 6 at **7:28:21 p.m. CST**, with no errors; Apple
+confirmed build VALID / internal IN_BETA_TESTING (Apple uploadedDate
+01:29:02 UTC November 7 / 7:29:02 p.m. CST November 6). The
+[remaining one-visit packet](../planning/milestone_6_final_session.md) is ready. Physical ordinary/manual/
+reconnect gates remain open; M7 is not started.
+
+### Earlier beta deliveries and physical evidence
+
+These entries record prior deliveries and visits. Use the current 13.1 packet above.
+
 Build `0.1.0 (7.1)` uploaded on November 3, 2026 at 1:44:51 p.m. CST from
 `06c5e207ae82aae259a9720271fc5f08df359511` in
 [run 41705740118](https://github.com/KaleTEvans/VehicleFlightRecorder/actions/runs/41705740118).
@@ -72,7 +92,7 @@ readbacks and retained CAN 29/500; no repeat of that packet or D2 is requested.
 Existing regular/diagnostic workloads keep their setup and schedules.
 The new mode intentionally records zero sensor samples. M6 remains unaccepted.
 
-The current targeted beta is **0.1.0 (12.1)**, source
+The earlier diagnostic beta is **0.1.0 (12.1)**, source
 `1340837ad24ef000d24e9dedf26e18ae9efa191e`. Native
 [run 42300865187](https://github.com/KaleTEvans/VehicleFlightRecorder/actions/runs/42300865187)
 passed 31 hosted tests, six UI tests, 13 native ZIP validations and both device

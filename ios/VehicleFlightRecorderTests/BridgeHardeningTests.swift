@@ -11,6 +11,12 @@ final class BridgeHardeningTests: XCTestCase {
         XCTAssertThrowsError(try RecorderService(pack: missing, sessions: missing, requestedBridgeVersion: 999)) {
             XCTAssertEqual(($0 as? BridgeFailure)?.category, "unsupported_version")
         }
+        XCTAssertThrowsError(try RecorderService(history: missing, requestedBridgeVersion: 999)) {
+            XCTAssertEqual(($0 as? BridgeFailure)?.category, "unsupported_version")
+        }
+        XCTAssertThrowsError(try GoLiveSession(root: missing, operatingState: "unknown", workload: "combined", reference: "", requestedBridgeVersion: 999)) {
+            XCTAssertEqual(($0 as? BridgeFailure)?.category, "unsupported_version")
+        }
         XCTAssertFalse(FileManager.default.fileExists(atPath: missing.path))
         XCTAssertThrowsError(try RecorderService(pack: missing, sessions: missing)) {
             XCTAssertEqual(($0 as? BridgeFailure)?.category, "missing_pack")

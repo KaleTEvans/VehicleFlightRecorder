@@ -172,4 +172,4 @@ def reconstruct(directory, incident_id, *, allow_incomplete=False):
     if item is None:
         _fail(f'unknown incident ID {incident_id!r}')
     rows = [dict(reference=ref, record=record) for ref, record in timeline(directory) if item['available_start_unix_ms'] <= ref['timestamp_unix_ms'] <= item['available_end_unix_ms']]
-    return dict(schema_version=1, session_id=summary['session_id'], session_status=summary['status'], incident=item, timeline_order='timestamp_then_record_sequence', timeline=rows, interpretation='Synthetic temporal evidence; no causal diagnosis inferred')
+    return dict(schema_version=1, session_id=summary['session_id'], session_status=summary['status'], incident=item, timeline_order='timestamp_then_record_sequence', timeline=rows, interpretation=('Synthetic temporal evidence; no causal diagnosis inferred' if summary['source'] == 'mock' else 'Recorded temporal evidence; no causal diagnosis inferred'))

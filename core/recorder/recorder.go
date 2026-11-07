@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	"vehicleflightrecorder.local/core/acquisition"
 	"vehicleflightrecorder.local/core/incidents"
 	"vehicleflightrecorder.local/core/storage"
 	"vehicleflightrecorder.local/core/telemetry"
@@ -250,5 +251,20 @@ func (r *Recorder) Session() telemetry.Session   { return r.session.Clone() }
 func (r *Recorder) Snapshot() []telemetry.Record { return r.buffer.Snapshot() }
 
 func (r *Recorder) lifecycle(kind string, timestamp int64) telemetry.Record {
-	return telemetry.Record{Event: &telemetry.Event{SchemaVersion: 1, TimestampUnixMS: timestamp, SessionID: r.session.SessionID, Source: r.session.Source, EventType: kind, Severity: "info"}}
+	return telemetry.Record{Event: &telemetry.Event{SchemaVersion: r.session.SchemaVersion, TimestampUnixMS: timestamp, SessionID: r.session.SessionID, Source: r.session.Source, EventType: kind, Severity: "info"}}
+}
+
+func (r *Recorder) AppendTransport(row acquisition.Raw) error {
+	if r.state != "recording" || r.session.SchemaVersion != 2 {
+		return fmt.Errorf("live raw append requires active schema-2 session")
+	}
+	w, ok := r.sink.(interface{ AppendTransport(acquisition.Raw) error })
+	if !ok {
+		return fmt.Errorf("raw sink unavailable")
+	}
+	if err := w.AppendTransport(row); err != nil {
+		r.state = "failed"
+		return err
+	}
+	return nil
 }

@@ -14,6 +14,117 @@ passed native verification and uploaded at 17:20:58 CDT on October 30. On Novemb
 Bluetooth reconnects; M5 transport acceptance is complete. Unverified physical
 edge cases remain listed in the M5 report.
 
+## Milestone 6 beta
+
+**Current ordinary-mode beta: 0.1.0 (13.1), ready in internal TestFlight.** It adds an explicit
+CAN11/CAN29 choice for Combined, RPM-only, Coolant-only and Adapter-voltage-only,
+with the selected profile shown in status/history. The test-car UI defaults to
+CAN29 and remembers it; omitted core options remain CAN11. The native app source
+`0044c1e5f0ec181e86da8d1deb3de221f33145b5` passed 33 hosted tests, seven UI tests,
+both device compile profiles and 19 real native ZIP validations in
+[run 42322608517](https://github.com/KaleTEvans/VehicleFlightRecorder/actions/runs/42322608517).
+The updated independent reader passes 157 Python tests and revalidates all native
+and retained phone exports. Signed
+[run 42323927967](https://github.com/KaleTEvans/VehicleFlightRecorder/actions/runs/42323927967)
+uploaded **13.1** November 6 at **7:28:21 p.m. CST**, with no errors; Apple
+confirmed build VALID / internal IN_BETA_TESTING (Apple uploadedDate
+01:29:02 UTC November 7 / 7:29:02 p.m. CST November 6). The
+[remaining one-visit packet](../planning/milestone_6_final_session.md) is ready. Physical ordinary/manual/
+reconnect gates remain open; M7 is not started.
+
+### Earlier beta deliveries and physical evidence
+
+These entries record prior deliveries and visits. Use the current 13.1 packet above.
+
+Build `0.1.0 (7.1)` uploaded on November 3, 2026 at 1:44:51 p.m. CST from
+`06c5e207ae82aae259a9720271fc5f08df359511` in
+[run 41705740118](https://github.com/KaleTEvans/VehicleFlightRecorder/actions/runs/41705740118).
+The exact source passed 26 hosted native tests, two UI tests, both device compile
+profiles and real native ZIP reconstruction. Apple confirmed VALID /
+IN_BETA_TESTING at 1:45 p.m. CST; see [the M6 report](MILESTONE_6.md). Update from transport-only build 6.1 before testing
+parked live controls. Its [original test-visit checklist](../planning/milestone_6_test_session.md)
+is paused; use the current targeted packet below after its build is delivered.
+Connected work stays in one parked visit, with history/export and one evidence
+handoff afterward indoors. Per-case chat review is not required. Physical M6 acceptance and road/background
+qualification remain pending.
+
+**Earlier physical diagnosis (superseded by the 12.1 result below):** on November 6, both requested RPM/coolant phone ZIPs
+were independently validated. They retain build-7.1 setup success followed by
+`NO DATA` from `0100`, leaving measurement requests gated. Why discovery received
+no data remains unresolved; physical sampling is not accepted. The build-10.1
+D1 diagnostic also returned no ECU data; the official app later showed RPM and
+coolant, but its working protocol is unknown. The 11.1 handoff captured CAN 29/500; the next connected work uses the
+[new CAN29 packet](../planning/milestone_6_can29_session.md) on the delivered 12.1 build.
+
+Build **0.1.0 (9.1)** is available for internal TestFlight installation. It adds
+workload/state to session history, requested readings and a zero-reading message
+to Drive details, using metadata already stored in existing recordings. No scanner
+connection or re-recording is needed. Source
+`84dcc28fbfa53795795b2f3a54c88a6cb07fe0bf` passed 28 hosted tests, three UI tests,
+both device compile profiles and five actual native ZIP validations in
+[native run 42266159403](https://github.com/KaleTEvans/VehicleFlightRecorder/actions/runs/42266159403).
+[Signed run 42267707114](https://github.com/KaleTEvans/VehicleFlightRecorder/actions/runs/42267707114)
+uploaded that exact source on November 6 at 12:10:25 p.m. CST; Apple confirmed
+VALID / IN_BETA_TESTING. This preserves the build-8.1 export correction. OBD
+initialization, admission and decoders are unchanged. See [the report](MILESTONE_6.md).
+
+The earlier diagnostic beta **0.1.0 (10.1)** used source
+`24037f0f0bdab0c5e0caff3a98cb3d0185b80629`. It passed 29 hosted / four UI tests,
+seven actual native ZIP validations, both device compile profiles and signed
+[run 42276904829](https://github.com/KaleTEvans/VehicleFlightRecorder/actions/runs/42276904829).
+Apple confirmed upload COMPLETE, build VALID and IN_BETA_TESTING after upload
+November 6 at 1:11:05 p.m. CST. Its Discovery diagnostic workload was used for
+the [earlier one-visit packet](../planning/milestone_6_diagnostic_session.md);
+regular workloads keep their prior initialization/schedules. D1 evidence is
+received; successful physical ECU acquisition is still pending.
+
+The previous targeted beta **0.1.0 (11.1)** used source
+`540c385bb465ac6404ed67ab4f393923fe2274c7`. It passed 30 hosted native tests,
+five UI tests, ten native ZIP validations and both device compile profiles in
+[native run 42288515502](https://github.com/KaleTEvans/VehicleFlightRecorder/actions/runs/42288515502).
+[Signed run 42290107051](https://github.com/KaleTEvans/VehicleFlightRecorder/actions/runs/42290107051)
+uploaded it November 6 at **2:42:16 p.m. CST**; Apple confirmed VALID /
+IN_BETA_TESTING. **Adapter handoff capture** reads only STPR, STPRS and STPBRR
+without reset/configuration or vehicle polling, then saves automatically. It may
+capture settings left by the reference app, although cleanup/reconnection may
+already have altered them. The received physical handoff passed all three
+readbacks and retained CAN 29/500; no repeat of that packet or D2 is requested.
+Existing regular/diagnostic workloads keep their setup and schedules.
+The new mode intentionally records zero sensor samples. M6 remains unaccepted.
+
+The earlier diagnostic beta is **0.1.0 (12.1)**, source
+`1340837ad24ef000d24e9dedf26e18ae9efa191e`. Native
+[run 42300865187](https://github.com/KaleTEvans/VehicleFlightRecorder/actions/runs/42300865187)
+passed 31 hosted tests, six UI tests, 13 native ZIP validations and both device
+compile profiles. **CAN 29-bit diagnostic** explicitly selects the new protocol,
+uses matching standard functional addressing, retains full response IDs and gates
+RPM/coolant on same-generation supported-PID evidence. No automatic protocol
+search or enhanced Alfa/TCM interpretation is enabled. The
+[single parked packet](../planning/milestone_6_can29_session.md) batches acquisition,
+conditional reconnect and a later SAE reference comparison, then export indoors.
+Signed [run 42302376611](https://github.com/KaleTEvans/VehicleFlightRecorder/actions/runs/42302376611)
+uploaded **0.1.0 (12.1)** on November 6 at **4:11:57 p.m. CST**, with no errors.
+Apple confirmed build VALID / internal IN_BETA_TESTING (uploadedDate
+22:13:53 UTC / 4:13:53 p.m. CST). The packet is ready. Documentation updates
+after delivery do not change the tested/signed source.
+
+**Physical 12.1 result received:** VFR2 independently validates 65.101 seconds,
+87 observations and 63 successful transactions. Three CAN29 responders advertised
+and supplied RPM/coolant; adapter voltage was also recorded. The VFR screenshot
+matches the retained values and the later OBDLink screenshot suffices for a basic
+reference comparison. This qualifies initial acquisition in the explicit CAN29
+diagnostic mode, not ordinary 11-bit workloads. The ZIP contains no reconnect;
+that outcome is being clarified without requesting another car visit. Remaining
+M6 manual/reliability/extended acceptance remains open; see [the report](MILESTONE_6.md).
+
+**Two-minute baseline received:** the user-identified pre-unplug VFR3 session
+independently validates 122.755 seconds, 187 observations, 110 successful
+transactions and one expected in-flight cancellation during Stop cleanup. RPM/
+coolant from the same three responder IDs and adapter voltage remain present.
+This closes the earlier duration gap. VFR3 precedes VFR2; both are separate
+single-connection recordings, so automatic active-session reconnect is not proven.
+No baseline/reference repeat or additional car visit is requested.
+
 ## User setup
 
 Status update — October 30, 2026: Apple Developer enrollment is approved. The
@@ -21,7 +132,8 @@ matching distribution certificate/PKCS#12 and App Store profile have been verifi
 locally and their three signing secrets configured in GitHub's `ios-device`
 environment with explicit user approval. The API key, Key ID and Issuer ID are
 also configured as encrypted environment secrets with separate user approval.
-Workflow-only PR #4 is merged on master; the M5 app remains in draft PR #3.
+Workflow-only PR #4 and M5 app PR #3 are merged on master. M5 was accepted
+on November 3, 2026; M6 live acquisition is under implementation.
 Signed archive/export and native signature verification passed in
 [run 41093880633](https://github.com/KaleTEvans/VehicleFlightRecorder/actions/runs/41093880633)
 for source `81c8fbf4429c41bcb5294d265afae355466adbc3`, version `0.1.0 (2.1)`.

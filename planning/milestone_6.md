@@ -25,8 +25,8 @@ and confirmed build 6.1 automatic physical replug recovery in approximately 1–
 seconds after iOS Bluetooth reconnects. The recovery source passed 24 native hosted
 tests, two UI tests, portable CI, both device compile profiles and signed delivery.
 See `docs/MILESTONE_5.md` for actual source/run/capture evidence and its limits.
-PR #3 still awaits merge; start M6 from that merged foundation after repository
-closeout. This update does not activate M6.
+PR #3 was merged as `94c5949` on November 3 after the user authorized M5 closeout
+and M6 implementation. The current implementation report is `docs/MILESTONE_6.md`.
 
 Multiple-accessory and physical mid-write cases, plus separately identified OS
 suspension/termination/force-quit behavior, remain unverified on the phone. Preserve
@@ -311,6 +311,22 @@ reliable session identity, start origin, successful admission and coverage facts
 needed by that handoff, without adding automatic-drive policy, user-facing
 notifications or permission prompts now. Internal accessory connect notifications
 are not user-facing recording confirmations. No V2 cockpit redesign is required.
+
+## Physical test-session organization
+
+Follow [the shared session workflow](physical_test_sessions.md) and the current
+[one-visit M6 checklist](milestone_6_test_session.md). Finish independent code,
+native checks and beta delivery before requesting a car visit. Group short
+individual checks, combined manual capture and reconnect into one parked visit
+with explicit in-session continue/stop criteria. Distinct app recordings do not
+require separate car visits, per-case uploads or chat round trips. Review saved
+history/evidence/export indoors, then analyze all supplied evidence together.
+
+This preserves the short-before-prolonged gate and all physical acceptance
+requirements below. A visible gate can permit the next listed parked case; it
+does not certify raw correctness. Prepare one targeted retest list after batching
+fixes, reusing accepted unaffected evidence. The prior standalone voltage-test
+request is superseded by the consolidated checklist.
 
 ## Required verification
 

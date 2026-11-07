@@ -27,6 +27,12 @@ type Config struct {
 }
 
 func (c Config) Validate() error {
+	if c.Availability == "manual_only" {
+		if strings.TrimSpace(c.Provenance) == "" || c.PreWindowMS < 0 || c.PostWindowMS < 0 || c.PreWindowMS > 86400000 || c.PostWindowMS > 86400000 || c.MaxSilenceMS <= 0 || c.MaxSilenceMS > 86400000 {
+			return fmt.Errorf("invalid manual capture configuration")
+		}
+		return nil
+	}
 	if c.Availability != "mock_only" || strings.TrimSpace(c.Provenance) == "" {
 		return fmt.Errorf("incident rules require explicit mock_only provenance")
 	}

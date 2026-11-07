@@ -153,7 +153,7 @@ func (c *Controller) historyRows(headers []historyHeader) ([]map[string]any, err
 			session.IncidentCount = int64(len(items))
 		}
 		var size int64
-		for _, name := range []string{"session.json", "observations.jsonl", "events.jsonl", "incidents.jsonl", "raw/transport.jsonl"} {
+		for _, name := range evidenceFiles(session) {
 			f, err := openEvidence(path, name, maxLogBytes)
 			if err != nil {
 				return nil, err

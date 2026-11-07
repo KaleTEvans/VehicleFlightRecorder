@@ -107,10 +107,15 @@ func (e *Engine) Process(record telemetry.Record, reference Reference, buffer []
 		}
 		if index < 0 {
 			availableStart := max(requestedStart, e.start)
-			for _, sample := range buffer {
-				if sample.Timestamp() >= requestedStart {
-					availableStart = max(availableStart, sample.Timestamp())
-					break
+			// Live manual windows index the retained full-session files. Sparse
+			// samples need not land exactly on the requested time boundary.
+			// Gaps are still reported independently; no sample is fabricated.
+			if e.config.Availability != "manual_only" {
+				for _, sample := range buffer {
+					if sample.Timestamp() >= requestedStart {
+						availableStart = max(availableStart, sample.Timestamp())
+						break
+					}
 				}
 			}
 			item := Incident{SchemaVersion: 1, IncidentID: fmt.Sprintf("%s.incident-%06d", e.sessionID, len(e.items)+1), SessionID: e.sessionID, TriggerTimeUnixMS: timestamp, TriggerType: candidate.Type, PreWindowSeconds: float64(e.config.PreWindowMS) / 1000, PostWindowSeconds: float64(e.config.PostWindowMS) / 1000, WindowStartUnixMS: requestedStart, WindowEndUnixMS: requestedEnd, AvailableStartUnixMS: availableStart, AvailableEndUnixMS: timestamp, Status: "capturing", Severity: "info", Triggers: []Trigger{}, RelatedIncidentIDs: []string{}, CoverageGaps: []Gap{}, IncompleteReasons: []string{}}

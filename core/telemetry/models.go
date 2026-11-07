@@ -9,28 +9,69 @@ import (
 )
 
 const SchemaVersion = 1
+const LiveSchemaVersion = 2
+
+type LiveMetadata struct {
+	Origin         string `json:"origin"`
+	OperatingState string `json:"operating_state"`
+	Workload       string `json:"workload"`
+	NativeAnchorNS int64  `json:"native_anchor_ns"`
+	Catalog        string `json:"catalog_version"`
+	Protocol       string `json:"protocol_profile"`
+	ReportFile     string `json:"report_file"`
+	StartOrigin    string `json:"start_origin"`
+}
+type Provenance struct {
+	Transaction   string `json:"transaction_id"`
+	Generation    int    `json:"generation"`
+	RawRefs       []int  `json:"raw_refs"`
+	StartNS       int64  `json:"request_start_ns"`
+	SentNS        int64  `json:"stream_accepted_ns"`
+	ReceiveNS     int64  `json:"receive_ns"`
+	MeasurementMS *int64 `json:"measurement_unix_ms"`
+}
 
 // Observation is a numeric canonical measurement; missing values are not zeroes.
 // Only present, finite values are supported by this first schema implementation.
 type Observation struct {
-	RecordSequence     int64   `json:"record_sequence,omitempty"`
-	SchemaVersion      int     `json:"schema_version"`
-	TimestampUnixMS    int64   `json:"timestamp_unix_ms"`
-	SessionID          string  `json:"session_id"`
-	SignalID           string  `json:"signal_id"`
-	Source             string  `json:"source"`
-	Value              float64 `json:"value"`
-	Unit               string  `json:"unit"`
-	Quality            string  `json:"quality"`
-	Module             string  `json:"module,omitempty"`
-	Bus                string  `json:"bus,omitempty"`
-	RawRequest         string  `json:"raw_request,omitempty"`
-	RawResponse        string  `json:"raw_response,omitempty"`
-	DecoderVersion     string  `json:"decoder_version,omitempty"`
-	VehiclePackVersion string  `json:"vehicle_pack_version,omitempty"`
+	Provenance         *Provenance `json:"provenance,omitempty"`
+	RecordSequence     int64       `json:"record_sequence,omitempty"`
+	SchemaVersion      int         `json:"schema_version"`
+	TimestampUnixMS    int64       `json:"timestamp_unix_ms"`
+	SessionID          string      `json:"session_id"`
+	SignalID           string      `json:"signal_id"`
+	Source             string      `json:"source"`
+	Value              float64     `json:"value"`
+	Unit               string      `json:"unit"`
+	Quality            string      `json:"quality"`
+	Module             string      `json:"module,omitempty"`
+	Bus                string      `json:"bus,omitempty"`
+	RawRequest         string      `json:"raw_request,omitempty"`
+	RawResponse        string      `json:"raw_response,omitempty"`
+	DecoderVersion     string      `json:"decoder_version,omitempty"`
+	VehiclePackVersion string      `json:"vehicle_pack_version,omitempty"`
 }
 
 func (o Observation) Validate() error {
+	if o.SchemaVersion == LiveSchemaVersion {
+		p := o.Provenance
+		if p == nil || p.Transaction == "" || p.Generation < 1 || len(p.RawRefs) == 0 || p.StartNS < 0 || p.SentNS < p.StartNS || p.ReceiveNS < p.SentNS || p.MeasurementMS != nil || o.DecoderVersion == "" || o.Module == "" {
+			return fmt.Errorf("live observation requires actual transaction/receipt provenance")
+		}
+		if o.RawRequest != "" || o.RawResponse != "" {
+			return fmt.Errorf("live bytes belong in referenced raw ledger")
+		}
+		previous := 0
+		for _, ref := range p.RawRefs {
+			if ref <= previous {
+				return fmt.Errorf("live raw references must be positive and increasing")
+			}
+			previous = ref
+		}
+
+	} else if o.Provenance != nil {
+		return fmt.Errorf("legacy observation cannot claim live provenance")
+	}
 	if o.RecordSequence < 0 {
 		return fmt.Errorf("record_sequence cannot be negative")
 	}
@@ -108,7 +149,7 @@ func (e Event) Validate() error {
 }
 
 func validateEnvelope(version int, timestamp int64, session, source string) error {
-	if version != SchemaVersion {
+	if version != SchemaVersion && !(version == LiveSchemaVersion && source == "obd-live") {
 		return fmt.Errorf("unsupported schema_version %d", version)
 	}
 	if timestamp <= 0 {
@@ -160,6 +201,15 @@ func (r Record) Source() string {
 func (r Record) Clone() Record {
 	if r.Observation != nil {
 		o := *r.Observation
+		if o.Provenance != nil {
+			p := *o.Provenance
+			p.RawRefs = append([]int(nil), p.RawRefs...)
+			if p.MeasurementMS != nil {
+				v := *p.MeasurementMS
+				p.MeasurementMS = &v
+			}
+			o.Provenance = &p
+		}
 		r.Observation = &o
 	}
 	if r.Event != nil {
@@ -201,6 +251,7 @@ type MockConfig struct {
 }
 
 type Session struct {
+	Live               *LiveMetadata  `json:"live,omitempty"`
 	IncidentCapture    *CaptureConfig `json:"incident_capture,omitempty"`
 	SchemaVersion      int            `json:"schema_version"`
 	SessionID          string         `json:"session_id"`
@@ -219,6 +270,43 @@ type Session struct {
 func (s Session) Validate() error {
 	if err := validateEnvelope(s.SchemaVersion, s.StartTimeUnixMS, s.SessionID, s.Source); err != nil {
 		return err
+	}
+	if s.SchemaVersion == LiveSchemaVersion {
+		if s.Live == nil || s.Mock != nil || s.Source != "obd-live" || s.VehiclePackVersion != "none" || s.Live.ReportFile != "capability.json" || s.Live.NativeAnchorNS < 0 || s.Live.StartOrigin != "manual" {
+			return fmt.Errorf("invalid live session contract")
+		}
+		profile, catalog, protocol := "generic-obd-can11-500", "standard-live-can11-1", "can11-single-frame-headers-pci"
+		regular := s.Live.Workload == "combined" || s.Live.Workload == "rpm_only" || s.Live.Workload == "coolant_only" || s.Live.Workload == "voltage_only"
+		if s.Live.Workload == "can29_diagnostic" || (regular && s.Live.Protocol == "can29-normal-fixed-single-frame-headers-pci") {
+			profile, catalog, protocol = "generic-obd-can29-500", "standard-live-can29-1", "can29-normal-fixed-single-frame-headers-pci"
+		}
+		if s.Live.Workload == "adapter_handoff" {
+			if s.ObservationCount != 0 || s.IncidentCount != 0 {
+				return fmt.Errorf("adapter handoff cannot contain measurements/incidents")
+			}
+			profile, catalog, protocol = "adapter-state-only", "adapter-state-1", "adapter-state-only"
+		}
+		if s.ProfileID != profile || s.Live.Catalog != catalog || s.Live.Protocol != protocol {
+			return fmt.Errorf("live workload/profile mismatch")
+		}
+
+		switch s.Live.Origin {
+		case "physical", "native-fixture", "scripted-fixture":
+		default:
+			return fmt.Errorf("invalid live origin")
+		}
+		switch s.Live.OperatingState {
+		case "unknown", "ignition_on_engine_off", "stationary_running":
+		default:
+			return fmt.Errorf("invalid operating state")
+		}
+		switch s.Live.Workload {
+		case "combined", "rpm_only", "coolant_only", "voltage_only", "discovery_diagnostic", "can29_diagnostic", "adapter_handoff":
+		default:
+			return fmt.Errorf("invalid live workload")
+		}
+	} else if s.Live != nil || s.Source == "obd-live" {
+		return fmt.Errorf("live session requires schema 2")
 	}
 	if strings.TrimSpace(s.ProfileID) == "" || strings.TrimSpace(s.VehiclePackVersion) == "" {
 		return fmt.Errorf("profile_id and vehicle_pack_version are required")
@@ -259,6 +347,10 @@ func (s Session) Validate() error {
 }
 
 func (s Session) Clone() Session {
+	if s.Live != nil {
+		copy := *s.Live
+		s.Live = &copy
+	}
 	if s.IncidentCapture != nil {
 		config := *s.IncidentCapture
 		s.IncidentCapture = &config

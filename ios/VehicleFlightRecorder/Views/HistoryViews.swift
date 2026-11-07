@@ -6,50 +6,108 @@ struct SessionsView: View {
         List {
             Section {
                 if model.sessions.isEmpty {
-                    ContentUnavailableView("No drives yet", systemImage: "clock", description: Text("Start a mock drive from the dashboard. Saved drives stay on this simulator."))
+                    ContentUnavailableView("No drives yet", systemImage: "clock", description: Text("Start a recording from the dashboard. Saved sessions stay on this device."))
                 }
                 ForEach(model.sessions) { row in
                     NavigationLink {
-                        List {
-                            Section("Drive") {
-                                LabeledContent("Started", value: row.session.started.formatted())
-                                LabeledContent("Duration", value: row.session.duration)
-                                LabeledContent("State", value: model.sessionState(row.session))
-                                LabeledContent("Samples", value: "\(row.session.observationCount)")
-                                LabeledContent("Events", value: "\(row.session.eventCount)")
-                                LabeledContent("Incidents", value: "\(row.session.incidentCount)")
-                                LabeledContent("Size", value: ByteCountFormatter.string(fromByteCount: row.sizeBytes, countStyle: .file))
-                            }
-                            Section("Incidents") {
-                                if row.incidents.isEmpty { Text("No incidents recorded") }
-                                ForEach(row.incidents) { incident in
-                                    NavigationLink { IncidentDetailView(incident: incident, service: model.service) } label: { IncidentRow(incident: incident) }
-                                }
-                            }
-                            Section {
-                                Button("Export session ZIP") { Task { await model.export(row.id) } }
-                                    .disabled(row.session.state != "complete" || model.busy)
-                                Text("Stop and finalize before exporting. Interrupted sessions remain preserved locally; this app does not repair them.")
-                                    .font(.caption).foregroundStyle(.secondary)
-                                if let error = model.error { Text(error).foregroundStyle(.red) }
-                            }
-                        }.navigationTitle("Drive details")
+                        SessionDetailView(row: row, model: model)
                     } label: {
                         VStack(alignment: .leading, spacing: 5) {
                             Text(row.session.started, style: .date).font(.headline)
                             Text("\(row.session.started.formatted(date: .omitted, time: .shortened)) · \(row.session.duration)")
+                            if let live = row.session.live {
+                                Text(live.workloadTitle).font(.subheadline)
+                                    .accessibilityIdentifier("session-workload-summary")
+                                Text(live.operatingStateTitle).font(.caption).foregroundStyle(.secondary)
+                                Text(live.protocolTitle).font(.caption).foregroundStyle(.secondary)
+                                    .accessibilityIdentifier("session-profile-summary")
+                            }
                             Text("\(row.session.observationCount) samples · \(row.session.incidentCount) incidents · \(model.sessionState(row.session))").font(.caption).foregroundStyle(.secondary)
                         }
-                    }
+                    }.accessibilityIdentifier("session-row-\(row.id)")
                 }
                 if model.hasMoreSessions {
                     Button("Load more sessions") { Task { await model.loadMoreSessions() } }.disabled(model.busy)
                 }
                 if let error = model.error { Text(error).foregroundStyle(.red) }
-            } header: { Text("Local mock drives") }
+            } header: { Text("Local recordings") }
         }.navigationTitle("Sessions").refreshable { await model.refresh(advance: false) }
     }
 }
+// The visible detail page owns presentation. A fresh request identity lets the
+// same ZIP be shared again after dismissal, without observing a URL elsewhere.
+struct SessionDetailView: View {
+    let row: StoredSession
+    @ObservedObject var model: RecorderModel
+    @State private var share: SessionShareRequest?
+    var body: some View {
+        List {
+            if let live = row.session.live {
+                Section("Recording setup") {
+                    LabeledContent("Workload") {
+                        Text(live.workloadTitle).accessibilityIdentifier("session-workload-value")
+                    }
+                    LabeledContent("OBD protocol") { Text(live.protocolTitle).accessibilityIdentifier("session-protocol-value") }
+                    LabeledContent("Requested readings", value: live.requestedReadings)
+                    LabeledContent("Operating state", value: live.operatingStateTitle)
+                    LabeledContent("Origin", value: live.originTitle)
+                    Text("Workload and operating state are the selections made at Start; they do not confirm that measurements were received.")
+                        .font(.caption).foregroundStyle(.secondary)
+                    if live.workload == "adapter_handoff" {
+                        Text("No vehicle readings were requested. This session preserves adapter-state readbacks.")
+                    } else if row.session.observationCount == 0 {
+                        Text("No decoded readings were recorded. Raw adapter evidence may still be available in the session ZIP.")
+                            .accessibilityIdentifier("session-no-readings")
+                    }
+                }
+            }
+            Section("Drive") {
+                LabeledContent("Source", value: row.session.source ?? "unknown")
+                LabeledContent("Profile", value: row.session.profileId ?? "unknown")
+                LabeledContent("Started", value: row.session.started.formatted())
+                LabeledContent("Duration", value: row.session.duration)
+                LabeledContent("State", value: model.sessionState(row.session))
+                LabeledContent("Samples", value: "\(row.session.observationCount)")
+                LabeledContent("Events", value: "\(row.session.eventCount)")
+                LabeledContent("Incidents", value: "\(row.session.incidentCount)")
+                LabeledContent("Size", value: ByteCountFormatter.string(fromByteCount: row.sizeBytes, countStyle: .file))
+            }
+            Section("Incidents") {
+                if row.incidents.isEmpty { Text("No incidents recorded") }
+                ForEach(row.incidents) { incident in
+                    NavigationLink { IncidentDetailView(incident: incident, service: model.service) } label: { IncidentRow(incident: incident) }
+                        .accessibilityIdentifier("session-incident-\(incident.id)")
+                }
+            }
+            Section {
+                Button {
+                    Task {
+                        if let url = await model.export(row.id) { share = SessionShareRequest(url: url) }
+                    }
+                } label: {
+                    if model.exportingSessionID == row.id {
+                        HStack { ProgressView(); Text("Preparing ZIP…") }
+                    } else { Text("Export session ZIP") }
+                }
+                .buttonStyle(.borderless)
+                .accessibilityIdentifier("export-session-zip")
+                .disabled(row.session.state != "complete" || model.busy || share != nil)
+                Text("Stop and finalize before exporting. Interrupted sessions remain preserved locally; this app does not repair them.")
+                    .font(.caption).foregroundStyle(.secondary)
+                if let error = model.error {
+                    Text(error).foregroundStyle(.red).accessibilityIdentifier("session-export-error")
+                }
+            }
+        }
+        .navigationTitle("Drive details")
+        .sheet(item: $share) { request in
+            SessionShareSheet(url: request.url) {
+                if share?.id == request.id { share = nil }
+            }
+        }
+    }
+}
+
 struct IncidentRow: View {
     let incident: IncidentInfo
     var body: some View {
@@ -125,7 +183,7 @@ struct IncidentDetailView: View {
                                     }
                                 }
                             }
-                            Text("Synthetic temporal evidence. A preceding event does not establish a cause.").font(.caption).foregroundStyle(.secondary)
+                            Text("Temporal evidence. A preceding event does not establish a cause.").font(.caption).foregroundStyle(.secondary)
                         }
                     } label: { Text("Triggers · observed order") }
                     // Keep this anchor in the eager stack. A List may not materialize

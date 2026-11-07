@@ -16,11 +16,12 @@ stationary acquisition, raw provenance and retrieved/validated live exports.
 Inspect their actual reports and artifacts; do not infer acceptance from filenames,
 unsigned archives, synthetic transcripts or a successful TestFlight upload.
 
-As of October 29, 2026, M5 code/native regression checks passed, but signing,
-installation and physical acceptance remain pending. The user has applied for
-Apple Developer enrollment and is awaiting approval. M6 has not started. Recheck
-these facts when this assignment is activated. Finish independent code/test work
-when physical access is unavailable and report remaining gates honestly.
+Current prerequisite status — November 3, 2026: M5 is physically accepted and
+merged. M6 implementation/native checks and TestFlight build 7.1 delivery passed;
+its consolidated stationary acceptance remains pending. Inspect the current
+`docs/MILESTONE_6.md` and physical evidence before activating M7. Finish independent
+code/test work when physical access is unavailable and report remaining gates
+honestly. This update does not authorize starting M7.
 
 Inspect `git status` and repository instructions, preserve unrelated changes, and
 stay within this milestone. Keep the diagnostic-first MVP ahead of the separately
@@ -292,6 +293,25 @@ Create sanitized fixtures only when needed, documenting transformations and
 preserving relative timing/reference consistency. Public CI artifacts must not
 expose VINs, accessory serials or other personal vehicle identifiers. Label fixture,
 native mock and physical evidence separately. No cloud ingestion is required.
+
+## Physical test-session organization
+
+Follow [the shared test-session workflow](physical_test_sessions.md). Prepare the
+complete milestone checklist on one tested beta before requesting connected tests.
+Group car-dependent automatic policy, notification presentation, locked/background
+and reconnect cases into one planned parked block. Exercise permission/preferences,
+routing and failure combinations with native fixtures/desk tests where possible;
+reserve physical checks for behavior that actually needs vehicle activity/iOS
+lifecycle evidence. Review history, exports and raw logs after the visit.
+
+Identify the analysis hold before first road use: inspect the parked results and
+confirm the permitted workload, then provide one controlled-road packet. Group
+repeat/long-duration reliability evidence into planned or normal-use drives when
+appropriate. M7 can require multiple substantial blocks; do not promise one visit
+or issue a new car request for each isolated case. Define durations and budgets
+from accepted evidence before release. Keep all distinct lifecycle states and
+repeated-drive requirements in the acceptance matrix; batch fixes and retest only
+affected cases plus a relevant regression check. Reuse unchanged M6 evidence.
 
 ## Required verification and acceptance matrix
 

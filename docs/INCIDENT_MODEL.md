@@ -85,3 +85,19 @@ corrupt files fail. `--allow-incomplete` inspects preserved well-formed logs wit
 repairing them. Raw transport remains empty; nonempty raw logs require a future
 supported decoder. Storage failures prevent complete metadata; no power-loss
 recovery, concurrent recorder API, or real-vehicle diagnostic accuracy is claimed.
+
+## Milestone 6 live manual capture
+
+Live sessions use an explicit `manual_only` detector; the mock voltage/TCM and
+other synthetic thresholds are never applied to standard OBD data. Canonical
+session schema 2 still uses incident journal schema 1. A user mark requests the
+same 60-second pre-window and 120-second post-window, with exact event references.
+
+For live manual windows, available pre-history is the retained full-session
+interval, clamped to session start, rather than the first sparse sample after the
+requested boundary. This indexes the actual canonical logs; it does not invent a
+boundary sample. Disconnect intervals and >15-second record silence still produce
+coverage gaps and partial captures. Starting too recently or stopping too early
+remains partial. Capture completeness does not establish parameter support,
+sensor refresh or a diagnosis. Python reconstruction accepts the validated live
+raw/provenance extension described in [the session contract](DATA_SCHEMA.md).

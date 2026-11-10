@@ -17,8 +17,8 @@ Inspect their actual reports and artifacts; do not infer acceptance from filenam
 unsigned archives, synthetic transcripts or a successful TestFlight upload.
 
 Current prerequisite status — November 10, 2026: M5 is physically accepted and
-merged. M6 implementation and stationary acceptance passed on build 13.1; PR #5
-mainline/formal closeout remains pending. Inspect `docs/MILESTONE_6.md` and
+merged. M6 implementation and stationary acceptance passed on build 13.1 and M6
+is formally accepted/closed through PR #5. Inspect `docs/MILESTONE_6.md` and
 `docs/MILESTONE_6_STATIONARY_ACCEPTANCE.md` before activating M7. This handoff
 update does not authorize implementation, road testing or new permissions.
 

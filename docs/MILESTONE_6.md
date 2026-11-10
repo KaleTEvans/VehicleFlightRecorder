@@ -1,13 +1,14 @@
 # Milestone 6 — adapter initialization and standard OBD
 
-Status: PARTIALLY COMPLETE — **implementation and stationary acceptance passed**,
-updated November 10, 2026. All five ordinary-mode phone exports independently
+Status: COMPLETE — **formally accepted November 10, 2026**, integrated through
+[PR #5](https://github.com/KaleTEvans/VehicleFlightRecorder/pull/5).
+All five ordinary-mode phone exports independently
 validate, including same-session reconnect, full/partial manual incidents and
 engine-off zero RPM. See the [physical acceptance/quality report](MILESTONE_6_STATIONARY_ACCEPTANCE.md).
-The only remaining closeout action is PR #5/mainline integration; this review does
-not merge it or start M7. No additional M6 car test is requested. M5 PR #3 is
-accepted/merged as `94c5949`; M6 remains on `codex/milestone-6-live-acquisition`.
-Historical pending/failed-test entries below are superseded by this acceptance.
+No M6 acceptance gate remains open and no additional car test is requested.
+M5 PR #3 is accepted/merged as `94c5949`. M7 has not started.
+Historical pending/failed-test and draft-PR entries below describe earlier states;
+they are superseded by this closeout and the final physical acceptance report.
 
 ## Implemented scope
 
@@ -44,7 +45,7 @@ pp. 31–32, 41–44 and 47. STP33 selects the runtime preset; ATSP would save t
 and is excluded. ATD restores runtime defaults without reboot. STPR must report 33.
 The exact allowlist, schemas, budgets and tests are recorded below.
 
-## Acceptance and remaining closeout
+## Final acceptance
 
 The requested ordinary physical cases passed on build 13.1: engine-off RPM/coolant,
 running single-signal acquisition, Combined acquisition, two real manual windows,
@@ -54,9 +55,8 @@ remain valid. The measured quality populations, one intentional-unplug timeout,
 recorded scheduling gap and Stop-state behavior are preserved in the
 [acceptance report](MILESTONE_6_STATIONARY_ACCEPTANCE.md).
 
-No file-backed M6 acceptance case remains open. PR #5 is still draft/unmerged
-pending formal closeout; no merge or new milestone implementation is performed by
-this evidence review. Road/hands-off/background/termination reliability and power/
+No file-backed M6 acceptance case remains open. The user authorized formal closeout
+and mainline integration on November 10. Road/hands-off/background/termination reliability and power/
 storage road budgets belong to M7. Actual module/TCM identity and enhanced signals
 remain unqualified. Generic CAN11 is retained/tested synthetically, not physically
 qualified on this car by CAN29 success.
@@ -114,7 +114,13 @@ history/evidence and ZIP packaging. Simulator root remains the accepted mock UI.
   actual native-export checks passed as recorded below. Fixture timings are
   synthetic, not measured adapter performance.
 
-## Stationary physical acceptance plan (pending)
+## Historical implementation and acceptance record
+
+The following dated entries preserve the original plans, failures, fixes and beta
+deliveries. Their pending/draft statements are historical; current status is
+COMPLETE as stated above and in the final closeout entry.
+
+## Original stationary physical acceptance plan (superseded)
 
 Use the single [M6 parked test-visit checklist](../planning/milestone_6_test_session.md)
 under the [shared physical test-session workflow](../planning/physical_test_sessions.md).
@@ -879,7 +885,28 @@ Bluetooth pairing time. These data do not qualify general background or road
 continuity. The M7 handoff now records that module replies exist with valid zero
 RPM; module presence alone must not start a drive.
 
-Implementation/stationary acceptance is verified; PR #5/mainline closeout remains
-pending. No additional car visit is requested and no M7 behavior is implemented.
+Implementation/stationary acceptance is verified. No additional car visit is
+requested and no M7 behavior is implemented.
+
+## Formal closeout — November 10, 2026
+
+The user authorized M6 closeout after review of all five ordinary-mode phone
+exports. M6 is COMPLETE, accepted and integrated into `master` through
+[PR #5](https://github.com/KaleTEvans/VehicleFlightRecorder/pull/5).
+The final physical review is committed as `6b974b2`; portable push/PR CI passed
+on that source. The closeout documentation passes the same CI before merge.
+
+Accepted evidence remains build **0.1.0 (13.1)** from exact native-tested source
+`0044c1e5f0ec181e86da8d1deb3de221f33145b5`: 33 hosted / seven UI tests, both
+device compile profiles and 19 independently validated native ZIPs. The current
+reader passes 157 tests and validates all 11 retained phone captures. Five final
+physical ZIPs contain 599 observations; both real manual incidents reconstruct.
+The single intentional-unplug timeout, measured recovery delay, unknown scheduling
+gap and other scope limits remain in the quality report; closeout does not erase
+those observations or claim general road/background reliability.
+
+No application code, TestFlight upload or additional physical test is required
+for this administrative closeout. M7's prerequisites are satisfied at M6's accepted
+stationary scope; implementing or testing M7 requires a separate instruction.
 
 **Milestone 7 not started.**

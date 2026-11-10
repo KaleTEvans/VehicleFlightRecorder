@@ -1423,8 +1423,9 @@ label the resulting evidence accordingly.
 **User workflow requirement — November 3, 2026:** Minimize separate car visits.
 Each milestone must have one complete acceptance checklist, or clearly planned
 large connected-test blocks when earlier physical evidence must be reviewed.
-Follow [the test-session workflow](physical_test_sessions.md). The current M6
-packet is [one parked test visit](milestone_6_test_session.md).
+Follow [the test-session workflow](physical_test_sessions.md). The final M6
+[parked test packet](milestone_6_final_session.md) passed; M6 was formally
+accepted and closed November 10, 2026. No repeat M6 visit is requested.
 
 Complete independent implementation, automated/native checks, signed delivery and
 reference/equipment preparation before asking for a visit. Several workload or
@@ -1619,6 +1620,12 @@ Acceptance:
 - app reliably opens/closes the MX+ session and records raw adapter responses.
 
 ## Milestone 6 — adapter initialization + standard OBD
+
+Status: COMPLETE — formally accepted and closed November 10, 2026 through
+[PR #5](https://github.com/KaleTEvans/VehicleFlightRecorder/pull/5).
+See the [implementation report](../docs/MILESTONE_6.md) and
+[physical quality report](../docs/MILESTONE_6_STATIONARY_ACCEPTANCE.md).
+The deliverables and acceptance scope below are preserved; M7 has not started.
 
 Deliverables:
 

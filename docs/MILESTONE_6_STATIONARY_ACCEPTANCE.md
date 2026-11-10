@@ -6,8 +6,9 @@ All five supplied build-13.1 ZIPs independently validate, and both real manual
 incidents reconstruct with exact canonical/raw provenance.
 
 **Result: the remaining M6 stationary acceptance checks pass at the scope below.**
-PR #5/mainline closeout remains pending; no additional car visit or repeat of
-these tests is requested. M7 has not started.
+The user authorized formal M6 closeout November 10, integrated through
+[PR #5](https://github.com/KaleTEvans/VehicleFlightRecorder/pull/5). No additional
+car visit or repeat of these tests is requested. M7 has not started.
 
 ## Setup and evidence identity
 
@@ -173,8 +174,8 @@ workload measurements, valid engine-off zero handling, same-session disconnect/
 recovery with fresh generation evidence, full and partial manual incidents,
 retrieved/reconstructed native phone exports and qualitative prior reference.
 
-This meets the M6 stationary implementation/acceptance scope. Mainline merge/
-formal closeout remains separate; M7 is not authorized or started by this review.
+This meets the M6 stationary implementation/acceptance scope. M6 is formally
+closed; M7 is not authorized or started by this closeout.
 Road/hands-off/background behavior, universal vehicle compatibility, enhanced
 TCM/module identity, internal sensor refresh and power/storage road budgets remain
 unqualified. Preserve these limits and the measured recovery/setup delays in M7.

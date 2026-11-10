@@ -1,5 +1,10 @@
 # Milestone 6 — one parked test visit
 
+Status: HISTORICAL — superseded during diagnosis and completed through the
+[final build-13.1 packet](milestone_6_final_session.md). M6 was accepted and
+formally closed November 10, 2026. The pending/paused instructions below record
+earlier states; no additional M6 car visit or file retrieval is requested.
+
 Next-visit update: the [targeted diagnostic packet](milestone_6_diagnostic_session.md)
 on delivered build **10.1** supersedes this general checklist for the next visit. Build 9.1
 UI/export checks passed by user confirmation; no standalone repeat is needed.

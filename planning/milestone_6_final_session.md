@@ -13,8 +13,9 @@ Build: **Vehicle Flight Recorder 0.1.0 (13.1)**, native source
 Apple confirmed VALID / IN_BETA_TESTING. Native acceptance: 33 hosted / seven UI
 tests, both device compile profiles and 19 actual native ZIPs. Current reader: 157
 tests; all 11 retained phone captures validate. Instructions below are the
-historical test protocol, not a new request. Mainline/formal closeout remains
-separate; this review does not merge PR #5 or start M7.
+historical test protocol, not a new request. The user authorized formal M6 closeout
+November 10, integrated through [PR #5](https://github.com/KaleTEvans/VehicleFlightRecorder/pull/5).
+M7 has not started.
 
 ## What this build adds
 

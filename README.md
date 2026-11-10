@@ -16,8 +16,8 @@ vehicle packs. The diagnostic MVP takes priority over the later Driver Companion
 real MX+ firmware exchange/raw export, flicker correction, lock/unlock and automatic
 replug recovery (about 1–2 seconds after Bluetooth reconnects) passed on the phone.
 
-**Milestone 6 implementation and stationary acceptance have passed; PR #5
-mainline closeout remains pending.** Five build-13.1 phone exports independently
+**Milestone 6 is complete, accepted and merged through
+[PR #5](https://github.com/KaleTEvans/VehicleFlightRecorder/pull/5).** Five build-13.1 phone exports independently
 validate: engine-off RPM/coolant, running individual RPM/coolant and a continuous
 **320-second Combined recording** with same-session reconnect and both Captured /
 Partial manual incidents. They contain 599 observations from three distinct CAN
@@ -41,8 +41,8 @@ tests**, checks session/report profile consistency, and independently revalidate
 all 19 native ZIPs and all 11 retained phone captures. TestFlight **0.1.0 (13.1)**
 uploaded November 6 at **7:28:21 p.m. CST** and is confirmed VALID /
 IN_BETA_TESTING. The [single-visit packet](planning/milestone_6_final_session.md)
-is passed and retained as the historical test protocol. PR #5 is still draft/
-unmerged pending formal closeout; Appetize remains mock.
+is passed and retained as the historical test protocol. Formal M6 closeout was
+authorized November 10; Appetize remains mock.
 
 | Milestone | Scope | Status / details |
 | --- | --- | --- |
@@ -52,7 +52,7 @@ unmerged pending formal closeout; Appetize remains mock.
 | 3 | Native dashboard, sessions, incidents and export | Complete and merged; [report](docs/MILESTONE_3.md) |
 | 4 | Bridge, lifecycle and device/simulator build hardening | Complete and merged; [report](docs/MILESTONE_4.md) |
 | 5 | MX+ byte transport, connection evidence and offline preparation | Complete, accepted and merged; [report](docs/MILESTONE_5.md) |
-| 6 | Adapter initialization, standard OBD and live acquisition | Implementation/stationary acceptance passed; PR #5 closeout pending; [report](docs/MILESTONE_6.md) |
+| 6 | Adapter initialization, standard OBD and live acquisition | Complete, accepted and merged; [report](docs/MILESTONE_6.md) |
 | 7 | Hands-off road logging, start confirmations and reliability | Planned; [handoff](planning/milestone_7.md) |
 | 8 | Verified Giulia drivetrain signals and incident correlation | Planned; [handoff](planning/milestone_8.md) |
 
@@ -70,12 +70,13 @@ unmerged pending formal closeout; Appetize remains mock.
 - **Python analysis:** validate/summarize sessions, reconstruct incidents, inspect
   connection captures and independently replay synthetic and live acquisition reports.
 
-Simulator/Appetize uses the mock recorder. On the Milestone 6 branch, physical
+Simulator/Appetize uses the mock recorder. Physical
 builds add explicit **parked stationary recording**: documented Go-owned adapter
 setup, supported-PID discovery, RPM/coolant and adapter input voltage, manual
 incidents and a six-file ZIP with exact raw/transaction provenance. Opening a
-connection alone still sends no commands; Start enables live acquisition. TestFlight build `6.1` is transport-only; build `7.1` adds these live controls.
-Update before performing M6 stationary tests. See [Milestone 6](docs/MILESTONE_6.md) for validation status and limits.
+connection alone still sends no commands; Start enables live acquisition. Current
+TestFlight build **13.1** includes the accepted ordinary CAN29 controls.
+See [Milestone 6](docs/MILESTONE_6.md) for validation status and limits.
 
 CAN29 diagnostic and ordinary stationary acquisition, manual windows and
 same-session recovery now have validated physical evidence. Automatic trip start/stop, user-facing recording
@@ -87,8 +88,8 @@ simulator build or unsigned device compile does not establish these behaviors.
 The [13.1 M6 packet](planning/milestone_6_final_session.md) passed using the
 November 10 phone exports and the user's report that the flow worked as intended.
 No repeat visit, diagnostic baseline or reference screenshot is requested.
-[Measured results and limitations](docs/MILESTONE_6_STATIONARY_ACCEPTANCE.md) are
-ready for mainline closeout. Later milestones use the
+[Measured results and limitations](docs/MILESTONE_6_STATIONARY_ACCEPTANCE.md) support
+the accepted M6 closeout. Later milestones use the
 [shared workflow](planning/physical_test_sessions.md) to group connected checks
 into one visit with retrieval/review indoors. Road/background/automatic-session
 acceptance belongs to M7 and remains unqualified.

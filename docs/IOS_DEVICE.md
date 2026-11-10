@@ -32,8 +32,9 @@ confirmed build VALID / internal IN_BETA_TESTING (Apple uploadedDate
 [one-visit packet](../planning/milestone_6_final_session.md) passed on November 10.
 All five ordinary-mode exports validate and both real manual incidents reconstruct;
 same-session reconnect repeats setup/support and restores fresh values. See the
-[stationary quality report](MILESTONE_6_STATIONARY_ACCEPTANCE.md). PR #5 mainline/
-formal closeout remains pending; no additional M6 car visit is requested. M7 is not
+[stationary quality report](MILESTONE_6_STATIONARY_ACCEPTANCE.md). M6 is complete,
+accepted and integrated through [PR #5](https://github.com/KaleTEvans/VehicleFlightRecorder/pull/5)
+following user-authorized closeout November 10; no additional M6 car visit is requested. M7 is not
 started. The brief Disconnected state at Stop is intentional stream teardown;
 Ready afterward is idle transport availability and does not resume recording.
 

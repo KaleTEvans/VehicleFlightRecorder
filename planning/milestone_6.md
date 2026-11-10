@@ -1,5 +1,13 @@
 # Codex Handoff — Vehicle Flight Recorder, Milestone 6 Only
 
+Status: COMPLETE — accepted and closed November 10, 2026 through
+[PR #5](https://github.com/KaleTEvans/VehicleFlightRecorder/pull/5).
+The original assignment below is retained as historical scope. Current results,
+native/TestFlight provenance and physical evidence are in
+[the milestone report](../docs/MILESTONE_6.md) and
+[the stationary quality report](../docs/MILESTONE_6_STATIONARY_ACCEPTANCE.md).
+No repeat car visit or M7 implementation is requested by this handoff.
+
 ## Assignment and prerequisites
 
 Implement **Milestone 6 — adapter initialization + standard OBD** in:

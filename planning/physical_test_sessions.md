@@ -69,12 +69,12 @@ approved road configuration. Set controls/permissions while parked; inspect file
 and change configuration after stopping. Distinguish locked screen, OS suspension,
 OS termination and force-quit; an unreproduced condition remains untested.
 
-## Remaining milestone blocks
+## Milestone test blocks
 
 | Milestone | Planned grouping | Required boundary |
 | --- | --- | --- |
 | 5 | Already accepted; reuse its identity/transport evidence | No new M5 car visit to adopt this workflow; M6 rechecks recovery with actual polling |
-| 6 | One parked visit, approximately 20–30 minutes plus any prepared reference-tool time; all short, combined and reconnect recordings together | [Current runnable checklist](milestone_6_test_session.md); no road testing |
+| 6 | Complete and accepted November 10; grouped individual, Combined, manual incident and reconnect checks passed on build 13.1 | [Passed final packet](milestone_6_final_session.md) and [quality report](../docs/MILESTONE_6_STATIONARY_ACCEPTANCE.md); no additional M6 visit |
 | 7 | One consolidated parked policy/notification/lifecycle block; after analysis, a controlled-road block; representative repeated/long drives grouped into normal use where suitable | M6 accepted first; stationary results qualify the road workload. Durations/budgets must be set before release from actual evidence |
 | 8 | One parked block for the complete agreed, verified enhanced scope and references; after analysis, one planned combined-road block plus necessary targeted follow-up | M7 accepted first; new enhanced reads require stationary qualification before road use |
 

@@ -1,13 +1,20 @@
 # Milestone 6 — ordinary CAN29 recording and incident acceptance
 
-Status: READY. Install **Vehicle Flight Recorder 0.1.0 (13.1)** from TestFlight.
-Native app source: `0044c1e5f0ec181e86da8d1deb3de221f33145b5`.
-Uploaded **November 6, 2026, 7:28:21 p.m. CST**; Apple confirmed VALID /
-internal IN_BETA_TESTING. Native acceptance passed 33 hosted tests, seven UI tests,
-both device compile profiles and 19 actual native ZIP validations. The current
-independent reader passes 157 tests and revalidates every native export.
-VFR3's two-minute CAN29 baseline and the VFR2/OBDLink comparison are accepted;
-do not repeat those diagnostic recordings or reference screenshots.
+Status: PASSED — November 10, 2026. The user reports the test flow worked as
+intended. All five supplied build-13.1 exports independently validate, including
+same-session loss/recovery, one Captured manual incident and one Partial incident;
+both incidents reconstruct. VFR6.1/6.2 show engine-off RPM/coolant and VFR6.3/6.4
+running single-signal reads; VFR6.5 is the continuous Combined case. No repeat
+visit or extra screenshots are requested. See
+[the acceptance/quality report](../docs/MILESTONE_6_STATIONARY_ACCEPTANCE.md).
+
+Build: **Vehicle Flight Recorder 0.1.0 (13.1)**, native source
+`0044c1e5f0ec181e86da8d1deb3de221f33145b5`. Uploaded November 6 at 7:28:21 p.m. CST;
+Apple confirmed VALID / IN_BETA_TESTING. Native acceptance: 33 hosted / seven UI
+tests, both device compile profiles and 19 actual native ZIPs. Current reader: 157
+tests; all 11 retained phone captures validate. Instructions below are the
+historical test protocol, not a new request. Mainline/formal closeout remains
+separate; this review does not merge PR #5 or start M7.
 
 ## What this build adds
 

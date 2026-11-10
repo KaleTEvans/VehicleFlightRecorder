@@ -11,17 +11,21 @@ vehicle packs. The diagnostic MVP takes priority over the later Driver Companion
 
 ## Current status
 
-**November 6, 2026:** Milestones 0–4 are complete and merged into `master`.
+**November 10, 2026:** Milestones 0–4 are complete and merged into `master`.
 [Milestone 5 is accepted and merged](https://github.com/KaleTEvans/VehicleFlightRecorder/pull/3):
 real MX+ firmware exchange/raw export, flicker correction, lock/unlock and automatic
 replug recovery (about 1–2 seconds after Bluetooth reconnects) passed on the phone.
 
-**Milestone 6 is in progress.** Build-12.1 CAN29 diagnostic acquisition is
-physically verified: VFR3 retained **187 readings over 122.755 seconds**, and VFR2
-retained 87 readings in a later session. Three distinct CAN IDs supplied RPM and
-coolant, with adapter voltage preserved separately. The later OBDLink screenshot
-provides a basic sequential reference comparison. Reconnect remains unverified
-in these separate single-connection exports; no repeat baseline is requested.
+**Milestone 6 implementation and stationary acceptance have passed; PR #5
+mainline closeout remains pending.** Five build-13.1 phone exports independently
+validate: engine-off RPM/coolant, running individual RPM/coolant and a continuous
+**320-second Combined recording** with same-session reconnect and both Captured /
+Partial manual incidents. They contain 599 observations from three distinct CAN
+IDs plus adapter voltage. Both real incidents reconstruct with raw provenance.
+The [stationary quality report](docs/MILESTONE_6_STATIONARY_ACCEPTANCE.md) records
+measured rates/latencies, the intentional-unplug timeout, recovery/setup delays,
+coverage gaps and Stop-state behavior. Prior diagnostic/reference acceptance is
+retained. No additional M6 car test is requested; M7 has not started.
 
 Regular Combined, RPM-only, Coolant-only and Adapter-voltage-only now have an
 explicit CAN11/CAN29 protocol choice. The native test-car UI defaults to CAN29
@@ -34,11 +38,11 @@ Exact native source `0044c1e5f0ec181e86da8d1deb3de221f33145b5` passed **33 hoste
 tests, seven UI tests, both device compile profiles and 19 native ZIP validations**.
 Go/vet/race and 29 script tests passed; the current reader passes **157 Python
 tests**, checks session/report profile consistency, and independently revalidates
-all 19 native ZIPs and all six retained phone captures. TestFlight **0.1.0 (13.1)**
+all 19 native ZIPs and all 11 retained phone captures. TestFlight **0.1.0 (13.1)**
 uploaded November 6 at **7:28:21 p.m. CST** and is confirmed VALID /
-IN_BETA_TESTING. The [remaining single-visit packet](planning/milestone_6_final_session.md)
-is ready. Physical ordinary/manual/reconnect acceptance stays open in
-[the report](docs/MILESTONE_6.md); PR #5 remains draft. Appetize remains mock.
+IN_BETA_TESTING. The [single-visit packet](planning/milestone_6_final_session.md)
+is passed and retained as the historical test protocol. PR #5 is still draft/
+unmerged pending formal closeout; Appetize remains mock.
 
 | Milestone | Scope | Status / details |
 | --- | --- | --- |
@@ -48,7 +52,7 @@ is ready. Physical ordinary/manual/reconnect acceptance stays open in
 | 3 | Native dashboard, sessions, incidents and export | Complete and merged; [report](docs/MILESTONE_3.md) |
 | 4 | Bridge, lifecycle and device/simulator build hardening | Complete and merged; [report](docs/MILESTONE_4.md) |
 | 5 | MX+ byte transport, connection evidence and offline preparation | Complete, accepted and merged; [report](docs/MILESTONE_5.md) |
-| 6 | Adapter initialization, standard OBD and live acquisition | In progress; [report](docs/MILESTONE_6.md); [handoff](planning/milestone_6.md) |
+| 6 | Adapter initialization, standard OBD and live acquisition | Implementation/stationary acceptance passed; PR #5 closeout pending; [report](docs/MILESTONE_6.md) |
 | 7 | Hands-off road logging, start confirmations and reliability | Planned; [handoff](planning/milestone_7.md) |
 | 8 | Verified Giulia drivetrain signals and incident correlation | Planned; [handoff](planning/milestone_8.md) |
 
@@ -73,21 +77,21 @@ incidents and a six-file ZIP with exact raw/transaction provenance. Opening a
 connection alone still sends no commands; Start enables live acquisition. TestFlight build `6.1` is transport-only; build `7.1` adds these live controls.
 Update before performing M6 stationary tests. See [Milestone 6](docs/MILESTONE_6.md) for validation status and limits.
 
-Initial CAN29 diagnostic ECU acquisition/rates have physical evidence; ordinary
-workload, manual-window and reconnect acceptance remain open. Automatic trip start/stop, user-facing recording
+CAN29 diagnostic and ordinary stationary acquisition, manual windows and
+same-session recovery now have validated physical evidence. Automatic trip start/stop, user-facing recording
 confirmations and road/background qualification belong to Milestone 7. An uploaded
 simulator build or unsigned device compile does not establish these behaviors.
 
 ## Human acceptance sessions
 
-The [remaining M6 packet](planning/milestone_6_final_session.md) is ready for
-**13.1**. It groups conditional ignition-on/engine-off, individual
-RPM/coolant, a full Combined manual window, reconnect during that same recording,
-and an intentionally shortened second incident into one **10–15 minute parked
-visit**. Export/review follows indoors. The accepted diagnostic baseline, prior
-reference screenshots and 9.1 UI checks are not requested again. Follow the
-[shared workflow](planning/physical_test_sessions.md); full M6 physical acceptance
-remains open.
+The [13.1 M6 packet](planning/milestone_6_final_session.md) passed using the
+November 10 phone exports and the user's report that the flow worked as intended.
+No repeat visit, diagnostic baseline or reference screenshot is requested.
+[Measured results and limitations](docs/MILESTONE_6_STATIONARY_ACCEPTANCE.md) are
+ready for mainline closeout. Later milestones use the
+[shared workflow](planning/physical_test_sessions.md) to group connected checks
+into one visit with retrieval/review indoors. Road/background/automatic-session
+acceptance belongs to M7 and remains unqualified.
 
 ## Develop and test in WSL
 

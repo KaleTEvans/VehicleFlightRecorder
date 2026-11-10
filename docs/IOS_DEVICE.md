@@ -29,8 +29,13 @@ and retained phone exports. Signed
 uploaded **13.1** November 6 at **7:28:21 p.m. CST**, with no errors; Apple
 confirmed build VALID / internal IN_BETA_TESTING (Apple uploadedDate
 01:29:02 UTC November 7 / 7:29:02 p.m. CST November 6). The
-[remaining one-visit packet](../planning/milestone_6_final_session.md) is ready. Physical ordinary/manual/
-reconnect gates remain open; M7 is not started.
+[one-visit packet](../planning/milestone_6_final_session.md) passed on November 10.
+All five ordinary-mode exports validate and both real manual incidents reconstruct;
+same-session reconnect repeats setup/support and restores fresh values. See the
+[stationary quality report](MILESTONE_6_STATIONARY_ACCEPTANCE.md). PR #5 mainline/
+formal closeout remains pending; no additional M6 car visit is requested. M7 is not
+started. The brief Disconnected state at Stop is intentional stream teardown;
+Ready afterward is idle transport availability and does not resume recording.
 
 ### Earlier beta deliveries and physical evidence
 

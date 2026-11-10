@@ -1,12 +1,13 @@
 # Milestone 6 — adapter initialization and standard OBD
 
-Status: PARTIALLY COMPLETE — updated November 6, 2026. Build 12.1 physical
-CAN29 diagnostic acquisition is verified: VFR3 provides the requested two-minute
-pre-unplug baseline; VFR2 and the later OBDLink screenshot provide additional
-acquisition/reference evidence. The new ordinary-workload profile choice passed
-native acceptance and is delivered in TestFlight 13.1. Physical ordinary/manual/reconnect gates remain open; see the
-latest sections below. M5 PR #3 is accepted and merged as `94c5949`; M6 remains
-on `codex/milestone-6-live-acquisition` in draft PR #5. M7 is not started.
+Status: PARTIALLY COMPLETE — **implementation and stationary acceptance passed**,
+updated November 10, 2026. All five ordinary-mode phone exports independently
+validate, including same-session reconnect, full/partial manual incidents and
+engine-off zero RPM. See the [physical acceptance/quality report](MILESTONE_6_STATIONARY_ACCEPTANCE.md).
+The only remaining closeout action is PR #5/mainline integration; this review does
+not merge it or start M7. No additional M6 car test is requested. M5 PR #3 is
+accepted/merged as `94c5949`; M6 remains on `codex/milestone-6-live-acquisition`.
+Historical pending/failed-test entries below are superseded by this acceptance.
 
 ## Implemented scope
 
@@ -43,15 +44,22 @@ pp. 31–32, 41–44 and 47. STP33 selects the runtime preset; ATSP would save t
 and is excluded. ATD restores runtime defaults without reboot. STPR must report 33.
 The exact allowlist, schemas, budgets and tests are recorded below.
 
-## Remaining acceptance gates
+## Acceptance and remaining closeout
 
-Successful stationary individual/combined acquisition and reference comparison,
-remaining phone-export checks and manual incident reconstruction. The two requested
-zero-sample phone recordings were retrieved and validated on November 6, as
-recorded below; their discovery failure remains unresolved. Automated/native evidence and signed upload have passed as
-recorded below. Do not label scripted/native fixtures as physical measurements.
-M5 identity/reconnect acceptance does not establish ECU polling or road reliability.
+The requested ordinary physical cases passed on build 13.1: engine-off RPM/coolant,
+running single-signal acquisition, Combined acquisition, two real manual windows,
+connection loss/fresh-generation recovery and retrieved/reconstructed phone ZIPs.
+The prior diagnostic baseline, sequential OBDLink reference and native acceptance
+remain valid. The measured quality populations, one intentional-unplug timeout,
+recorded scheduling gap and Stop-state behavior are preserved in the
+[acceptance report](MILESTONE_6_STATIONARY_ACCEPTANCE.md).
 
+No file-backed M6 acceptance case remains open. PR #5 is still draft/unmerged
+pending formal closeout; no merge or new milestone implementation is performed by
+this evidence review. Road/hands-off/background/termination reliability and power/
+storage road budgets belong to M7. Actual module/TCM identity and enhanced signals
+remain unqualified. Generic CAN11 is retained/tested synthetically, not physically
+qualified on this car by CAN29 success.
 
 ## Implemented acquisition path
 
@@ -835,5 +843,43 @@ Read-only Apple API inspection confirmed build VALID / internal IN_BETA_TESTING,
 with uploadedDate **01:29:02 UTC November 7 / 7:29:02 p.m. CST November 6**.
 The final-session packet is ready for 13.1; physical ordinary/manual/reconnect
 acceptance is still open. PR #5 stays draft.
+
+## Ordinary-mode physical acceptance — November 10, 2026
+
+The user reports the requested tests worked as intended and supplied VFR6.1–6.5
+from build 13.1. All five six-file exports validate with independent raw/report/
+canonical replay; both actual manual incidents reconstruct. Total evidence is
+599 observations, 366 successful transactions, one timeout during the intentional
+unplug, 1,650 raw rows and zero uncheckpointed/uncommitted records. No decoder or
+NO DATA outcomes occur. Raw files remain private under ignored
+`.cache/physical-tests/2026-11-10/ordinary-can29-13.1/`.
+
+VFR6.1 records valid zero RPM with ignition-on/engine-off selected; VFR6.2 retains
+coolant replies in that state. VFR6.3/6.4 record running individual RPM/coolant.
+VFR6.5 is a continuous 320.047-second Combined session with 470 observations and
+two generations: successful fresh setup/support/values follow the intentional
+loss. The first real manual incident has its full 60 s pre / 120 s post span and
+is Captured; the second correctly remains Partial, preserving unavailable post
+coverage and reconnect/stop gaps. These close the earlier ordinary/manual/
+reconnect file-evidence gates. The user reports the test flow worked as intended;
+byte evidence cannot independently identify whether a Connect control was tapped.
+
+The observed brief Ready→Disconnected at Stop is consistent with deliberate native
+stream closure before finalizing Go. A later Ready state is idle transport
+availability, not a restarted recording; the view can reconnect on appearance.
+All supplied sessions end complete. The closed live ZIP cannot establish the
+exact UI/task timing of that later idle Ready state. No app fix or new beta is
+required for intentional Stop teardown.
+
+See [the complete stationary quality/acceptance report](MILESTONE_6_STATIONARY_ACCEPTANCE.md)
+for per-case duration/rates/latencies, raw recovery chronology, checksums and limits.
+It preserves the timeout/drain-reconnect cause, 21.50 s observed native scheduling
+gap, about 15.33 s connection-to-fresh-RPM setup/recovery and unknown actual
+Bluetooth pairing time. These data do not qualify general background or road
+continuity. The M7 handoff now records that module replies exist with valid zero
+RPM; module presence alone must not start a drive.
+
+Implementation/stationary acceptance is verified; PR #5/mainline closeout remains
+pending. No additional car visit is requested and no M7 behavior is implemented.
 
 **Milestone 7 not started.**

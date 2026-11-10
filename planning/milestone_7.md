@@ -16,12 +16,25 @@ stationary acquisition, raw provenance and retrieved/validated live exports.
 Inspect their actual reports and artifacts; do not infer acceptance from filenames,
 unsigned archives, synthetic transcripts or a successful TestFlight upload.
 
-Current prerequisite status — November 3, 2026: M5 is physically accepted and
-merged. M6 implementation/native checks and TestFlight build 7.1 delivery passed;
-its consolidated stationary acceptance remains pending. Inspect the current
-`docs/MILESTONE_6.md` and physical evidence before activating M7. Finish independent
-code/test work when physical access is unavailable and report remaining gates
-honestly. This update does not authorize starting M7.
+Current prerequisite status — November 10, 2026: M5 is physically accepted and
+merged. M6 implementation and stationary acceptance passed on build 13.1; PR #5
+mainline/formal closeout remains pending. Inspect `docs/MILESTONE_6.md` and
+`docs/MILESTONE_6_STATIONARY_ACCEPTANCE.md` before activating M7. This handoff
+update does not authorize implementation, road testing or new permissions.
+
+Measured M6 evidence for the activity policy: all three responding CAN IDs return
+valid zero RPM and coolant while ignition-on/engine-off is selected. Reply/module
+presence alone must not mean engine running. Ordinary running RPM cadence is
+about 2.60 s individually / 2.74 s Combined, coolant about 5.64 / 5.67 s; internal
+sensor refresh is unknown. A real scanner loss/recovery preserves one session
+and advances generation, repeats setup/support and resumes fresh RPM about 15.33 s
+after the new app connection. Exact Bluetooth pairing time is not recorded.
+The capture includes an unknown 21.50 s native scheduling gap; general background/
+lock/suspension/termination/road reliability remains unqualified. Preserve these
+setup/freshness delays and truthful coverage gaps when designing M7 states.
+Manual Stop deliberately closes the live stream; an idle Ready transport afterward
+does not resume recording. M7 automatic policy must keep transport availability
+separate from session start/stop and respect its planned manual-stop override.
 
 Inspect `git status` and repository instructions, preserve unrelated changes, and
 stay within this milestone. Keep the diagnostic-first MVP ahead of the separately

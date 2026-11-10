@@ -59,4 +59,221 @@ final class EvidenceNavigationTests: XCTestCase {
         XCTAssertTrue(interrupted.waitForExistence(timeout: 10))
     }
 
+    func testZeroSamplePhysicalHistoryExportOpensOnFirstTapAndRepeats() {
+        continueAfterFailure = false
+        let app = XCUIApplication()
+        app.launchArguments = ["--ui-test-history-export"]
+        app.launch()
+        let history = app.buttons["Saved sessions, incidents and export"]
+        XCTAssertTrue(history.waitForExistence(timeout: 30), app.debugDescription)
+        history.tap()
+        let rows = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH %@", "session-row-live-"))
+        expectation(for: NSPredicate { _, _ in rows.count == 2 }, evaluatedWith: app)
+        waitForExpectations(timeout: 15)
+        let identifiers = rows.allElementsBoundByIndex.map(\.identifier)
+        for (index, identifier) in identifiers.enumerated() {
+            let row = app.buttons[identifier]
+            let workload = row.staticTexts["session-workload-summary"].label
+            XCTAssertTrue(["RPM only", "Coolant only"].contains(workload))
+            row.tap()
+            let displayedWorkload = app.staticTexts["session-workload-value"]
+            for _ in 0..<4 {
+                if displayedWorkload.isHittable { break }
+                app.swipeUp()
+            }
+            XCTAssertTrue(displayedWorkload.waitForExistence(timeout: 10))
+            // LabeledContent exposes a combined label/value to accessibility.
+            XCTAssertEqual(displayedWorkload.label, "Workload, \(workload)")
+            let requested = workload == "RPM only" ? "Engine RPM" : "Coolant temperature"
+            XCTAssertTrue(app.staticTexts["Requested readings, \(requested)"].exists)
+            let noReadings = app.staticTexts["session-no-readings"]
+            for _ in 0..<3 {
+                if noReadings.isHittable { break }
+                app.swipeUp()
+            }
+            XCTAssertTrue(app.staticTexts["Operating state, Engine running / stationary"].exists)
+            XCTAssertTrue(app.staticTexts["Origin, Simulated native test fixture"].exists)
+            XCTAssertTrue(noReadings.isHittable)
+            let setup = XCTAttachment(screenshot: app.screenshot())
+            setup.name = "Saved \(workload) recording setup"
+            setup.lifetime = .keepAlways
+            add(setup)
+            let export = app.buttons["export-session-zip"]
+            // List materializes offscreen rows only after scrolling. Setup now
+            // leads the detail page, so reveal Export before waiting for its row.
+            for _ in 0..<6 {
+                if export.exists && export.isHittable { break }
+                app.collectionViews.firstMatch.swipeUp()
+            }
+            XCTAssertTrue(export.waitForExistence(timeout: 10), app.debugDescription)
+            XCTAssertTrue(export.isHittable, app.debugDescription)
+            for attempt in 0..<(index == 0 ? 2 : 1) {
+                export.tap() // One tap; no retry loop can hide a presentation failure.
+                // UIActivityViewController presents a remote system hierarchy;
+                // verify its real controls and the correct file, not a host-view ID.
+                let sheet = app.otherElements["ActivityListView"]
+                XCTAssertTrue(sheet.waitForExistence(timeout: 15), app.debugDescription)
+                let sessionID = String(identifier.dropFirst("session-row-".count))
+                let title = app.navigationBars["UIActivityContentView"].otherElements.matching(NSPredicate(format: "label == %@", sessionID)).firstMatch
+                XCTAssertTrue(title.waitForExistence(timeout: 30), app.debugDescription)
+                let save = app.cells.matching(NSPredicate(format: "label == %@", "Save to Files")).firstMatch
+                XCTAssertTrue(save.waitForExistence(timeout: 15), app.debugDescription)
+                XCTAssertTrue(save.isHittable, app.debugDescription)
+                XCTAssertFalse(app.staticTexts["session-export-error"].exists)
+                let screenshot = XCTAttachment(screenshot: app.screenshot())
+                screenshot.name = "Zero-sample export \(index)-\(attempt)"
+                screenshot.lifetime = .keepAlways
+                add(screenshot)
+                let close = app.buttons["header.closeButton"].firstMatch
+                XCTAssertTrue(close.isHittable, app.debugDescription)
+                close.tap()
+                expectation(for: NSPredicate { _, _ in !sheet.exists && export.isHittable && export.isEnabled }, evaluatedWith: app)
+                waitForExpectations(timeout: 10)
+            }
+            app.navigationBars.buttons["Sessions"].tap()
+            XCTAssertTrue(app.buttons[identifier].waitForExistence(timeout: 10))
+        }
+    }
+
+    func testDiscoveryDiagnosticsShowNoDataAndLaterSupport() {
+        continueAfterFailure = false
+        let app = XCUIApplication()
+        app.launchArguments = ["--ui-test-discovery"]
+        app.launch()
+        let outcome = app.staticTexts["discovery-outcome"]
+        XCTAssertTrue(outcome.waitForExistence(timeout: 30), app.debugDescription)
+        XCTAssertEqual(outcome.label, "ECU discovery: No data returned")
+        XCTAssertEqual(app.staticTexts["discovery-setup"].label, "Adapter setup: 21/21")
+        XCTAssertTrue(app.staticTexts["discovery-unknown"].exists)
+        XCTAssertTrue(app.staticTexts["discovery-retry"].exists)
+        XCTAssertTrue(app.staticTexts["discovery-can-status"].label.contains("T:00 R:00"))
+        let screenshot = XCTAttachment(screenshot: app.screenshot())
+        screenshot.name = "Diagnostic no-data status (scripted)"
+        screenshot.lifetime = .keepAlways
+        add(screenshot)
+        let supported = app.buttons["Load supported reply fixture"]
+        for _ in 0..<4 {
+            if supported.exists && supported.isHittable { break }
+            app.collectionViews.firstMatch.swipeUp()
+        }
+        XCTAssertTrue(supported.isHittable, app.debugDescription)
+        supported.tap()
+        for _ in 0..<4 {
+            if outcome.isHittable { break }
+            app.collectionViews.firstMatch.swipeDown()
+        }
+        expectation(for: NSPredicate { _, _ in outcome.label == "ECU discovery: Response received" }, evaluatedWith: app)
+        waitForExpectations(timeout: 30)
+        XCTAssertFalse(app.staticTexts["diagnostic-fixture-error"].exists)
+        XCTAssertFalse(app.staticTexts["discovery-unknown"].exists)
+    }
+
+    func testAdapterHandoffDisplaysUnverifiedAndUnknownSettings() {
+        continueAfterFailure = false
+        let app = XCUIApplication()
+        app.launchArguments = ["--ui-test-handoff"]
+        app.launch()
+        let count = app.staticTexts["handoff-count"]
+        XCTAssertTrue(count.waitForExistence(timeout: 30), app.debugDescription)
+        XCTAssertEqual(count.label, "Adapter settings captured: 3/3")
+        XCTAssertEqual(app.staticTexts["handoff-protocol"].label, "Protocol number: 34")
+        XCTAssertTrue(app.staticTexts["handoff-caveat"].exists)
+        XCTAssertFalse(app.staticTexts["discovery-outcome"].exists)
+        let shot = XCTAttachment(screenshot: app.screenshot())
+        shot.name = "Unverified adapter handoff snapshot (scripted)"
+        shot.lifetime = .keepAlways
+        add(shot)
+        let unknown = app.buttons["Show unknown settings fixture"]
+        for _ in 0..<4 {
+            if unknown.exists && unknown.isHittable { break }
+            app.collectionViews.firstMatch.swipeUp()
+        }
+        XCTAssertTrue(unknown.isHittable, app.debugDescription)
+        unknown.tap()
+        for _ in 0..<4 {
+            if app.staticTexts["handoff-protocol"].isHittable { break }
+            app.collectionViews.firstMatch.swipeDown()
+        }
+        expectation(for: NSPredicate { _, _ in app.staticTexts["handoff-protocol"].label == "Protocol number: AUTO" }, evaluatedWith: app)
+        waitForExpectations(timeout: 30)
+        XCTAssertEqual(app.staticTexts["handoff-baud"].label, "Baud rate reply: ?")
+        XCTAssertFalse(app.staticTexts["handoff-fixture-error"].exists)
+    }
+
+    func testCAN29DiagnosticProfileAndDiscoveryRecovery() {
+        continueAfterFailure = false
+        let app = XCUIApplication()
+        app.launchArguments = ["--ui-test-can29"]
+        app.launch()
+        let profile = app.staticTexts["discovery-can29-profile"]
+        XCTAssertTrue(profile.waitForExistence(timeout: 30), app.debugDescription)
+        XCTAssertEqual(profile.label, "Profile: CAN 29-bit / 500 kbps")
+        let outcome = app.staticTexts["discovery-outcome"]
+        XCTAssertEqual(outcome.label, "ECU discovery: No data returned")
+        XCTAssertEqual(app.staticTexts["discovery-setup"].label, "Adapter setup: 21/21")
+        let supported = app.buttons["Load supported reply fixture"]
+        for _ in 0..<4 {
+            if supported.exists && supported.isHittable { break }
+            app.collectionViews.firstMatch.swipeUp()
+        }
+        XCTAssertTrue(supported.isHittable, app.debugDescription)
+        supported.tap()
+        for _ in 0..<4 {
+            if outcome.isHittable { break }
+            app.collectionViews.firstMatch.swipeDown()
+        }
+        expectation(for: NSPredicate { _, _ in outcome.label == "ECU discovery: Response received" }, evaluatedWith: app)
+        waitForExpectations(timeout: 30)
+        XCTAssertFalse(app.staticTexts["diagnostic-fixture-error"].exists)
+        let screenshot = XCTAttachment(screenshot: app.screenshot())
+        screenshot.name = "CAN29 profile and supported discovery (scripted)"
+        screenshot.lifetime = .keepAlways
+        add(screenshot)
+    }
+
+    func testOrdinaryCAN29HistoryAndManualEvidenceAfterReconnect() {
+        continueAfterFailure = false
+        let app = XCUIApplication()
+        app.launchArguments = ["--ui-test-regular-can29"]
+        app.launch()
+        let status = app.staticTexts["regular-manual-status"]
+        XCTAssertTrue(status.waitForExistence(timeout: 30), app.debugDescription)
+        XCTAssertEqual(status.label, "Manual incident: captured")
+        XCTAssertEqual(app.staticTexts["regular-generations"].label, "Connection generations: 2")
+        XCTAssertEqual(app.staticTexts["discovery-can29-profile"].label, "Profile: CAN 29-bit / 500 kbps")
+        let saved = app.buttons["Saved sessions, incidents and export"]
+        for _ in 0..<6 {
+            if saved.isHittable { break }
+            app.collectionViews.firstMatch.swipeUp()
+        }
+        XCTAssertTrue(saved.isHittable, app.debugDescription)
+        saved.tap()
+        let row = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH %@", "session-row-")).firstMatch
+        XCTAssertTrue(row.waitForExistence(timeout: 15), app.debugDescription)
+        row.tap()
+        XCTAssertEqual(app.staticTexts["session-workload-value"].label, "Workload, Combined")
+        XCTAssertEqual(app.staticTexts["session-protocol-value"].label, "OBD protocol, CAN 29-bit / 500 kbps")
+        let incident = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH %@", "session-incident-")).firstMatch
+        for _ in 0..<8 {
+            if incident.exists && incident.isHittable { break }
+            app.collectionViews.firstMatch.swipeUp()
+        }
+        XCTAssertTrue(incident.isHittable, app.debugDescription)
+        incident.tap()
+        let evidence = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH %@", "trigger-evidence-")).firstMatch
+        XCTAssertTrue(evidence.waitForExistence(timeout: 15), app.debugDescription)
+        for _ in 0..<6 {
+            if evidence.isHittable { break }
+            app.swipeUp()
+        }
+        evidence.tap()
+        let heading = app.staticTexts["canonical-evidence-heading"]
+        expectation(for: NSPredicate { _, _ in heading.exists && heading.isHittable }, evaluatedWith: app)
+        waitForExpectations(timeout: 15)
+        let screenshot = XCTAttachment(screenshot: app.screenshot())
+        screenshot.name = "Ordinary CAN29 manual evidence after later reconnect (scripted)"
+        screenshot.lifetime = .keepAlways
+        add(screenshot)
+    }
+
 }

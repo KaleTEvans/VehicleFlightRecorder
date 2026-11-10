@@ -1,8 +1,9 @@
-# Session schema 1 — Milestones 1–2
+# Session schemas — mock 1 and live 2
 
 The Go recorder writes numeric observations and discrete events. Python validates
-and summarizes those exact exports. Schema version 1 is supported; other versions
-fail explicitly. These contracts implement MVP sections 6–7 and retain its signal
+and summarizes those exact exports. Schema versions 1 (legacy/mock) and 2 (explicit live acquisition) are supported;
+other versions fail explicitly. The sections below describe schema 1; the live
+extension follows at the end. These contracts implement MVP sections 6–7 and retain its signal
 names. Enterprise ontology examples have not silently renamed the MVP catalog.
 
 ## Files and lifecycle
@@ -139,3 +140,151 @@ sequence numbers and pack provenance. Fault-scenario catalogs add scoped mock
 signals without changing the healthy six-signal catalog. Incident snapshots also
 use schema 1; unsupported versions fail explicitly. See the incident contract for
 revision semantics, coverage reasons and reconstruction.
+
+## Milestone 6 live extension — schema 2
+
+A regular live session uses `source: obd-live`, `profile_id: generic-obd-can11-500`,
+`vehicle_pack_version: none`, no `mock`, and required `live` configuration:
+`origin` (`physical`, `native-fixture`, `scripted-fixture`), `operating_state`
+(`unknown`, `ignition_on_engine_off`, `stationary_running`), `workload` (`combined`,
+`rpm_only`, `coolant_only`, `voltage_only`, `discovery_diagnostic`, `can29_diagnostic`, `adapter_handoff`), `native_anchor_ns`,
+`catalog_version: standard-live-can11-1`,
+`protocol_profile: can11-single-frame-headers-pci`,
+`report_file: capability.json`, `start_origin: manual`. Fixtures remain explicitly
+identified even though they exercise the live schema. An origin label alone is
+not proof that measurements were physically acquired.
+
+Canonical observations/events carry schema 2 and share the existing contiguous
+record sequence. Incident journal rows independently retain incident schema 1.
+A single start anchor maps native continuous-clock offsets to canonical receipt
+milliseconds; `wall_clock_adjusted` records changes without rewriting timestamps.
+ECU measurement time is unknown, not receipt time under another name.
+
+Every live observation requires `module` (responding CAN ECU ID, or `adapter`),
+`bus: HS-CAN` (selected acquisition bus), decoder `1`, pack `none`, and provenance:
+`transaction_id`, `generation`, `raw_refs`, `request_start_ns`,
+`stream_accepted_ns`, `receive_ns`, `measurement_unix_ms: null`.
+Raw references are positive increasing row numbers. Free-form `raw_request` and
+`raw_response` are forbidden; exact bytes reside in the raw ledger. Each ECU reply
+remains separate, including conflicting values; `7E9` does not imply TCM.
+Adapter voltage is adapter input voltage, not a verified battery terminal reading.
+
+The ZIP contains the five existing files plus `capability.json`, a version-2
+`live-acquisition` report. It includes fixed configuration and initialization
+versions, per-generation adapter metadata, documented schedule, raw transactions,
+decoded observations, scoped capabilities, outcomes and measured rate/gap/latency
+statistics. Rates describe decoded receipt cadence across the full session,
+including setup. They do not establish underlying sensor refresh rates.
+`vehicle_identity: unknown` and `reference_comparison: unmeasured` remain honest
+until separately compared physical evidence is available.
+
+Regular workloads declare initialization `obdlink-stp33-runtime-1`. The opt-in
+`discovery_diagnostic` workload declares `obdlink-stp33-diagnostic-2`, requires its
+21-step setup and actual-baud readback, and adds fixed `can_status` transactions.
+Its support/status nominal intervals are 15 seconds, with failure backoff; regular
+schedules remain unchanged. Status replies are opaque adapter evidence in
+`adapter_status`, not canonical sensor observations or numeric counter/health
+claims. All RPM/coolant requests still require prior same-generation support.
+The updated reader is required for these new diagnostic exports; legacy exports
+remain readable without migration. See [M6 diagnostic delivery](MILESTONE_6.md#targeted-discovery-diagnostic-build--delivered-physical-test-pending).
+
+The explicitly selected `can29_diagnostic` workload uses profile ID
+`generic-obd-can29-500`, protocol profile
+`can29-normal-fixed-single-frame-headers-pci`, catalog `standard-live-can29-1`,
+initialization `obdlink-stp34-diagnostic-1`, selected protocol
+`ISO15765-4-CAN29-500`. Its 21-step setup uses STP34, ATSH18DB33F1 and normal-fixed
+addressing (STCAF0), automatic receive filters and verified protocol/baud
+readbacks of 34 / 500000. The three differing initialization keys are
+`init29_protocol`, `init29_functional_header`, `init29_protocol_check`; the other
+steps and diagnostic schedules/failure backoff are shared. No implicit selection
+from a handoff/AUTO response, protocol search or NVM protocol write is performed.
+
+This decoder accepts header/PCI ISO-TP single-frame physical replies addressed
+to tester F1, with full IDs `18DAF1xx` (excluding source F1/self). It accepts a
+contiguous ID or byte-spaced header, rejects 11-bit/wrong-destination/functional
+request/multiframe/foreign-PID data and isolates malformed/duplicate responders.
+Module IDs remain opaque; different responders are never merged or labeled ECM/
+TCM from their addresses. Supported-PID advertisements, unknown/unsupported states,
+measurements and reconnect generations retain their existing distinct semantics.
+This profile permits up to 512 capability/statistic rows to cover its bounded
+8-bit responder namespace; existing profiles retain their 32-row reader bounds.
+Other byte/transaction/observation/duration budgets are unchanged. The updated
+Python reader is required for new CAN29 exports; prior recordings need no migration.
+Addressing references: [OBDLink FRPM E, headers/normal-fixed](https://www.scantool.net/scantool/downloads/678/obdlink_frpm_e.pdf#page=18)
+and [ELM327 DSJ, functional addressing and response filtering](https://www.elmelectronics.com/wp-content/uploads/2016/07/ELM327DS.pdf#page=41).
+These document the fixed header/response format; they do not identify this car's
+actual responders or establish successful physical acquisition.
+
+The `adapter_handoff` workload instead uses profile/catalog `adapter-state-only` /
+`adapter-state-1`, initialization `obdlink-adapter-handoff-1`, and selected protocol
+`unmodified-adapter-state`. Its only transactions are the ordered current-state
+queries STPR, STPRS, STPBRR; there is no vehicle protocol selection. It permits
+no observations/capabilities/statistics or reconnect/retry, has a 15-second active
+owner-loop limit, and preserves missing/opaque readbacks without inferring a
+vehicle protocol. A completed capture means evidence collection ended, not that
+settings were recognized or vehicle communication succeeded. Use the updated
+reader for this new workload; prior exports remain valid without migration.
+
+The raw ledger rows contain `session_id`, contiguous `sequence`, `generation`,
+`transaction_id` (empty for unsolicited bytes), `kind` (`requested`, `accepted`,
+`received`, `late_received`, `unsolicited`), `monotonic_ns` (offset from native
+anchor), and `bytes_base64`. Accepted bytes establish native stream acceptance,
+not ECU receipt. Timed-out late bytes stay raw and do not become new observations.
+All raw bytes must be appended successfully before the report checkpoint and
+canonical observation. A failed evidence write stops acquisition and leaves the
+session incomplete; a failed session cannot be finalized as healthy.
+
+Python independently replays setup and decoding, checks report raw rows against
+the raw file, and matches each canonical observation's value, ECU, transaction,
+raw references, timestamps and decoder. Unknown fields, altered provenance,
+missing rows and duplicate claims are rejected. Complete exports require an exact
+six-file layout, finalized counts, all report observations, stopped report and
+matching end time. Schema-1 mock exports continue requiring an empty raw file.
+
+Report checkpoints use checked, synced temporary writes and atomic rename before
+canonical append. An interruption can leave an older checkpoint, a well-formed
+uncheckpointed raw tail, report observations not yet in the canonical prefix, or
+a `.capability-*` temporary file. `--allow-incomplete` reports these explicitly;
+it does not repair, drop truncated rows, infer completion, or substitute a report
+observation into canonical history. Required files still must exist. Original
+phone Files evidence is retained when app export is unavailable for an unfinished
+session. No actual crash/power-loss durability claim is made.
+
+Limits: 600 seconds checked when the native owner runs, 16 connection generations,
+2,048 transactions, 16,384 raw records / 2 MiB payload, 8,192 decoded report
+observations, 16 MiB capability report, 64 MiB reader budget per canonical/raw log
+(and raw writer bound), and 128 MiB native ZIP. Exceeding bounds stops admission; original evidence remains. The
+maximum is not an OS wake guarantee: after suspension, actual observed elapsed
+time may exceed 600 seconds before the owner resumes and stops.
+
+Independent future OBD/GPS/motion sources must define their own source timestamps,
+clock alignment, sequence and late-arrival admission before extending the current
+single-source ordered recorder. Receipt mapping here does not silently authorize
+asynchronous ingestion or sensor fusion.
+
+### Explicit protocol choice for ordinary live workloads
+
+The mobile Start options accept optional `protocol_profile` only for `combined`,
+`rpm_only`, `coolant_only` and `voltage_only`: either the existing CAN11 profile
+or `can29-normal-fixed-single-frame-headers-pci`. Omission/empty retains the legacy
+CAN11 core default. A nonempty option on either diagnostic or adapter handoff
+workload is rejected rather than silently overriding its fixed contract.
+
+Regular CAN29 sessions retain their ordinary workload names, declare
+`generic-obd-can29-500` / `standard-live-can29-1` / CAN29 protocol profile, and use
+initialization `obdlink-stp34-runtime-1`. Its 21 setup steps are the same fixed
+CAN29 addressing/readbacks as the diagnostic setup, but ordinary schedules remain
+support 60 s, RPM 2 s, coolant/voltage 5 s when requested, with existing admission
+and failure backoff; there is no `can_status` polling. Voltage-only schedules
+perform no supported-PID or ECU-measurement request. No AUTO profile choice,
+protocol probing, enhanced data or ECU write is introduced.
+
+The current Python reader validates workload, profile/catalog, runtime version,
+selected protocol and exact schedule together. Session and report profile/catalog
+identity must match; internally coherent relabeling of metadata alone is rejected. Older CAN11, diagnostic, handoff
+and schema-1 mock exports remain readable without migration. New runtime exports
+require this updated reader. Manual windows and truthful partial/gap semantics
+are unchanged. A reconnect retains session/profile identity, clears cached
+readings/capabilities, repeats setup and requires fresh same-generation support.
+The JSON snapshot adds actual `protocol_profile`; history decodes the existing
+metadata field to label the profile alongside workload/state.

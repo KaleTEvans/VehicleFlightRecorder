@@ -90,12 +90,37 @@ func NewController(packDirectory, sessionsDirectory string) (result *Controller,
 	return &Controller{pack: packDirectory, root: sessionsDirectory, profile: p, rules: rules, signals: map[string]telemetry.Observation{}, modules: map[string]string{}}, nil
 }
 
+// NewHistoryController reads canonical history without loading or enabling a vehicle pack.
+func NewHistoryController(sessionsDirectory string) (result *Controller, err error) {
+	defer wrapFailure("NewHistoryController", &err)
+	if !filepath.IsAbs(sessionsDirectory) {
+		return nil, fmt.Errorf("absolute sessions directory required")
+	}
+	if err = os.MkdirAll(sessionsDirectory, 0700); err != nil {
+		return nil, err
+	}
+	root, err := filepath.EvalSymlinks(sessionsDirectory)
+	if err != nil {
+		return nil, err
+	}
+	return &Controller{root: root, signals: map[string]telemetry.Observation{}, modules: map[string]string{}}, nil
+}
+func evidenceFiles(session telemetry.Session) []string {
+	files := []string{"session.json", "observations.jsonl", "events.jsonl", "incidents.jsonl", "raw/transport.jsonl"}
+	if session.SchemaVersion == 2 {
+		files = append(files, "capability.json")
+	}
+	return files
+}
 func (c *Controller) Start(scenarioName string) (err error) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	defer wrapFailure("Start", &err)
 	if err := c.checkOpen(); err != nil {
 		return err
+	}
+	if c.pack == "" {
+		return fault("invalid_state", "Start", fmt.Errorf("history controller cannot start mock acquisition"))
 	}
 	if c.core != nil && c.core.State() == "recording" {
 		return fault("invalid_state", "Controller", fmt.Errorf("a drive is already recording"))
@@ -435,7 +460,7 @@ func (c *Controller) ExportPath(id string) (result string, err error) {
 	if session.State != "complete" {
 		return "", fault("invalid_state", "ExportPath", fmt.Errorf("incomplete sessions cannot be exported through the app"))
 	}
-	for _, name := range []string{"session.json", "observations.jsonl", "events.jsonl", "incidents.jsonl", "raw/transport.jsonl"} {
+	for _, name := range evidenceFiles(session) {
 		f, err := openEvidence(path, name, maxLogBytes)
 		if err != nil {
 			return "", err

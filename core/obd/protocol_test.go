@@ -178,3 +178,50 @@ func TestPromptWhitespaceAcrossEveryBoundary(t *testing.T) {
 		}
 	}
 }
+
+func TestDiagnosticAdapterRepliesAndLegacyInitialization(t *testing.T) {
+	legacy := Initialization()
+	steps, e := InitializationFor(DiagnosticInitializationVersion)
+	if e != nil || len(legacy) != 16 || len(steps) != 21 {
+		t.Fatal("versioned setup")
+	}
+	if _, e = ParseInitialization("init_baud_check", []byte("STPBRR\r500000\r>")); e != nil {
+		t.Fatal(e)
+	}
+	for _, reply := range []string{"250000\r>", "500000\rOK\r>", "500000", ">"} {
+		if _, e = ParseInitialization("init_baud_check", []byte(reply)); e == nil {
+			t.Fatal("bad baud reply accepted")
+		}
+	}
+	for _, reply := range []string{"T:00 R:00\r>", "ATCS\rT:OFF R:00\r>"} {
+		if _, e = ParseCANStatus([]byte(reply)); e != nil {
+			t.Fatal(e)
+		}
+	}
+	for _, reply := range []string{"?\r>", "OK\r>", "NO DATA\r>", "T:00\rR:00\r>", "T:00 R:00", ">"} {
+		if _, e = ParseCANStatus([]byte(reply)); e == nil {
+			t.Fatal("bad status accepted")
+		}
+	}
+	if _, e = Lookup("can_status"); e == nil {
+		t.Fatal("diagnostics leaked into offline catalog")
+	}
+}
+
+func TestHandoffOpaqueReadbacksNeverRequireOurSelectedProtocol(t *testing.T) {
+	steps, e := InitializationFor(HandoffInitializationVersion)
+	if e != nil || len(steps) != 3 {
+		t.Fatal(e)
+	}
+	for _, value := range []string{"34", "AUTO", "?", "ISO 15765-4 CAN 29/500", "500000"} {
+		result, e := ParseInitialization("init_previous_protocol", []byte("STPR\r"+value+"\r>"))
+		if e != nil || result != value {
+			t.Fatalf("readback lost %q: %v", value, e)
+		}
+	}
+	for _, value := range []string{">", "34\rEXTRA\r>", "34", "34\r>\r>"} {
+		if _, e := ParseInitialization("init_previous_protocol", []byte(value)); e == nil {
+			t.Fatal("ambiguous readback")
+		}
+	}
+}

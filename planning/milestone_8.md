@@ -22,10 +22,10 @@ Generic standard discovery and recording remain shared infrastructure. Enhanced
 Alfa requests, decoders, module mappings, applicability and rules belong in the
 vehicle pack. Do not move this diagnostic work behind V2 trip/performance features.
 
-As of this handoff's preparation on October 29, 2026, M5 automated implementation
-checks passed but physical acceptance remains pending; the user's Apple Developer
-enrollment is awaiting approval. M6–M8 have not started. Recheck actual status on
-activation and identify missing gates without manufacturing physical evidence.
+Current prerequisite status — November 3, 2026: M5 is physically accepted and
+merged; M6 has a native-validated TestFlight build 7.1, with batched stationary
+acceptance pending. M7 has not started. Inspect actual M6/M7 reports and evidence
+on activation; missing prerequisites remain open and do not authorize M8 work.
 
 ## Authoritative context
 
@@ -284,6 +284,24 @@ Retrieve an actual enhanced-session export from the physical phone, record its
 checksum and provenance, and run Python validate/summarize/incident reconstruction
 using actual IDs. Preserve original private captures; label sanitized/synthetic
 fixtures and transformations separately. No cloud upload backend is required.
+
+## Physical test-session organization
+
+Follow [the shared test-session workflow](physical_test_sessions.md). Assemble the
+complete agreed enhanced scope, documented definitions, reference needs, tested
+beta and case checklist before requesting a car visit. Batch individual enhanced
+reads, supported DTC snapshots, generic fallback and the combined stationary
+workload into one planned parked block, with visible gates before expanding the
+workload. Do not drip-feed new definitions or request one trip per signal.
+
+Review stationary raw evidence/reference comparisons before enhanced road use,
+then provide one combined-road packet. Retain representative drives and targeted
+follow-up where evidence requires them; no promise of universal one-visit
+acceptance. Reuse unchanged generic/M7 evidence and repeat affected coverage when
+new commands, timing or pack changes invalidate it. Perform saved-session UI,
+exports and analysis after the connected block, returning one consolidated review.
+These scheduling changes preserve every provenance, applicability and physical
+gate below; unimplemented/unverified cases are not runnable instructions.
 
 ## Required verification and staged physical acceptance
 

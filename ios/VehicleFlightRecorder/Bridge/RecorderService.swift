@@ -21,6 +21,16 @@ actor RecorderService {
         core = controller
         sessionsDirectory = sessions
     }
+    init(history sessions: URL, requestedBridgeVersion: Int64 = RecorderService.supportedBridgeVersion) throws {
+        guard MobileBridgeVersion() == requestedBridgeVersion, requestedBridgeVersion == Self.supportedBridgeVersion else {
+            throw BridgeFailure(category: "unsupported_version", operation: "initializeHistory", detail: "Native/core bridge versions are incompatible")
+        }
+        var error: NSError?
+        guard let controller = MobileNewHistoryController(sessions.path, &error) else {
+            throw error ?? VehicleTransportError.failed("Could not open local session history")
+        }
+        core = controller; sessionsDirectory = sessions
+    }
     deinit { try? core.close() }
 
     private func perform<T>(_ operation: String, _ body: () throws -> T) throws -> T {

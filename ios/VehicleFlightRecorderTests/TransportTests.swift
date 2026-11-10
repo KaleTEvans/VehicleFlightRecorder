@@ -312,3 +312,98 @@ extension TransportTests {
         XCTAssertEqual(capture.writes, Data("S".utf8)); pump.disconnect()
     }
 }
+
+
+extension TransportTests {
+    func testLiveOwnerTickAdmitsWithoutUIRefreshAndStopCancels() async throws {
+        let executor = TransportExecutor(), directory = DirectoryFixture()
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString).appendingPathComponent("ConnectionCaptures")
+        let transport = MXPlusExternalAccessoryTransport(root: root, executor: executor, directory: directory)
+        defer { executor.submit { transport.disconnect(); try? FileManager.default.removeItem(at: root.deletingLastPathComponent()) } }
+        try await onTransport(executor) {
+            directory.accessories = [AccessoryDescriptor(id: 1, protocols: ["com.obdlink"], metadata: ["source": "fixture"])]
+            try transport.startLive(operatingState: "ignition_on_engine_off", workload: "rpm_only", reference: "Synthetic native owner test")
+            let live = try XCTUnwrap(transport.live)
+            transport.lifecycle("background") // Also retained before streams are ready.
+            let events = try String(contentsOf: URL(fileURLWithPath: live.core.path()).appendingPathComponent("events.jsonl"), encoding: .utf8)
+            XCTAssertTrue(events.contains("native_background"))
+            let streams = try XCTUnwrap(directory.last)
+            transport.tick()
+            let before = try decodeCore(LiveSnapshot.self, live.core.snapshot())
+            XCTAssertEqual(before.state, "initializing")
+            transport.stream(streams.input, handle: .openCompleted)
+            transport.stream(streams.output, handle: .openCompleted)
+            transport.tick() // No view refresh or UI task drives this request.
+            let reportURL = URL(fileURLWithPath: live.core.path()).appendingPathComponent("capability.json")
+            let report = try XCTUnwrap(JSONSerialization.jsonObject(with: Data(contentsOf: reportURL)) as? [String: Any])
+            let transactions = try XCTUnwrap(report["transactions"] as? [[String: Any]])
+            XCTAssertEqual(transactions.count, 1)
+            XCTAssertEqual(transactions[0]["key"] as? String, "init_close")
+            XCTAssertThrowsError(try transport.requestIdentity(), "No concurrent identity command during live setup")
+            try transport.stopLive()
+            transport.tick()
+            XCTAssertEqual(transport.state, .disconnected)
+            XCTAssertEqual(try decodeCore(LiveSnapshot.self, live.core.snapshot()).state, "complete")
+            // A saved live snapshot must not keep the transport in live mode.
+            try transport.connect()
+            let standalone = try XCTUnwrap(directory.last)
+            transport.stream(standalone.input, handle: .openCompleted)
+            transport.stream(standalone.output, handle: .openCompleted)
+            transport.tick()
+            XCTAssertEqual(transport.state, .ready)
+            XCTAssertNotNil(transport.capture, "M5 identity mode is available after live Stop")
+        }
+    }
+}
+
+extension TransportTests {
+    func testOrdinaryCAN29OwnerAutomaticallyReopensSameLiveSession() async throws {
+        let executor = TransportExecutor(), directory = DirectoryFixture()
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString).appendingPathComponent("ConnectionCaptures")
+        let transport = MXPlusExternalAccessoryTransport(root: root, executor: executor, directory: directory)
+        var time: TimeInterval = 0
+        var path = ""
+        defer { executor.submit { transport.disconnect(); try? FileManager.default.removeItem(at: root.deletingLastPathComponent()) } }
+        try await onTransport(executor) {
+            transport.pump.now = { time }
+            directory.accessories = [AccessoryDescriptor(id: 1, protocols: ["com.obdlink"], metadata: ["source": "fixture"])]
+            try transport.startLive(operatingState: "stationary_running", workload: "combined", reference: "Synthetic native owner CAN29 reconnect test", protocolProfile: StationaryProtocol.can29.rawValue)
+            let live = try XCTUnwrap(transport.live)
+            path = live.core.path()
+            let streams = try XCTUnwrap(directory.last)
+            transport.stream(streams.input, handle: .openCompleted)
+            transport.stream(streams.output, handle: .openCompleted)
+            transport.tick()
+            XCTAssertEqual(try decodeCore(LiveSnapshot.self, live.core.snapshot()).protocolProfile, StationaryProtocol.can29.rawValue)
+            time = 1
+            directory.accessories = []
+            directory.changed?()
+        }
+        try await onTransport(executor) {
+            XCTAssertEqual(transport.state, .failed)
+            time = 1.25
+            directory.accessories = [AccessoryDescriptor(id: 2, protocols: ["com.obdlink"], metadata: ["source": "fixture"])]
+            directory.changed?()
+        }
+        try await onTransport(executor) {
+            XCTAssertEqual(directory.opens, 1)
+            time = 5
+            transport.tick() // No user reconnect call or additional notification.
+            XCTAssertEqual(directory.opens, 2)
+            XCTAssertEqual(transport.state, .connecting)
+            let live = try XCTUnwrap(transport.live)
+            XCTAssertEqual(live.core.path(), path)
+            let streams = try XCTUnwrap(directory.last)
+            transport.stream(streams.input, handle: .openCompleted)
+            transport.stream(streams.output, handle: .openCompleted)
+            transport.tick()
+            let snapshot = try decodeCore(LiveSnapshot.self, live.core.snapshot())
+            XCTAssertEqual(snapshot.generation, 2)
+            XCTAssertEqual(snapshot.protocolProfile, StationaryProtocol.can29.rawValue)
+            XCTAssertTrue(snapshot.readings.isEmpty)
+            XCTAssertFalse(snapshot.initialized)
+            try transport.stopLive()
+            XCTAssertEqual(try decodeCore(LiveSnapshot.self, live.core.snapshot()).state, "complete")
+        }
+    }
+}

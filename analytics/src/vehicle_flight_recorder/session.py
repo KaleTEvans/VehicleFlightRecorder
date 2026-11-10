@@ -50,15 +50,32 @@ def _string(value, label):
     return value
 
 
-def _schema(record, location):
+def _schema(record, location, version=1):
     if not isinstance(record, dict):
         _fail(f"{location}: JSON object required")
-    if type(record.get("schema_version")) is not int or record["schema_version"] != 1:
+    if type(record.get("schema_version")) is not int or record["schema_version"] != version:
         _fail(f"{location}: unsupported schema_version {record.get('schema_version')!r}")
 
 
 def _metadata(metadata):
-    _schema(metadata, "session.json")
+    version = metadata.get('schema_version') if isinstance(metadata, dict) else None
+    if type(version) is not int or version not in (1, 2): _fail('unsupported session schema_version')
+    _schema(metadata, "session.json", version)
+    if version == 2:
+        expected = {'schema_version','session_id','source','profile_id','vehicle_pack_version','start_time_unix_ms','end_time_unix_ms','state','observation_count','event_count','incident_count','incident_capture','live'}
+        if set(metadata) != expected or metadata['source'] != 'obd-live' or metadata['vehicle_pack_version'] != 'none': _fail('unknown/incompatible schema_version 2 live metadata')
+        live = metadata['live']
+        if not isinstance(live, dict) or set(live) != {'origin','operating_state','workload','native_anchor_ns','catalog_version','protocol_profile','report_file','start_origin'}: _fail('invalid live configuration')
+        if live['origin'] not in ('physical','native-fixture','scripted-fixture') or live['operating_state'] not in ('unknown','ignition_on_engine_off','stationary_running') or live['workload'] not in ('combined','rpm_only','coolant_only','voltage_only','discovery_diagnostic','can29_diagnostic','adapter_handoff'): _fail('unknown live source/configuration')
+        _integer(live['native_anchor_ns'], 'native anchor')
+        handoff=live['workload']=='adapter_handoff'
+        can29=live['protocol_profile']=='can29-normal-fixed-single-frame-headers-pci'
+        regular=live['workload'] in ('combined','rpm_only','coolant_only','voltage_only')
+        if not regular and can29 != (live['workload']=='can29_diagnostic'): _fail('live workload/protocol mismatch')
+        if handoff and (metadata['observation_count'] != 0 or metadata['incident_count'] != 0): _fail('adapter handoff cannot contain measurements/incidents')
+        if metadata['profile_id'] != ('generic-obd-can29-500' if can29 else 'adapter-state-only' if handoff else 'generic-obd-can11-500'): _fail('live workload/profile mismatch')
+        if (live['catalog_version'], live['protocol_profile'], live['report_file'], live['start_origin']) != (('standard-live-can29-1','can29-normal-fixed-single-frame-headers-pci','capability.json','manual') if can29 else ('adapter-state-1','adapter-state-only','capability.json','manual') if handoff else ('standard-live-can11-1','can11-single-frame-headers-pci','capability.json','manual')): _fail('unsupported live catalog/profile')
+    elif 'live' in metadata or metadata.get('source') == 'obd-live': _fail('live metadata requires schema 2')
     for key in ("session_id", "source", "profile_id", "vehicle_pack_version"):
         _string(metadata.get(key), f"session.json {key}")
     start = _integer(metadata.get("start_time_unix_ms"), "session start", 1)
@@ -106,15 +123,18 @@ def _metadata(metadata):
 
 def _records(path):
     with path.open("rb") as source:
-        for line, raw in enumerate(source, 1):
+        total = line = 0
+        while raw := source.readline(1024*1024+1):
+            line += 1; total += len(raw)
             location = f"{path.name}:{line}"
+            if len(raw) > 1024*1024 or total > 64*1024*1024: _fail(f'{location}: evidence size budget')
             if not raw.endswith(b"\n"):
                 _fail(f"{location}: truncated JSONL line (missing final newline); evidence preserved")
             yield location, _decode(raw, location)
 
 
 def _envelope(record, metadata, location, previous):
-    _schema(record, location)
+    _schema(record, location, metadata["schema_version"])
     timestamp = _integer(record.get("timestamp_unix_ms"), f"{location} timestamp", 1)
     if timestamp < previous or timestamp < metadata["start_time_unix_ms"]:
         _fail(f"{location}: timestamps must be nondecreasing and at/after session start")
@@ -142,16 +162,22 @@ def load_session(directory, *, allow_incomplete=False):
         for name in required:
             if not (directory / name).is_file():
                 _fail(f"missing required file {name}; possible incomplete initialization")
-        metadata = _decode((directory / "session.json").read_bytes(), "session.json")
+        with (directory / 'session.json').open('rb') as f: data = f.read(1024*1024+1)
+        if len(data) > 1024*1024: _fail('session metadata size budget')
+        metadata = _decode(data, "session.json")
         _metadata(metadata)
-        for name in ("raw/transport.jsonl",):
-            if (directory / name).stat().st_size:
-                _fail(f"{name}: nonempty records are unsupported; refusing to ignore evidence")
+        live = None
+        if metadata['schema_version'] == 2:
+            from .live import LiveEvidence
+            live = LiveEvidence(directory, metadata)
+        elif (directory/'raw/transport.jsonl').stat().st_size:
+            _fail('raw/transport.jsonl: nonempty records are unsupported; refusing to ignore evidence')
         coverage = {}
         observations = 0
         last_observation = last_event = metadata["start_time_unix_ms"]
         for location, observation in _records(directory / "observations.jsonl"):
             last_observation = _envelope(observation, metadata, location, last_observation)
+            if live: live.observation(observation)
             signal = _string(observation.get("signal_id"), f"{location} signal_id")
             unit = _string(observation.get("unit"), f"{location} unit")
             value = observation.get("value")
@@ -188,8 +214,10 @@ def load_session(directory, *, allow_incomplete=False):
                 _fail("finalized metadata counts do not match actual JSONL records")
         elif not allow_incomplete:
             raise IncompleteSessionError("session is incomplete (state=recording); use --allow-incomplete to inspect well-formed preserved records; no repair is performed")
+        live_result = live.finish() if live else None
         return {
-            "schema_version": 1,
+            **({"live": live_result} if live_result else {}),
+            "schema_version": metadata["schema_version"],
             "session_id": metadata["session_id"],
             "source": metadata["source"],
             "profile_id": metadata["profile_id"],

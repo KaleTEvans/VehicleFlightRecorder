@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"reflect"
 
+	"vehicleflightrecorder.local/core/acquisition"
 	"vehicleflightrecorder.local/core/incidents"
 	"vehicleflightrecorder.local/core/telemetry"
 )
@@ -28,6 +29,9 @@ func WriteJSONL(w io.Writer, value any) error {
 }
 
 type Writer struct {
+	rawSequence       int
+	rawNS             int64
+	rawBytes          int64
 	incidents         *os.File
 	incidentRevisions map[string]incidents.Incident
 	sequenced         bool
@@ -91,6 +95,15 @@ func (w *Writer) Append(record telemetry.Record) error {
 	if (w.sequenced && record.Sequence() != count+1) || (!w.sequenced && record.Sequence() != 0) {
 		return fmt.Errorf("record sequence must be contiguous or entirely absent")
 	}
+	version := 1
+	if record.Observation != nil {
+		version = record.Observation.SchemaVersion
+	} else {
+		version = record.Event.SchemaVersion
+	}
+	if version != w.initial.SchemaVersion {
+		return fmt.Errorf("record schema differs from session")
+	}
 	if record.SessionID() != w.initial.SessionID || record.Source() != w.initial.Source || record.Timestamp() < w.last {
 		return fmt.Errorf("session/source mismatch or out-of-order timestamp")
 	}
@@ -125,6 +138,9 @@ func (w *Writer) Finalize(session telemetry.Session) error {
 	}
 	if err := session.Validate(); err != nil {
 		return err
+	}
+	if !reflect.DeepEqual(session.Live, w.initial.Live) || session.SchemaVersion != w.initial.SchemaVersion {
+		return fmt.Errorf("final live configuration changed")
 	}
 	if !reflect.DeepEqual(session.IncidentCapture, w.initial.IncidentCapture) || session.IncidentCount != int64(len(w.incidentRevisions)) {
 		return fmt.Errorf("incident metadata/count mismatch")
@@ -236,5 +252,31 @@ func writeMetadata(directory string, session telemetry.Session) (err error) {
 		return err
 	}
 	// Rename consumes the temp file; its absence is expected during cleanup.
+	return nil
+}
+
+func (w *Writer) AppendTransport(row acquisition.Raw) error {
+	if w.closed || w.failed || w.initial.SchemaVersion != 2 || row.SessionID != w.initial.SessionID || row.Sequence != w.rawSequence+1 || row.NS < w.rawNS || row.Generation < 1 || len(row.Bytes) == 0 || len(row.Bytes) > 65536 {
+		return fmt.Errorf("invalid live raw evidence")
+	}
+	switch row.Kind {
+	case "requested", "accepted", "received", "late_received", "unsolicited":
+	default:
+		return fmt.Errorf("unknown raw kind")
+	}
+	b, err := json.Marshal(row)
+	if err != nil {
+		return err
+	}
+	if w.rawBytes+int64(len(b))+1 > 64<<20 {
+		return fmt.Errorf("raw file budget exceeded")
+	}
+	if err = WriteJSONL(w.files[3], row); err != nil {
+		w.failed = true
+		return err
+	}
+	w.rawSequence = row.Sequence
+	w.rawNS = row.NS
+	w.rawBytes += int64(len(b)) + 1
 	return nil
 }

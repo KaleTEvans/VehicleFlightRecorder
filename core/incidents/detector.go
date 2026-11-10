@@ -28,6 +28,9 @@ func NewDetector(config Config) (Detector, error) {
 	if err := config.Validate(); err != nil {
 		return nil, err
 	}
+	if config.Availability == "manual_only" {
+		return manualDetector{}, nil
+	}
 	config.CriticalModules = append([]string{}, config.CriticalModules...)
 	return &rules{config: config, counts: map[string]int{}, losses: map[string]int64{}, dtcs: map[string]bool{}}, nil
 }
@@ -149,4 +152,23 @@ func (d *rules) Evaluate(record telemetry.Record) ([]Candidate, error) {
 		return []Candidate{{Type: "manual_marker", Severity: "info", Category: "manual", Manual: true, Label: attrs.Label}}, nil
 	}
 	return nil, nil
+}
+
+// Physical sources have manual capture only; synthetic thresholds never run.
+type manualDetector struct{}
+
+func (manualDetector) Evaluate(r telemetry.Record) ([]Candidate, error) {
+	if err := r.Validate(); err != nil {
+		return nil, err
+	}
+	if r.Event == nil || r.Event.EventType != "manual_incident_marked" {
+		return nil, nil
+	}
+	var a struct {
+		Label string `json:"label"`
+	}
+	if err := json.Unmarshal(r.Event.Attributes, &a); err != nil || strings.TrimSpace(a.Label) == "" {
+		return nil, fmt.Errorf("manual label required")
+	}
+	return []Candidate{{Type: "manual_marker", Severity: "info", Category: "manual", Manual: true, Label: a.Label}}, nil
 }

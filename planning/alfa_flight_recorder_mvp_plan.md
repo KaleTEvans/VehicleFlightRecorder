@@ -1418,6 +1418,30 @@ Do not intentionally induce a vehicle fault to satisfy an acceptance case; use
 controlled transcripts/fixtures for cases unsuitable for physical testing and
 label the resulting evidence accordingly.
 
+## 20.5 Consolidated human test sessions
+
+**User workflow requirement — November 3, 2026:** Minimize separate car visits.
+Each milestone must have one complete acceptance checklist, or clearly planned
+large connected-test blocks when earlier physical evidence must be reviewed.
+Follow [the test-session workflow](physical_test_sessions.md). The final M6
+[parked test packet](milestone_6_final_session.md) passed; M6 was formally
+accepted and closed November 10, 2026. No repeat M6 visit is requested.
+
+Complete independent implementation, automated/native checks, signed delivery and
+reference/equipment preparation before asking for a visit. Several workload or
+operating-state recordings can run back-to-back during one visit. Define visible
+short-before-long continue gates in advance; do not impose a chat round trip or
+per-case upload unless a named analysis hold requires it. Keep saved-history UI,
+evidence navigation, exports and offline analysis outside connected car time
+where possible. Return all visit evidence together, then one consolidated review.
+
+After failures, batch independent fixes into a tested build and provide a targeted
+retest list explaining affected cases and the small regression subset. Reuse
+accepted unaffected evidence with its build/configuration provenance. Do not waive
+raw validation, stationary-before-road qualification, distinct lifecycle states
+or representative repeated/long drives to promise one visit. An actual defect or
+new command/workload may require another substantial block; plan it explicitly.
+
 # 21. Safety constraints
 
 This application should initially be **read-only**.
@@ -1596,6 +1620,12 @@ Acceptance:
 - app reliably opens/closes the MX+ session and records raw adapter responses.
 
 ## Milestone 6 — adapter initialization + standard OBD
+
+Status: COMPLETE — formally accepted and closed November 10, 2026 through
+[PR #5](https://github.com/KaleTEvans/VehicleFlightRecorder/pull/5).
+See the [implementation report](../docs/MILESTONE_6.md) and
+[physical quality report](../docs/MILESTONE_6_STATIONARY_ACCEPTANCE.md).
+The deliverables and acceptance scope below are preserved; M7 has not started.
 
 Deliverables:
 

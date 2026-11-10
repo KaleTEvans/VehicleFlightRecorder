@@ -16,11 +16,25 @@ stationary acquisition, raw provenance and retrieved/validated live exports.
 Inspect their actual reports and artifacts; do not infer acceptance from filenames,
 unsigned archives, synthetic transcripts or a successful TestFlight upload.
 
-As of October 29, 2026, M5 code/native regression checks passed, but signing,
-installation and physical acceptance remain pending. The user has applied for
-Apple Developer enrollment and is awaiting approval. M6 has not started. Recheck
-these facts when this assignment is activated. Finish independent code/test work
-when physical access is unavailable and report remaining gates honestly.
+Current prerequisite status — November 10, 2026: M5 is physically accepted and
+merged. M6 implementation and stationary acceptance passed on build 13.1 and M6
+is formally accepted/closed through PR #5. Inspect `docs/MILESTONE_6.md` and
+`docs/MILESTONE_6_STATIONARY_ACCEPTANCE.md` before activating M7. This handoff
+update does not authorize implementation, road testing or new permissions.
+
+Measured M6 evidence for the activity policy: all three responding CAN IDs return
+valid zero RPM and coolant while ignition-on/engine-off is selected. Reply/module
+presence alone must not mean engine running. Ordinary running RPM cadence is
+about 2.60 s individually / 2.74 s Combined, coolant about 5.64 / 5.67 s; internal
+sensor refresh is unknown. A real scanner loss/recovery preserves one session
+and advances generation, repeats setup/support and resumes fresh RPM about 15.33 s
+after the new app connection. Exact Bluetooth pairing time is not recorded.
+The capture includes an unknown 21.50 s native scheduling gap; general background/
+lock/suspension/termination/road reliability remains unqualified. Preserve these
+setup/freshness delays and truthful coverage gaps when designing M7 states.
+Manual Stop deliberately closes the live stream; an idle Ready transport afterward
+does not resume recording. M7 automatic policy must keep transport availability
+separate from session start/stop and respect its planned manual-stop override.
 
 Inspect `git status` and repository instructions, preserve unrelated changes, and
 stay within this milestone. Keep the diagnostic-first MVP ahead of the separately
@@ -292,6 +306,25 @@ Create sanitized fixtures only when needed, documenting transformations and
 preserving relative timing/reference consistency. Public CI artifacts must not
 expose VINs, accessory serials or other personal vehicle identifiers. Label fixture,
 native mock and physical evidence separately. No cloud ingestion is required.
+
+## Physical test-session organization
+
+Follow [the shared test-session workflow](physical_test_sessions.md). Prepare the
+complete milestone checklist on one tested beta before requesting connected tests.
+Group car-dependent automatic policy, notification presentation, locked/background
+and reconnect cases into one planned parked block. Exercise permission/preferences,
+routing and failure combinations with native fixtures/desk tests where possible;
+reserve physical checks for behavior that actually needs vehicle activity/iOS
+lifecycle evidence. Review history, exports and raw logs after the visit.
+
+Identify the analysis hold before first road use: inspect the parked results and
+confirm the permitted workload, then provide one controlled-road packet. Group
+repeat/long-duration reliability evidence into planned or normal-use drives when
+appropriate. M7 can require multiple substantial blocks; do not promise one visit
+or issue a new car request for each isolated case. Define durations and budgets
+from accepted evidence before release. Keep all distinct lifecycle states and
+repeated-drive requirements in the acceptance matrix; batch fixes and retest only
+affected cases plus a relevant regression check. Reuse unchanged M6 evidence.
 
 ## Required verification and acceptance matrix
 

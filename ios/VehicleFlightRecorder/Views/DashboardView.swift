@@ -72,10 +72,8 @@ struct DashboardView: View {
                 await model.refresh(advance: true)
             }
         }
-        .sheet(isPresented: Binding(get: { model.shareURL != nil }, set: { if !$0 { model.shareURL = nil } })) {
-            if let url = model.shareURL { SessionShareSheet(url: url) }
-        }
     }
+
     private var controls: some View {
         VStack(spacing: 8) {
                         Button { Task { await model.mark() } } label: {

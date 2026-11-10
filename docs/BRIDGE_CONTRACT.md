@@ -2,7 +2,7 @@
 
 This contract is implemented by `core/mobile` and consumed by the native
 RecorderService actor. It is distinct from core/app release 0.1.0, telemetry
-schema 1, mock pack 0.2.0 and future decoder versions. Older persisted mock
+schemas 1 (mock) and 2 (live), mock pack 0.2.0 and decoder versions. Older persisted mock
 sessions are unchanged. A new client verifies `BridgeVersion() == 1` **before**
 creating a controller. Unsupported native/core versions fail closed, not by
 attempting to decode a best-effort snapshot. JSON evolution within a contract
@@ -148,3 +148,24 @@ calls Go synchronously; no Go call waits on native callbacks. IdentityRequest
 returns owned `STI\r` bytes once, and Accepted validates their pending prefix.
 Actual budgets and file/timing format supersede the earlier proposed queued-byte
 budgets: see [Milestone 5](MILESTONE_5.md). No diagnostic framing/polling API exists.
+
+## Milestone 6 additive live facade
+
+Bridge version 1 retains all existing mock/controller and connection-capture
+methods. `NewLiveRecorder` adds a separate explicit live owner with bounded JSON
+options, native/wall anchors, connection-generation registration, native stream
+readiness/errors, next Go-owned command, partial write acceptance, raw receive,
+lifecycle events, manual marking, Stop, snapshot and path. It has no arbitrary
+command argument. Callers serialize all transport/clock operations on the native
+owner; snapshots are locked and do not admit work. `NewHistoryController` opens
+canonical history without loading a mock/Alfa pack and cannot start mock recording.
+
+Session schema 2 is independent of bridge version 1 and incident journal schema 1.
+See [live timing](LIVE_TIMING.md), [session format](DATA_SCHEMA.md) and
+[Milestone 6](MILESTONE_6.md) for exact bounds and physical acceptance status.
+
+Swift uses `NextCommandBase64` with an explicit NSError pointer: empty string means
+no work; nonempty Base64 decodes to the exact Go allowlist bytes. This avoids the
+nullable NSData/NSError import convention treating an idle nil-byte result as a
+failure. The direct Go byte method remains for Go transcript tests. No native
+command strings or null-as-measurement convention is introduced.

@@ -40,6 +40,7 @@ type startFact struct {
 // originals and always requires new activity evidence for a distinct drive.
 type AutomaticRecorder struct {
 	ownerID                          string
+	interruptedID                    string
 	mu                               sync.Mutex
 	root, directory, origin, profile string
 	lock                             *os.File
@@ -114,6 +115,7 @@ func NewAutomaticRecorder(root, origin, profile string) (*AutomaticRecorder, err
 	}
 	if a.disk.ActiveDrive != "" {
 		a.previous = a.disk.ActiveDrive
+		a.interruptedID = a.disk.ActiveDrive
 		a.disk.ActiveDrive = ""
 		a.disk.ConfirmationClaimed = true
 		if err = a.journal("interrupted_session_preserved", map[string]any{"session_id": a.previous, "coverage": "unknown_after_last_checkpoint", "relaunch_policy": "fresh_evidence_new_drive"}); err != nil {
@@ -549,7 +551,7 @@ func (a *AutomaticRecorder) NativeEvent(kind, detail string, nativeNS int64) err
 func (a *AutomaticRecorder) Snapshot() string {
 	a.mu.Lock()
 	defer a.mu.Unlock()
-	b, _ := json.Marshal(map[string]any{"policy": a.policy.Config, "enabled": a.disk.Enabled, "state": a.state, "error": a.failure, "session_id": a.disk.ActiveDrive, "accepting_telemetry": a.fact != nil && a.disk.ActiveDrive != "", "manual_stop_override": a.policy.Suppressed, "previous_interrupted_session": a.previous, "phase": a.phase, "maximum_drive_seconds": 1800})
+	b, _ := json.Marshal(map[string]any{"policy": a.policy.Config, "enabled": a.disk.Enabled, "state": a.state, "error": a.failure, "session_id": a.disk.ActiveDrive, "accepting_telemetry": a.fact != nil && a.disk.ActiveDrive != "", "manual_stop_override": a.policy.Suppressed, "previous_interrupted_session": a.interruptedID, "previous_context_capture": a.previous, "phase": a.phase, "maximum_drive_seconds": 1800})
 	return string(b)
 }
 func (a *AutomaticRecorder) Close() error {

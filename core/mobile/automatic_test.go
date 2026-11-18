@@ -68,6 +68,9 @@ func TestAutomaticDriveClaimsOverrideAndRelaunch(t *testing.T) {
 			}
 		}
 	}
+	if a.interruptedID != "" {
+		t.Fatal("normal probe context mislabeled as interrupted drive")
+	}
 	if claims != 1 || drive == "" {
 		t.Fatalf("claims=%d drive=%q", claims, drive)
 	}
@@ -117,7 +120,7 @@ func TestAutomaticInterruptedOriginalAndStorageFailure(t *testing.T) {
 		t.Fatal(e)
 	}
 	defer b.Close()
-	if b.previous == "" || b.disk.ActiveDrive != "" {
+	if b.previous == "" || b.interruptedID != b.previous || b.disk.ActiveDrive != "" {
 		t.Fatal("interrupted identity adopted")
 	}
 	if e = os.Remove(filepath.Join(root, "Automation", "state.json")); e != nil {

@@ -106,7 +106,11 @@ enum SessionExporter {
         try collect(root.appendingPathComponent("Automation", isDirectory: true))
         let sessions = root.appendingPathComponent("Sessions", isDirectory: true)
         for directory in (try? FileManager.default.contentsOfDirectory(at: sessions, includingPropertiesForKeys: nil)) ?? [] where directory.lastPathComponent.hasPrefix("live-") {
-            let metadata = try? JSONSerialization.jsonObject(with: Data(contentsOf: directory.appendingPathComponent("session.json"))) as? [String: Any]
+            let metadataURL = directory.appendingPathComponent("session.json")
+            if let size = try? metadataURL.resourceValues(forKeys: [.fileSizeKey]).fileSize, size > 1024 * 1024 {
+                throw VehicleTransportError.failed("Automation session metadata exceeds 1 MiB; original evidence is preserved")
+            }
+            let metadata = try? JSONSerialization.jsonObject(with: Data(contentsOf: metadataURL)) as? [String: Any]
             let live = metadata?["live"] as? [String: Any]
             if live?["policy_version"] as? String == "rpm-activity-1" || metadata == nil { try collect(directory) }
         }

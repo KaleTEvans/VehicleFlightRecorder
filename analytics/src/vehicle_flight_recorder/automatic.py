@@ -36,7 +36,7 @@ def quality(metadata, report, events):
             fields(attrs,'session_id start_origin time_unix_ms vehicle_name coverage')
             require(metadata['live']['start_origin']=='automatic' and attrs['session_id']==metadata['session_id'] and attrs['start_origin']=='automatic' and attrs['coverage']=='limited_standard_obd','foreign/invented automatic start fact')
             require(isinstance(attrs['vehicle_name'],str) and 0<len(attrs['vehicle_name'].encode())<=128,'invalid display identity')
-            _integer(attrs['time_unix_ms'],'automatic fact time',1)
+            require(_integer(attrs['time_unix_ms'],'automatic fact time',1)==at,'success fact clock differs from canonical mapping')
             eligible=[o for o in report['observations'] if o['mapped_unix_ms']<=at]
             init=[t for t in report['transactions'] if t['key'].startswith('init') and t['outcome']=='ok' and t['end_ns'] is not None and start+t['end_ns']//10**6<=at]
             require(eligible and init,'success confirmation lacks accepted telemetry/setup')

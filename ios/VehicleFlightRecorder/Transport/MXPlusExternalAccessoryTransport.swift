@@ -264,8 +264,11 @@ final class MXPlusExternalAccessoryTransport: NSObject, VehicleTransport, Stream
     }
     func markLive() throws {
         guard let live else { throw VehicleTransportError.failed("Start a recording first") }
-        if let automatic, (try decodeCore(AutomaticSnapshot.self, automatic.snapshot())).sessionId.isEmpty {
-            throw VehicleTransportError.failed("No drive is recording; the activity monitor is waiting")
+        if let automatic {
+            let state = try decodeCore(AutomaticSnapshot.self, automatic.snapshot())
+            if state.enabled && state.sessionId.isEmpty {
+                throw VehicleTransportError.failed("No drive is recording; the activity monitor is waiting")
+            }
         }
         var error: NSError?
         _ = live.core.mark("Manual stationary incident", nativeNS: TransportClock.nanoseconds(), error: &error)

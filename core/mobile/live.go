@@ -364,6 +364,12 @@ func (l *LiveRecorder) NextCommand(nativeNS, wallMS int64) (data []byte, err err
 		if l.options.Workload == obd.HandoffWorkload {
 			reason = "handoff_duration_limit"
 		}
+		if l.options.StartOrigin == "automatic" {
+			reason = "controlled_recording_duration_limit"
+		}
+		if l.options.StartOrigin == "activity_probe" {
+			reason = "activity_probe_duration_limit"
+		}
 		if err = l.stop(reason); err != nil {
 			return nil, err
 		}
@@ -548,7 +554,14 @@ func (l *LiveRecorder) stop(reason string) error {
 	if err := l.checkpoint(); err != nil {
 		return l.fail(err)
 	}
-	if err := l.event("stationary_acquisition_ended", "info", map[string]any{"reason": reason}); err != nil {
+	kind := "stationary_acquisition_ended"
+	if l.options.StartOrigin == "automatic" {
+		kind = "automatic_acquisition_ended"
+	}
+	if l.options.StartOrigin == "activity_probe" {
+		kind = "activity_probe_ended"
+	}
+	if err := l.event(kind, "info", map[string]any{"reason": reason}); err != nil {
 		return l.fail(err)
 	}
 	if err := l.core.Stop(l.anchorMS + l.elapsed/1_000_000); err != nil {

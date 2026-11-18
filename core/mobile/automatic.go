@@ -393,7 +393,7 @@ func (a *AutomaticRecorder) Tick(nativeNS, wallMS int64) error {
 		}
 	} else if purpose == "automatic" && observations > 0 && initialized && a.fact == nil && !a.disk.ConfirmationClaimed {
 		coverage := "limited_standard_obd" // no verified TCM / full vehicle coverage claim
-		a.fact = &startFact{filepath.Base(l.path), "automatic", wallMS, "Vehicle", coverage}
+		a.fact = &startFact{filepath.Base(l.path), "automatic", l.anchorMS + (nativeNS-l.baseNS)/1_000_000, "Vehicle", coverage}
 		if err = l.runtimeEvent(nativeNS, "automatic_recording_started", a.fact); err != nil {
 			return a.fail(err)
 		}
@@ -455,6 +455,10 @@ func (a *AutomaticRecorder) Live() *LiveRecorder { a.mu.Lock(); defer a.mu.Unloc
 func (a *AutomaticRecorder) Stop(nativeNS, wallMS int64) error {
 	a.mu.Lock()
 	defer a.mu.Unlock()
+	if a.lock == nil {
+		return fmt.Errorf("automatic recorder closed")
+	}
+
 	if nativeNS < a.lastNS {
 		return fmt.Errorf("automatic clock regression")
 	}
@@ -488,6 +492,10 @@ func (a *AutomaticRecorder) Stop(nativeNS, wallMS int64) error {
 func (a *AutomaticRecorder) ClaimConfirmation(nativeNS int64) (string, error) {
 	a.mu.Lock()
 	defer a.mu.Unlock()
+	if a.lock == nil {
+		return "", fmt.Errorf("automatic recorder closed")
+	}
+
 	if nativeNS < a.lastNS {
 		return "", fmt.Errorf("automatic clock regression")
 	}
@@ -508,6 +516,10 @@ func (a *AutomaticRecorder) ClaimConfirmation(nativeNS int64) (string, error) {
 func (a *AutomaticRecorder) NativeEvent(kind, detail string, nativeNS int64) error {
 	a.mu.Lock()
 	defer a.mu.Unlock()
+	if a.lock == nil {
+		return fmt.Errorf("automatic recorder closed")
+	}
+
 	if len(detail) > 2048 {
 		return fmt.Errorf("native automation detail budget")
 	}
@@ -563,7 +575,7 @@ func (a *AutomaticRecorder) Close() error {
 // Avoid accidental native calls to path-driven commands: only existing session IDs
 // are used for navigation. No new drive can be created by a notification tap.
 func ValidAutomaticSessionID(id string) bool {
-	if !strings.HasPrefix(id, "live-") || len(id) != 37 {
+	if !strings.HasPrefix(id, "live-") || len(id) != 37 || id != strings.ToLower(id) {
 		return false
 	}
 	_, err := hex.DecodeString(id[5:])

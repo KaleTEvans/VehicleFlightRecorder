@@ -185,3 +185,31 @@ func TestExplicitAutomaticProfileAndInvalidClock(t *testing.T) {
 		t.Fatal("persisted profile was ignored")
 	}
 }
+
+func TestClosedAutomaticOwnerCannotWriteAfterReplacement(t *testing.T) {
+	root := t.TempDir()
+	a, e := NewAutomaticRecorder(root, "scripted-fixture", obd.CAN29Profile)
+	if e != nil {
+		t.Fatal(e)
+	}
+	if e = a.Close(); e != nil {
+		t.Fatal(e)
+	}
+	b, e := NewAutomaticRecorder(root, "scripted-fixture", obd.CAN29Profile)
+	if e != nil {
+		t.Fatal(e)
+	}
+	defer b.Close()
+	if a.Live() != nil {
+		t.Fatal("closed owner exposed live engine")
+	}
+	if e = a.Stop(fixtureNative, 1700000000000); e == nil {
+		t.Fatal("closed stop wrote state")
+	}
+	if _, e = a.ClaimConfirmation(fixtureNative); e == nil {
+		t.Fatal("closed claim wrote state")
+	}
+	if e = a.NativeEvent("foreground", "closed", fixtureNative); e == nil {
+		t.Fatal("closed callback wrote journal")
+	}
+}

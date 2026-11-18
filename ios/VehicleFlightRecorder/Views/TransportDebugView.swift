@@ -24,7 +24,7 @@ struct TransportDebugView: View {
                     else { Text("Standard OBD stationary testing · \(isRegularWorkload ? StationaryProtocol.title(protocolProfile) : StationaryProtocol.can11.title). Enhanced Alfa / TCM signals are not enabled.").font(.caption) }
                     if let error = model.error { Text(error).foregroundStyle(.red).textSelection(.enabled) }
                     Button("Discover / Connect") { Task { await model.connect() } }.disabled(model.busy)
-                    Button("Disconnect") { Task { await model.disconnect() } }.disabled(model.busy)
+                    Button("Disconnect") { Task { await model.disconnect() } }.disabled(model.busy || model.automatic?.enabled == true)
                 }
                 Section("Hands-off recording — parked validation") {
                     Toggle("Vehicle is parked", isOn: $parked)

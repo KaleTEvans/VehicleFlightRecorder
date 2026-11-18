@@ -52,7 +52,7 @@ final class FileConfirmationReceipts: ConfirmationReceipts {
         guard count == data.count, fsync(descriptor) == 0 else { throw VehicleTransportError.failed("Confirmation claim is uncertain; it will not be retried") }
         return true
     }
-    static func validID(_ id: String) -> Bool { id.range(of: "^live-[0-9a-f]{32}$", options: .regularExpression) != nil }
+    static func validID(_ id: String) -> Bool { id.utf8.count == 37 && id.range(of: "^live-[0-9a-f]{32}$", options: .regularExpression) != nil }
 }
 struct RecordingRoute: Identifiable, Hashable { let id = UUID(); let sessionID: String }
 

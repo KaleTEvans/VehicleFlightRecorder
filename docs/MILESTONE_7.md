@@ -1,7 +1,9 @@
 # Milestone 7 — hands-off recording and controlled-road qualification
 
-Status: PARTIALLY COMPLETE — implementation/native validation passed; signed 14.1
-prepared, Apple upload awaiting user approval, November 18, 2026.
+Status: PARTIALLY COMPLETE — implementation/native validation passed;
+**0.1.0 (14.1) delivered and VALID / internal IN_BETA_TESTING**, November 18, 2026.
+The consolidated parked packet is released; physical acceptance and road use
+remain gated on actual evidence.
 M6 is accepted/merged as `f793674`; its physical results remain the baseline.
 No M7 physical, road, wake or battery acceptance is claimed. Milestone 8 has not
 started. The existing edit in `docs/OFFLINE_ACQUISITION.md` is unrelated and retained.
@@ -125,7 +127,7 @@ manual incidents, and reject policy/duration relabeling. These are scripted
 fixtures, not physical vehicle evidence.
 
 Portable/native regression and signed artifact preparation have passed, and the
-complete parked packet is prepared but not released pending approved upload and
+complete parked packet is released following approved upload and confirmed
 TestFlight processing. First road use remains gated on analysis of the
 parked results and a permitted workload. Repeated/long drives, quality/reference
 comparison, lifecycle matrix and representative battery/storage budgets remain
@@ -203,7 +205,10 @@ rather than treating their results as evidence for the final source.
 **Milestone 8 not started.**
 
 
-## Final native evidence and prepared signed beta — November 18, 2026
+## Final native evidence and signed beta preparation — November 18, 2026
+
+The preparation/approval notes in this section and the verification-only section
+below are historical, preceding the approved upload recorded in the final entry.
 
 Exact app source: `4d6e857b2cc6c8457c73892597d529e0e1becd9e`.
 [Native run 44397968453](https://github.com/KaleTEvans/VehicleFlightRecorder/actions/runs/44397968453)
@@ -267,5 +272,41 @@ The app/core/native-validation tree remains identical to accepted native source
 `4d6e857`; later commits update analysis, upload verification and documentation.
 M7 stays partially complete pending upload consent, Apple processing and the
 actual parked/road/reliability/resource acceptance matrix. No merge or M8 work.
+
+**Milestone 8 not started.**
+
+
+## Approved TestFlight delivery and parked release — November 18, 2026
+
+The user approved sending the prepared 14.1 IPA and requested an updated testing
+list. [Upload run 44421246901](https://github.com/KaleTEvans/VehicleFlightRecorder/actions/runs/44421246901)
+verified the retained artifact from signing run `44400084011`, then sent those
+same bytes to Apple. It did not rebuild or create a build 16.1.
+
+- App source: `4d6e857b2cc6c8457c73892597d529e0e1becd9e`.
+- Build: **0.1.0 (14.1)**; bundle `com.kaleevans.vehicleflightrecorder`.
+- IPA SHA-256: `4704885038f15058e8212da61838348a4f373546cad8d2fb3ccc1960b1df4fe7`.
+- Affirmative receipt: **UPLOAD SUCCEEDED with 1 warning, 0 messages** at
+  **23:30:38 UTC / 5:30:38 p.m. CST November 18, 2026**; no upload errors.
+- Delivery UUID: `9a5d6d91-18ab-48ad-90bc-8522376bad83`.
+- Read-only Apple confirmation: upload COMPLETE, build VALID,
+  usesNonExemptEncryption=false, internal IN_BETA_TESTING; build uploadedDate
+  **23:31:59 UTC / 5:31:59 p.m. CST**.
+- Warning 90725 concerns the future April 2027 iOS 27 SDK upload requirement;
+  current processing/testing passed. Receipt retained privately in
+  `build/milestone-7/testflight-upload-14.1.log`.
+
+The previous approval block is resolved. The [updated test packet](../planning/milestone_7_test_session.md)
+now releases setup, one 35–45 minute parked visit and indoor history/export with
+one complete diagnostic bundle. It separates active versus ended notification
+routing across two drives, distinguishes fresh-zero end from missing-RPM grace,
+and makes manual override persistence/rearm and late adapter availability explicit.
+No per-case uploads or repeat M6 baseline/reference recordings are requested.
+
+M7 stays partially complete and PR #6 remains draft/unmerged. Parked results must
+be reviewed before any controlled road block; actual lifecycle/notification,
+repeated/representative long-drive, reference and battery/storage acceptance
+remain open. Source/core/iOS behavior and prior automated acceptance are unchanged
+by these delivery/checklist documentation updates.
 
 **Milestone 8 not started.**

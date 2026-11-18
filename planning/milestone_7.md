@@ -1,6 +1,9 @@
 # Codex Handoff — Vehicle Flight Recorder, Milestone 7 Only
 
 Status: IN PROGRESS — user authorized implementation November 18, 2026.
+Build **0.1.0 (14.1)** is delivered and VALID / internal IN_BETA_TESTING;
+[the consolidated parked packet](milestone_7_test_session.md) is released.
+Parked evidence review still gates road use; physical acceptance remains open.
 M6 is complete/merged as `f793674`. See [implementation report](../docs/MILESTONE_7.md),
 [reliability matrix](../docs/MILESTONE_7_RELIABILITY.md) and
 [prepared consolidated test packet](milestone_7_test_session.md).

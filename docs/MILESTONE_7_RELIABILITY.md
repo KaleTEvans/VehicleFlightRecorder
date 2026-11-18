@@ -1,7 +1,8 @@
 # Milestone 7 reliability and acceptance matrix
 
 November 18, 2026 — automated implementation/native validation passed; physical
-acceptance and approved beta upload remain pending. This matrix separates
+acceptance remains pending. Approved 14.1 upload is complete and Apple confirms
+VALID / internal IN_BETA_TESTING; the parked packet is released. This matrix separates
 scripted/native evidence from physical observations. No M7 phone case is accepted
 yet; M6 stationary results remain accepted and are not repeated as a prerequisite.
 

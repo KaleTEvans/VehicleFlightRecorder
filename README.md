@@ -11,7 +11,7 @@ vehicle packs. The diagnostic MVP takes priority over the later Driver Companion
 
 ## Current status
 
-**November 10, 2026:** Milestones 0–4 are complete and merged into `master`.
+**November 18, 2026:** Milestones 0–4 are complete and merged into `master`.
 [Milestone 5 is accepted and merged](https://github.com/KaleTEvans/VehicleFlightRecorder/pull/3):
 real MX+ firmware exchange/raw export, flicker correction, lock/unlock and automatic
 replug recovery (about 1–2 seconds after Bluetooth reconnects) passed on the phone.
@@ -31,12 +31,13 @@ retained. No additional M6 car test is requested; M7 implementation is now in pr
 The initial implementation adds Go-owned RPM activity policy, separate pre-start
 probes, automatic drive ownership, manual Stop override, interruption preservation
 and optional quiet recording confirmations. Automated qualification passed: 43 hosted / eight UI tests, 22 native ZIPs,
-three diagnostic bundles and 182 Python tests. Signed **14.1** is prepared and
-verified; its Apple upload awaits approval. **13.1** remains the installed/available
-M6 beta until M7 upload and processing are confirmed.
+three diagnostic bundles and 182 Python tests. TestFlight **0.1.0 (14.1)** is now confirmed VALID / internal IN_BETA_TESTING after
+the approved upload November 18 at **5:30:38 p.m. CST**. The app payload is unchanged
+from native-tested source `4d6e857`; physical M7 acceptance remains pending.
 See [M7 report](docs/MILESTONE_7.md), [reliability matrix](docs/MILESTONE_7_RELIABILITY.md)
-and [prepared test packet](planning/milestone_7_test_session.md). No car visit or
-road test is requested by the draft packet; M8 has not started.
+and [released parked test packet](planning/milestone_7_test_session.md). Group the
+phone checks into one parked visit and one evidence handoff; road use remains on
+hold pending review of those results. M8 has not started.
 
 Regular Combined, RPM-only, Coolant-only and Adapter-voltage-only now have an
 explicit CAN11/CAN29 protocol choice. The native test-car UI defaults to CAN29
@@ -45,7 +46,7 @@ Actual profile labels appear in status/history. CAN29 regular modes use the test
 addressing/readbacks with ordinary schedules and manual incident windows. This
 is an explicit selection, not automatic vehicle identification or protocol search.
 
-Exact native source `0044c1e5f0ec181e86da8d1deb3de221f33145b5` passed **33 hosted
+M6 baseline native source `0044c1e5f0ec181e86da8d1deb3de221f33145b5` passed **33 hosted
 tests, seven UI tests, both device compile profiles and 19 native ZIP validations**.
 Go/vet/race and 29 script tests passed; the current reader passes **157 Python
 tests**, checks session/report profile consistency, and independently revalidates

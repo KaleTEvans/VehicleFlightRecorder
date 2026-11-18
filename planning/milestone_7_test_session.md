@@ -1,20 +1,50 @@
 # Milestone 7 — consolidated physical acceptance
 
-Status: PREPARED, NOT RELEASED — November 18, 2026. Native verification passed;
-signed **0.1.0 (14.1)** from exact source `4d6e857b2cc6c8457c73892597d529e0e1becd9e`
-is prepared and verified in signing-only run `44400084011`. **It has not been
-uploaded to Apple**; explicit upload approval and processing confirmation are
-required before releasing this packet. Do not use M6 build 13.1 for these cases.
-No car visit is requested by this draft packet.
+Status: RELEASED FOR PARKED TESTING — November 18, 2026.
+Install **Vehicle Flight Recorder 0.1.0 (14.1)** from internal TestFlight.
+Exact app source: `4d6e857b2cc6c8457c73892597d529e0e1becd9e`.
+[Upload run 44421246901](https://github.com/KaleTEvans/VehicleFlightRecorder/actions/runs/44421246901)
+sent the unchanged, user-approved signed IPA at **5:30:38 p.m. CST November 18**.
+Apple confirmed upload COMPLETE, build VALID / internal IN_BETA_TESTING.
+Blocks A/B and the indoor handoff below are released. **Block C / road use remains
+on hold until these results are reviewed.** Do not use M6 build 13.1 for this packet.
+Each automatic drive has a 30-minute cap; the visit can contain several drives.
 
 The milestone has three substantial blocks, with an analysis hold before road
 use. Complete desk/native combinations first; collect parked cases in one visit,
 then review history/export indoors. Batch defects and request only affected
 retests. Reuse accepted M6 baseline/reference data rather than recording it again.
 
+## Phone quick list — one parked visit
+
+Read preparation/stop criteria below first. Plan **35–45 minutes**; send one bundle
+and one visit note after finishing. Observe timer/freshness/confirmations in the
+app; drive IDs and transport generations will be checked offline from the bundle.
+
+| Case | Action | Expected result |
+| --- | --- | --- |
+| P1 | Engine off / ignition on: arm monitoring, wait 60 s | No drive or success confirmation merely from scanner/module replies |
+| P2 | Start engine while parked, allow up to 90 s | Preparation then automatic recording with fresh RPM/coolant/voltage; one in-app confirmation if enabled |
+| P3 | After drive timer 01:00, Mark Incident; wait another 02:00 | Full manual pre/post window, subject to actual coverage |
+| P4 | After P3, unplug/replug scanner and reconnect Bluetooth; allow up to 90 s | Recording timer continues and fresh data return; no duplicate start confirmation |
+| P5 | Normal short engine-off interval, about 15 s, then restart | Same drive; no premature end or extra start confirmation |
+| P6 | Stop/save while running, wait 30 s; force-quit/reopen | No immediate automatic restart; manual override persists |
+| P7 | Let valid engine-off replies span 75 s; if no replies, use explicit disable/re-enable once and note it | Zero-based override clear only counts when fresh zero replies exist; otherwise clearance is unverified |
+| P8 | With no active drive, background VFR, start engine, wait 90 s | Automatic start without reopening/Start; tap its notification while active if present; then lock 90 s and check continuity |
+| P9 | End P8 normally. For a separate start with phone already locked, wait 90 s before unlocking | Fresh automatic capture; leave this notification untapped until the drive ends, then tap to open its own summary |
+| P10 | During a new active drive, force-quit 30 s, relaunch with scanner attached | Previous drive preserved as interrupted; fresh evidence may create a distinct drive, never fabricated continuity |
+| P11 | Disarm, unplug scanner, re-arm while parked, then plug/pair it without Discover | Later accessory availability starts capture automatically once fresh activity qualifies |
+| P12 | Stop/save, disable monitoring; review/export indoors | One **Export M7 diagnostic bundle**, actual retrieved ZIP, visit note with delays/issues/battery/charging/Focus context |
+
+For normal automatic end, expect about **75 s with ongoing fresh zero RPM**, or
+roughly **3–4 minutes when RPM replies disappear**. Missing replies are not zero.
+Stop for a new warning, missing RPM at the P2 gate, repeated recovery failure or
+storage error and return the available bundle. No per-case chat replies are needed.
+
 ## Block A — indoors, before the connected visit
 
-- Install the exact M7 beta listed in the released packet. Record app build,
+- Install **0.1.0 (14.1)**. Reconfirm **Vehicle is parked** after relaunch/rearming
+  when required by setup controls. Record app build,
   iPhone model/iOS, adapter identity/firmware and selected CAN29/500 profile.
 - Read optional confirmation explanation. Choose whether to enable quiet
   notifications; resolve permission and Focus/settings now, not while driving.
@@ -38,8 +68,9 @@ continue a dependent case if its written visible prerequisite fails.
 1. Close OBDLink and other scanner clients. Select tested **CAN29 / 500 kbps**.
    Enable **Vehicle is parked**, then **Hands-off monitoring**.
 2. With ignition on / engine off, allow about **60 seconds**. Expect activity
-   waiting and **no recorded drive / success confirmation**. Valid zero RPM is
-   acceptable; missing RPM is unknown and must not be shown as fresh zero.
+   waiting and **no recorded drive / success confirmation**. Probe values need not
+   be displayed here; the bundle will distinguish valid zero RPM from missing
+   replies. Do not infer running from scanner/module availability.
 3. Start the engine normally, remaining parked. Allow up to **90 seconds** for
    activity evidence, debounce, a fresh recording connection and setup. Expect
    preparation followed by recording that accepts RPM/coolant/voltage. Record
@@ -64,12 +95,15 @@ Continue the same active drive after B1's full manual window completes:
    confirmation should be created. Do not intentionally create vehicle faults.
 3. While running/parked, **Stop and save**. Wait about 30 seconds: no immediate
    automatic drive restart. Monitoring remains armed; the manual override is shown.
-4. Close/reopen the app while this completed-drive override is active. It should
-   remain suppressed. This checks persisted override, not interrupted recovery.
+4. Force-quit VFR from the app switcher, then reopen while this completed-drive
+   override is active and the engine is still running. It should remain suppressed.
+   This checks persisted override after a completed drive, not active interruption.
 5. Turn the engine off with ignition on if normal/appropriate. Allow **75 seconds**
    of valid zero RPM to clear the override. If the ECU stops replying instead,
-   leave the state unknown and record it; explicit disable/re-enable is available
-   while parked. Do not claim zero-based end acceptance from missing responses.
+   leave the state unknown and record it. Explicit disable/re-enable while parked
+   may rearm the remaining independent cases; note that automatic zero-based
+   clearance was not demonstrated. Do not claim zero-based acceptance from missing
+   replies. Reconfirm Vehicle is parked if the re-enable control requires it.
 
 ### B3. Background and locked operation, separate observations
 
@@ -79,20 +113,25 @@ Proceed only if B1/B2 acquisition and ownership behaved correctly:
    another app is visible. Start the engine normally. Wait about 90 seconds,
    then reopen VFR. Record whether it started without opening VFR/pressing Start,
    whether fresh data exist, and whether a single quiet notification was observed.
-   No notification is required if the preference/permission is disabled; actual
+   If present, tap this notification while the drive is active: it should open
+   this active drive. No notification is required if the preference/permission is disabled; actual
    recording remains a separate check.
 2. During this drive, lock the phone for **90 seconds**, then unlock/reopen.
    Record actual elapsed time and fresh coverage/gaps. Lock is not proof that iOS
    suspended the app. Do not label it as an OS-suspension test.
 3. Let the engine-off policy end this drive normally where valid zero RPM remains
-   observable; allow at least 75 seconds. If it loses replies, record unknown-
-   activity grace (up to 180 s), not a successful validated-zero end.
+   observable; allow about 75 seconds. If it loses replies, allow roughly 3–4
+   minutes for freshness expiry plus the 180 s unknown-activity grace. Record that
+   path separately, not as a successful validated-zero end.
 4. With the phone already locked and monitoring armed, start another normal parked
    engine session. Wait about 90 seconds, then unlock. This is **start while locked**,
    distinct from locking after a drive already started. Record coverage and
-   confirmation observations. Notification tap should open this active drive.
-5. End this drive normally; a tap on the old notification afterward should show
-   its own saved summary, not start a new drive or open an unrelated drive.
+   confirmation observations. Leave this second notification untapped; open VFR
+   from its app icon instead, so the notice is available for the ended-drive check.
+5. End this drive normally, then tap its retained notification in Notification
+   Center. It should show its own saved summary, not start a drive or open an
+   unrelated drive. If Focus/settings hide a notice, record that presentation/tap
+   check as unobserved; logs distinguish submission from actual visibility.
 
 ### B4. Force-quit/relaunch and adapter availability
 
@@ -101,9 +140,11 @@ Proceed only if B1/B2 acquisition and ownership behaved correctly:
    visibly incomplete/interrupted. Fresh activity may start a **distinct** drive;
    it must not claim continuous coverage or append repaired rows to the old files.
    This is user force-quit, not OS termination.
-2. After initial setup, repeat app launch with adapter already connected versus
-   scanner availability after launch. Record which needed user recovery. These
-   can be observed during B1–B4; do not create separate trips for them.
+2. The relaunch above tests an already attached scanner. Separately, disable
+   monitoring, unplug the scanner, then re-enable monitoring while parked (and
+   reconfirm Vehicle is parked if needed). Plug/pair the scanner without tapping
+   Discover / Connect. Allow up to 90 seconds for fresh automatic capture. Record
+   any required recovery. This later-availability check stays in the same visit.
 3. After a force-quit, do not assume automatic wake. Record required reopening as
    a product limitation. OS termination and verified OS suspension remain separate
    untested rows unless their exact conditions are reproducible and evidenced.

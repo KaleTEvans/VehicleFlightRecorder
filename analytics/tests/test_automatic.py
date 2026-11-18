@@ -99,3 +99,30 @@ def test_success_start_fact_is_checked_against_drive(automatic_exports,tmp_path,
         other['event_type']='automatic_recording_started';other['attributes']=row['attributes']
     file.write_text(''.join(json.dumps(x)+'\n' for x in rows))
     with pytest.raises(ValidationError):load_session(path)
+
+def test_measured_freshness_populations_keep_initial_absence_and_denominators(automatic_exports):
+    path=next((automatic_exports['reconnect']/'Sessions').glob('live-*'))
+    result=load_session(path)
+    quality=result['live']['runtime_quality']
+    assert quality['explicitly_logged_gap_seconds']>=9
+    for population in quality['receipt_freshness_populations']:
+        assert population['count']>0
+        assert population['stale_or_not_yet_observed_seconds']>0
+        assert population['receipt_age_fresh_seconds']+population['stale_or_not_yet_observed_seconds']==pytest.approx(quality['total_duration_seconds'])
+        assert 0<=population['receipt_fresh_outside_explicit_gaps_seconds']<=population['receipt_age_fresh_seconds']
+        assert population['observations_outside_explicit_gaps']<=population['count']
+        assert population['achieved_whole_interval_hz']==pytest.approx(population['count']/quality['total_duration_seconds'])
+
+@pytest.mark.parametrize('target',['state','journal','transition'])
+def test_wrong_runtime_field_types_fail_cleanly(automatic_exports,tmp_path,target):
+    from vehicle_flight_recorder.automatic import validate_automatic
+    path=tmp_path/'bundle';shutil.copytree(automatic_exports['running'],path)
+    if target=='state': (path/'Automation'/'state.json').write_text('[]')
+    elif target=='journal':
+        file=path/'Automation'/'journal.jsonl';rows=[json.loads(x) for x in file.read_text().splitlines()]
+        rows[0]['origin']=[];file.write_text(''.join(json.dumps(x)+'\n' for x in rows))
+    else:
+        drive=next((path/'Sessions').glob('live-*'));file=drive/'events.jsonl';rows=[json.loads(x) for x in file.read_text().splitlines()]
+        next(x for x in rows if x['event_type']=='automatic_activity_transition')['attributes']['state']=[]
+        file.write_text(''.join(json.dumps(x)+'\n' for x in rows))
+    with pytest.raises(ValidationError):validate_automatic(path)

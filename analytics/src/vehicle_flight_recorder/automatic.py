@@ -31,7 +31,8 @@ def quality(metadata, report, events):
             phases[phase]+=max(0,at-phase_start);phase=kind.removeprefix('native_');phase_start=at
         if kind=='automatic_activity_transition':
             require(metadata['live']['start_origin']=='automatic','automatic event in manual/probe session')
-            states[state]+=max(0,at-state_start);state=attrs.get('state','unknown');state_start=at
+            require(isinstance(attrs.get('state'),str) and attrs['state'] in {'waiting_for_activity','candidate','starting','recording','end_grace','degraded_gap','finalized','manual_stop_override'},'invalid activity transition state')
+            states[state]+=max(0,at-state_start);state=attrs['state'];state_start=at
         if kind=='automatic_recording_started':
             fields(attrs,'session_id start_origin time_unix_ms vehicle_name coverage')
             require(metadata['live']['start_origin']=='automatic' and attrs['session_id']==metadata['session_id'] and attrs['start_origin']=='automatic' and attrs['coverage']=='limited_standard_obd','foreign/invented automatic start fact')
@@ -51,9 +52,37 @@ def quality(metadata, report, events):
         if merged and a<=merged[-1][1]: merged[-1]=(merged[-1][0],max(b,merged[-1][1]))
         else:merged.append((a,b))
     excluded=sum(b-a for a,b in merged)
+    # Receipt-age freshness is a reproducible UI convention, not an ECU sensor
+    # refresh or measurement-time claim. Initial absent time is included.
+    populations={}
+    schedules={x['key']:x for x in report['schedule']}
+    signal_keys={'powertrain.engine.rpm':'rpm','powertrain.coolant.temperature':'coolant','electrical.adapter_voltage':'adapter_voltage'}
+    for observation in report['observations']:
+        populations.setdefault((observation['signal_id'],observation['ecu']),[]).append(observation['mapped_unix_ms'])
+    freshness=[]
+    for (signal,ecu),times in sorted(populations.items()):
+        windows=[]
+        for at in times:
+            interval=(max(start,at),min(end,at+15000))
+            if interval[1]<=interval[0]:continue
+            if windows and interval[0]<=windows[-1][1]:windows[-1]=(windows[-1][0],max(interval[1],windows[-1][1]))
+            else:windows.append(interval)
+        fresh=sum(b-a for a,b in windows)
+        overlap=sum(max(0,min(b,d)-max(a,c)) for a,b in windows for c,d in merged)
+        outside_count=sum(not any(a<=at<b for a,b in merged) for at in times)
+        whole_seconds=(end-start)/1000
+        outside_seconds=(end-start-excluded)/1000
+        schedule=schedules[signal_keys[signal]]
+        freshness.append(dict(signal_id=signal,ecu=ecu,count=len(times),requested_interval_seconds=schedule['interval_ns']/10**9,
+            achieved_whole_interval_hz=len(times)/whole_seconds if whole_seconds else None,
+            observations_outside_explicit_gaps=outside_count,achieved_outside_explicit_gaps_hz=outside_count/outside_seconds if outside_seconds>0 else None,
+            receipt_freshness_budget_seconds=15,receipt_age_fresh_seconds=fresh/1000,
+            stale_or_not_yet_observed_seconds=max(0,end-start-fresh)/1000,
+            receipt_fresh_outside_explicit_gaps_seconds=max(0,fresh-overlap)/1000))
     return dict(total_duration_seconds=(end-start)/1000, explicitly_logged_gap_seconds=excluded/1000,
         interval_outside_explicit_gaps_seconds=max(0,end-start-excluded)/1000,
         interval_caveat='Not proof of continuous execution, fresh coverage, or ECU sensor refresh',
+        receipt_freshness_populations=freshness,
         gaps=[dict(start_unix_ms=a,end_unix_ms=b,reason=reason) for a,b,reason in gaps],
         observed_scene_intervals_seconds={k:v/1000 for k,v in phases.items()},
         activity_intervals_seconds={k:v/1000 for k,v in states.items()},
@@ -66,7 +95,7 @@ def validate_automatic(directory, allow_incomplete=False):
     require(state_path.is_file() and not state_path.is_symlink() and state_path.stat().st_size<=8192,'missing/nonlocal/oversized automatic state')
     state=_decode(state_path.read_bytes(),'automatic state')
     required={'version','enabled','manual_stop_override','confirmation_claimed','protocol_profile'}
-    require(required<=set(state)<=required|{'active_drive'} and state['version']==POLICY,'unsupported automatic state')
+    require(isinstance(state,dict) and required<=set(state)<=required|{'active_drive'} and state['version']==POLICY,'unsupported automatic state')
     require(all(type(state[k]) is bool for k in ('enabled','manual_stop_override','confirmation_claimed')) and state['protocol_profile'] in {'can11-single-frame-headers-pci','can29-normal-fixed-single-frame-headers-pci'},'state policy/profile types')
     if 'active_drive' in state:require(isinstance(state['active_drive'],str) and ID.fullmatch(state['active_drive']),'state drive identity')
     journal=root/'Automation'/'journal.jsonl' 
@@ -76,6 +105,7 @@ def validate_automatic(directory, allow_incomplete=False):
     known={'owner_opened','activity_transition','confirmation_claimed','automatic_preference_changed','interrupted_session_preserved','bounded_session_ended','manual_stop_override','resource_sample','foreground','background','inactive','confirmation_result','battery_sample','notification_tap'}
     for _,row in _records(journal):
         fields(row,'policy_version owner_id origin observed_wall_unix_ms event native_ns phase details')
+        require(all(isinstance(row[k],str) for k in ('owner_id','origin','event','phase','policy_version')),'journal string field types')
         owner=row['owner_id'];require(isinstance(owner,str) and OWNER.fullmatch(owner),'owner identity')
         require(row['policy_version']==POLICY and row['origin'] in {'physical','native-fixture','scripted-fixture'} and row['event'] in known and row['phase'] in {'unknown','foreground','background','inactive'},'journal envelope')
         ns=_integer(row['native_ns'],'journal native clock');_integer(row['observed_wall_unix_ms'],'observed wall time',1)

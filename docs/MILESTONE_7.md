@@ -131,3 +131,71 @@ acceptance gates. No car visit is requested before the tested beta and complete
 packet are ready.
 
 **Milestone 8 not started.**
+
+## Logging inventory and state flow
+
+| Population | Retained content |
+| --- | --- |
+| Engine RPM | Standard mode 01 PID 0C, rpm, each responding CAN ID, decoder/transaction/generation, receipt timestamp/quality |
+| Coolant | Standard mode 01 PID 05, degC, same independent responder/raw provenance |
+| Adapter supply | STVR input volts, source adapter; not an ECU battery sensor or alternator diagnosis |
+| Availability | Block-00 supported-PID replies; advertised/observed/unsupported/unavailable/unknown, setup/profile/decoder versions |
+| Raw transport | Exact requested, stream-accepted, received/late/unsolicited bytes, ordered references and monotonic deadlines |
+| Policy | Config/version, candidate/start/end/grace/override decisions, evidence response identity, retained pre-start context |
+| Incidents | Manual mark, 60/120 s evidence window, full/partial state and actual gaps/reasons |
+| Lifecycle | Observed native phases, transport generations/recovery and unknown scheduling gaps; interruption/relaunch owner boundary |
+| Confirmation | Durable successful-start and claim facts; selected path, suppression/submission/failure; original-session tap routing |
+| Resources | Retained byte growth, Go heap population, native mailbox/outbound size, sampled battery/charging/Low Power/thermal context |
+| Quality | Requested versus achieved per-responder rates, actual latency/error populations, whole/outside-explicit-gap denominators, receipt-age stale/initial-absence time |
+
+Receipt-age freshness uses the existing UI's 15 s age budget; activity eligibility
+uses its separate 10 s window. The reader labels these conventions explicitly and
+does not infer ECU internal measurement time or sensor refresh. Per-hour battery
+output is unavailable for charging/unknown populations; observed execution-only
+samples do not qualify continuous background drain.
+
+```mermaid
+stateDiagram-v2
+    [*] --> Disabled
+    Disabled --> Monitoring: Explicit opt-in / persisted enabled restore
+    Monitoring --> Candidate: Fresh validated running RPM
+    Candidate --> Monitoring: Stale, zero or insufficient evidence
+    Candidate --> Initializing: Distinct replies span debounce
+    Initializing --> Recording: Setup and actual telemetry accepted
+    Recording --> EndGrace: Fresh zero RPM
+    EndGrace --> Recording: Running resumes
+    EndGrace --> Finalized: Sustained zero evidence
+    Recording --> Gap: Transport or activity unavailable
+    Gap --> Recording: Fresh generation / activity restored within grace
+    Gap --> Finalized: Unknown/execution grace expires
+    Recording --> Override: Manual Stop or duration cap
+    Override --> Monitoring: Sustained off or explicit rearm
+    Finalized --> Monitoring: Retain closed drive; new probe
+    Recording --> Interrupted: Observed on later relaunch
+    Interrupted --> Monitoring: Originals preserved; fresh evidence / new ID
+    Monitoring --> Failed: Storage/resource error
+    Recording --> Failed: Storage/resource error
+```
+
+## Automated evidence so far
+
+Initial source `d3b116add830e667ff111885c2d8a39426557f87` passed
+[native run 44394000438](https://github.com/KaleTEvans/VehicleFlightRecorder/actions/runs/44394000438):
+41 hosted tests, eight UI tests, both device compile profiles and independent
+validation of 22 actual native ZIPs with all available incidents reconstructed.
+This is a regression baseline, not acceptance of later changes or physical wake.
+
+The portable full suite after bundle/routing changes passed 178 Python tests,
+29 script tests, Go tests/vet. Broad race checks passed activity, mobile,
+acquisition, recorder and storage; focused owner/policy race checks passed after
+review fixes. Workflow lint and documentation links pass. Later reader changes
+add whole-bundle claim/resource and freshness validation and will be rechecked
+against final native artifacts. No private phone captures are public fixtures.
+
+The final source has additional manual-after-disabled-setup regression, whole
+native automation-bundle replay, bounded archive handling, canonical success-fact
+time and distinct interruption/context identities. It is undergoing a fresh
+native run before signed beta delivery. Superseded intermediate runs were cancelled
+rather than treating their results as evidence for the final source.
+
+**Milestone 8 not started.**

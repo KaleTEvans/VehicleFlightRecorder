@@ -120,7 +120,7 @@ struct RecordingRoute: Identifiable, Hashable { let id = UUID(); let sessionID: 
         let name = notification.request.content.userInfo["vehicle_name"] as? String ?? "Vehicle"
         let own = notification.request.identifier.hasPrefix("vfr.start.")
         completionHandler([])
-        if own, let id, FileConfirmationReceipts.validID(id) {
+        if own, let id, FileConfirmationReceipts.validID(id), notification.request.identifier == "vfr.start.\(id)" {
             Task { @MainActor [weak self] in
                 guard let self, await self.isSessionActive(id) else { return }
                 do { try self.presentInApp(session: id, name: name) }
@@ -132,7 +132,7 @@ struct RecordingRoute: Identifiable, Hashable { let id = UUID(); let sessionID: 
         let id = response.notification.request.content.userInfo["session_id"] as? String
         let own = response.notification.request.identifier.hasPrefix("vfr.start.")
         Task { @MainActor [weak self] in
-            if own, let id, FileConfirmationReceipts.validID(id) {
+            if own, let id, FileConfirmationReceipts.validID(id), response.notification.request.identifier == "vfr.start.\(id)" {
                 self?.route = RecordingRoute(sessionID: id)
                 self?.onEvent("tap_route_requested: \(id)")
             }
@@ -153,8 +153,7 @@ struct RecordingRoute: Identifiable, Hashable { let id = UUID(); let sessionID: 
         UIDevice.current.isBatteryMonitoringEnabled = true
         resourceTimer = Timer.scheduledTimer(withTimeInterval: 60, repeats: true) { _ in
             Task { @MainActor in
-                let device = UIDevice.current
-                let detail = "battery_level=\(device.batteryLevel); battery_state=\(device.batteryState.rawValue); thermal_state=\(ProcessInfo.processInfo.thermalState.rawValue); low_power=\(ProcessInfo.processInfo.isLowPowerModeEnabled); observation=application_execution_only"
+                let detail = NativeResourceSample.json()
                 await TransportDebugModel.shared.recordAutomaticEvent("battery_sample", detail: detail)
             }
         }
@@ -168,5 +167,14 @@ struct RecordingRoute: Identifiable, Hashable { let id = UUID(); let sessionID: 
         #if !targetEnvironment(simulator)
         Task { await TransportDebugModel.shared.lifecycle(value) }
         #endif
+    }
+}
+
+@MainActor enum NativeResourceSample {
+    static func json() -> String {
+        let device = UIDevice.current
+        let value: [String: Any] = ["battery_level": device.batteryLevel >= 0 ? device.batteryLevel as Any : NSNull(), "battery_state": device.batteryState.rawValue, "thermal_state": ProcessInfo.processInfo.thermalState.rawValue, "low_power": ProcessInfo.processInfo.isLowPowerModeEnabled, "measurement_scope": "application_execution_only", "ambient_temperature": "unknown"]
+        guard let data = try? JSONSerialization.data(withJSONObject: value, options: [.sortedKeys]) else { return "{}" }
+        return String(decoding: data, as: UTF8.self)
     }
 }

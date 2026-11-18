@@ -39,7 +39,7 @@ struct TransportDebugView: View {
                     Text("Activity: \(model.automatic?.state.replacingOccurrences(of: "_", with: " ") ?? "Disabled")")
                         .accessibilityIdentifier("automatic-state")
                     if model.automatic?.recording == true, let live = model.live {
-                        Text("Recording automatically · Limited standard OBD coverage").font(.headline)
+                        Text(model.automatic?.acceptingTelemetry == true ? "Recording automatically · Limited standard OBD coverage" : "Preparing automatic recording · Waiting for fresh telemetry").font(.headline)
                             .accessibilityIdentifier("automatic-recording-active")
                         Text("Elapsed: \(live.elapsedMs / 1000) s · \(live.protocolTitle)")
                         Button("Mark Incident") { Task { await model.markLive() } }
@@ -59,6 +59,11 @@ struct TransportDebugView: View {
                     }
                     NavigationLink("Saved sessions, incidents and export") { PhysicalHistoryView() }
                         .disabled(model.automatic?.recording == true)
+                    Button("Export M7 diagnostic bundle") {
+                        Task { if let url = await model.exportAutomationBundle() { share = SessionShareRequest(url: url) } }
+                    }.buttonStyle(.borderless)
+                        .disabled(model.busy || model.automatic?.enabled == true || share != nil)
+                    Text("Disable monitoring before export. This bundle includes automatic drives, retained activity probes and policy/notification/resource logs for one combined review. It preserves incomplete originals without repair.").font(.caption)
                 }
                 Section("Optional recording confirmation") {
                     Text("A quiet confirmation can tell you when an automatic drive has started accepting telemetry. It does not enable recording or background execution. Configure permissions while parked.").font(.caption)
@@ -69,7 +74,7 @@ struct TransportDebugView: View {
                     if confirmations.permission == "denied" {
                         Button("Open notification settings") {
                             if let url = URL(string: UIApplication.openSettingsURLString) { UIApplication.shared.open(url) }
-                        }
+                        }.disabled(!parked || model.automatic?.recording == true)
                     }
                 }
                 if model.automatic?.enabled != true {

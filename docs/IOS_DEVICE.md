@@ -14,6 +14,15 @@ passed native verification and uploaded at 17:20:58 CDT on October 30. On Novemb
 Bluetooth reconnects; M5 transport acceptance is complete. Unverified physical
 edge cases remain listed in the M5 report.
 
+## Milestone 7 implementation
+
+M7 is in progress as [draft PR #6](https://github.com/KaleTEvans/VehicleFlightRecorder/pull/6).
+The initial automatic policy, native confirmation seam and consolidated diagnostic
+bundle are undergoing native verification. No new signed M7 beta is delivered yet;
+13.1 below remains the accepted M6 build. The [prepared packet](../planning/milestone_7_test_session.md)
+is not released for a car visit or road use. See [the M7 report](MILESTONE_7.md)
+and [reliability matrix](MILESTONE_7_RELIABILITY.md). M8 has not started.
+
 ## Milestone 6 beta
 
 **Current ordinary-mode beta: 0.1.0 (13.1), ready in internal TestFlight.** It adds an explicit

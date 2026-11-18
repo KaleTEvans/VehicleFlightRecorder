@@ -6,11 +6,14 @@ import UIKit
 enum SessionExporter {
     static let files = ["session.json", "observations.jsonl", "events.jsonl", "incidents.jsonl", "raw/transport.jsonl"]
     static let maximumArchiveBytes: UInt64 = 128 * 1024 * 1024
-    static func archive(directory: URL, output: URL) throws -> URL {
+    static func archive(directory: URL, output: URL, bundleFiles: [String]? = nil, archiveName: String? = nil) throws -> URL {
         let root = directory.standardizedFileURL.resolvingSymlinksInPath()
         var total: UInt64 = 0
         func preflight(_ names: [String]) throws {
             for name in names {
+                guard !name.hasPrefix("/"), !name.split(separator: "/").contains(".."), name.utf8.count <= 1024 else {
+                    throw VehicleTransportError.failed("Invalid evidence bundle path")
+                }
                 let file = root.appendingPathComponent(name)
                 let attributes = try FileManager.default.attributesOfItem(atPath: file.path)
                 guard attributes[.type] as? FileAttributeType == .typeRegular,
@@ -24,17 +27,26 @@ enum SessionExporter {
                 total += size
             }
         }
-        try preflight(Self.files)
-        let metadataURL = root.appendingPathComponent("session.json")
-        let metadataSize = try metadataURL.resourceValues(forKeys: [.fileSizeKey]).fileSize ?? Int.max
-        guard metadataSize <= 1024 * 1024 else { throw BridgeFailure(category: "resource_limit", operation: "archive", detail: "Session metadata exceeds 1 MiB") }
-        let metadata = try JSONSerialization.jsonObject(with: Data(contentsOf: metadataURL)) as? [String: Any]
-        guard let version = metadata?["schema_version"] as? Int, [1, 2].contains(version) else {
-            throw VehicleTransportError.failed("Unsupported session export schema")
+        let files: [String]
+        if let bundleFiles {
+            guard !bundleFiles.isEmpty, bundleFiles.count <= 20_000, Set(bundleFiles).count == bundleFiles.count else {
+                throw VehicleTransportError.failed("Invalid evidence bundle population")
+            }
+            try preflight(bundleFiles); files = bundleFiles
+        } else {
+            try preflight(Self.files)
+            let metadataURL = root.appendingPathComponent("session.json")
+            let metadataSize = try metadataURL.resourceValues(forKeys: [.fileSizeKey]).fileSize ?? Int.max
+            guard metadataSize <= 1024 * 1024 else { throw BridgeFailure(category: "resource_limit", operation: "archive", detail: "Session metadata exceeds 1 MiB") }
+            let metadata = try JSONSerialization.jsonObject(with: Data(contentsOf: metadataURL)) as? [String: Any]
+            guard let version = metadata?["schema_version"] as? Int, [1, 2].contains(version) else {
+                throw VehicleTransportError.failed("Unsupported session export schema")
+            }
+            let extra = version == 2 ? ["capability.json"] : []
+            try preflight(extra); files = Self.files + extra
         }
-        let extra = version == 2 ? ["capability.json"] : []
-        try preflight(extra)
-        let files = Self.files + extra
+        let overhead = files.reduce(UInt64(22)) { $0 + UInt64(76 + 2 * $1.utf8.count) }
+        guard total + overhead <= maximumArchiveBytes else { throw VehicleTransportError.failed("Evidence bundle exceeds the 128 MiB ZIP limit; originals are preserved") }
         var data = Data()
         var central = Data()
         for name in files {
@@ -64,9 +76,41 @@ enum SessionExporter {
         data.le(UInt32(0x06054b50)); data.le(UInt16(0)); data.le(UInt16(0)); data.le(UInt16(files.count)); data.le(UInt16(files.count))
         data.le(UInt32(central.count)); data.le(start); data.le(UInt16(0))
         try FileManager.default.createDirectory(at: output, withIntermediateDirectories: true)
-        let destination = output.appendingPathComponent(directory.lastPathComponent).appendingPathExtension("zip")
+        let destination = output.appendingPathComponent(archiveName ?? directory.lastPathComponent).appendingPathExtension("zip")
         try data.write(to: destination, options: .atomic)
         return destination
+    }
+    // Call on the transport executor only after monitoring and recording stop.
+    // Original bytes (including incomplete evidence) are copied, never repaired.
+    static func automationBundle(documents: URL, output: URL) throws -> URL {
+        let root = documents.standardizedFileURL.resolvingSymlinksInPath()
+        var names: [String] = []
+        func collect(_ directory: URL) throws {
+            var enumerationFailure: Error?
+            guard let enumerator = FileManager.default.enumerator(at: directory, includingPropertiesForKeys: [.isRegularFileKey, .isSymbolicLinkKey], errorHandler: { _, error in enumerationFailure = error; return false }) else {
+                throw VehicleTransportError.failed("Could not read the automation evidence directory")
+            }
+            for case let file as URL in enumerator {
+                let values = try file.resourceValues(forKeys: [.isRegularFileKey, .isSymbolicLinkKey])
+                guard values.isSymbolicLink != true else { throw VehicleTransportError.failed("Evidence bundle contains a symbolic link") }
+                guard values.isRegularFile == true, file.lastPathComponent != "owner.lock" else { continue }
+                guard file.path.hasPrefix(root.path + "/") else { throw VehicleTransportError.failed("Nonlocal automation evidence") }
+                names.append(String(file.path.dropFirst(root.path.count + 1)))
+                guard names.count <= 20_000 else { throw VehicleTransportError.failed("Automation bundle file limit") }
+            }
+            if let enumerationFailure { throw enumerationFailure }
+        }
+        guard FileManager.default.fileExists(atPath: root.appendingPathComponent("Automation/journal.jsonl").path), FileManager.default.fileExists(atPath: root.appendingPathComponent("Automation/state.json").path) else {
+            throw VehicleTransportError.failed("No complete automation journal/state is available; original files remain in Files")
+        }
+        try collect(root.appendingPathComponent("Automation", isDirectory: true))
+        let sessions = root.appendingPathComponent("Sessions", isDirectory: true)
+        for directory in (try? FileManager.default.contentsOfDirectory(at: sessions, includingPropertiesForKeys: nil)) ?? [] where directory.lastPathComponent.hasPrefix("live-") {
+            let metadata = try? JSONSerialization.jsonObject(with: Data(contentsOf: directory.appendingPathComponent("session.json"))) as? [String: Any]
+            let live = metadata?["live"] as? [String: Any]
+            if live?["policy_version"] as? String == "rpm-activity-1" || metadata == nil { try collect(directory) }
+        }
+        return try archive(directory: root, output: output, bundleFiles: names.sorted(), archiveName: "M7-diagnostics-\(UUID().uuidString)")
     }
     private static let crcTable: [UInt32] = (0..<256).map { value in
         var remainder = UInt32(value)

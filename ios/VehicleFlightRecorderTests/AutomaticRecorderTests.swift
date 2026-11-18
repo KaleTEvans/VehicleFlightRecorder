@@ -19,6 +19,9 @@ final class AutomaticRecorderTests: XCTestCase {
             let output = docs.appendingPathComponent("NativeAcceptance/Exports", isDirectory: true)
             try FileManager.default.createDirectory(at: output, withIntermediateDirectories: true)
             try FileManager.default.copyItem(at: archive, to: output.appendingPathComponent(archive.lastPathComponent))
+            let bundles = docs.appendingPathComponent("NativeAcceptance/AutomationBundles", isDirectory: true)
+            let bundle = try SessionExporter.automationBundle(documents: result.root, output: bundles)
+            XCTAssertTrue(FileManager.default.fileExists(atPath: bundle.path))
             try await history.close()
         }
     }

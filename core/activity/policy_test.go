@@ -96,8 +96,11 @@ func TestFreshnessResetAndConflictingResponders(t *testing.T) {
 }
 
 func TestSuspendedOwnerCannotBridgeDriveGrace(t *testing.T) {
- p:=New(false);p.Recording=true
- _,_=p.Step(0,sample("a",0,950,1),true)
- d,e:=p.Step(181*Second,sample("b",181,950,1),true)
- if e!=nil||d.Action!="end"||d.Reason!="owner_execution_gap_exceeded_grace" {t.Fatal(d,e)}
+	p := New(false)
+	p.Recording = true
+	_, _ = p.Step(0, sample("a", 0, 950, 1), true)
+	d, e := p.Step(181*Second, sample("b", 181, 950, 1), true)
+	if e != nil || d.Action != "end" || d.Reason != "owner_execution_gap_exceeded_grace" {
+		t.Fatal(d, e)
+	}
 }

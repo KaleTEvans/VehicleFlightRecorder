@@ -105,6 +105,7 @@ jobs:
             --output-path build/native-acceptance/ui-attachments
           cp -R "$APP_DATA/Documents/NativeAcceptance/Exports" build/native-acceptance/
           cp -R "$APP_DATA/Documents/NativeAcceptance/Connections" build/native-acceptance/
+          cp -R "$APP_DATA/Documents/NativeAcceptance/AutomationBundles" build/native-acceptance/
           printf 'Simulator: %s\nCommit: %s\n' "$SIMULATOR_ID" "$GITHUB_SHA" > build/native-acceptance/provenance.txt
           xcrun simctl io "$SIMULATOR_ID" screenshot build/native-acceptance/simulator.png
 

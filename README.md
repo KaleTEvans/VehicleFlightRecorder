@@ -25,7 +25,16 @@ IDs plus adapter voltage. Both real incidents reconstruct with raw provenance.
 The [stationary quality report](docs/MILESTONE_6_STATIONARY_ACCEPTANCE.md) records
 measured rates/latencies, the intentional-unplug timeout, recovery/setup delays,
 coverage gaps and Stop-state behavior. Prior diagnostic/reference acceptance is
-retained. No additional M6 car test is requested; M7 has not started.
+retained. No additional M6 car test is requested; M7 implementation is now in progress.
+
+**Milestone 7 is in progress** on `codex/milestone-7-hands-off-recording` / [draft PR #6](https://github.com/KaleTEvans/VehicleFlightRecorder/pull/6).
+The initial implementation adds Go-owned RPM activity policy, separate pre-start
+probes, automatic drive ownership, manual Stop override, interruption preservation
+and optional quiet recording confirmations. Native/physical qualification is in
+progress; the accepted M6 beta remains **13.1** until a tested M7 build is delivered.
+See [M7 report](docs/MILESTONE_7.md), [reliability matrix](docs/MILESTONE_7_RELIABILITY.md)
+and [prepared test packet](planning/milestone_7_test_session.md). No car visit or
+road test is requested by the draft packet; M8 has not started.
 
 Regular Combined, RPM-only, Coolant-only and Adapter-voltage-only now have an
 explicit CAN11/CAN29 protocol choice. The native test-car UI defaults to CAN29
@@ -53,7 +62,7 @@ authorized November 10; Appetize remains mock.
 | 4 | Bridge, lifecycle and device/simulator build hardening | Complete and merged; [report](docs/MILESTONE_4.md) |
 | 5 | MX+ byte transport, connection evidence and offline preparation | Complete, accepted and merged; [report](docs/MILESTONE_5.md) |
 | 6 | Adapter initialization, standard OBD and live acquisition | Complete, accepted and merged; [report](docs/MILESTONE_6.md) |
-| 7 | Hands-off road logging, start confirmations and reliability | Planned; [handoff](planning/milestone_7.md) |
+| 7 | Hands-off road logging, start confirmations and reliability | In progress; [report](docs/MILESTONE_7.md) |
 | 8 | Verified Giulia drivetrain signals and incident correlation | Planned; [handoff](planning/milestone_8.md) |
 
 ## What works today

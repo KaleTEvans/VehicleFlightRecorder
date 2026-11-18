@@ -288,3 +288,28 @@ are unchanged. A reconnect retains session/profile identity, clears cached
 readings/capabilities, repeats setup and requires fresh same-generation support.
 The JSON snapshot adds actual `protocol_profile`; history decodes the existing
 metadata field to label the profile alongside workload/state.
+
+
+## M7 automatic activity extension — policy rpm-activity-1
+
+Schema 2 now admits `live.start_origin` values `automatic` and `activity_probe`,
+only with `policy_version: rpm-activity-1`, operating state `unknown`, and workload
+`combined` / `rpm_only` respectively. The report configuration must declare the
+same origin/version. Limits are exactly 1800 / 300 seconds; legacy manual and
+handoff limits remain 600 / 15. No other schedule, decoder or raw contract changes.
+Use the updated reader; older readers reject these new declared configurations.
+
+Probes live outside drive history under `Automation/Probes`. A promoted drive has
+its own start anchor and references its closed probe as separate pre-start context;
+probe observations are never inserted before the drive start. Canonical automatic
+success facts require actual setup/telemetry and are independently cross-checked.
+
+`Automation/journal.jsonl` has versioned policy, unique per-process owner identity,
+origin, observed wall time, continuous clock, phase, kind and details. Continuous
+clocks are ordered only within an owner scope; reboot/relaunch is not continuity.
+It preserves policy, start claims, interruptions, native confirmation outcomes,
+resource and battery samples outside an active drive. The private diagnostic
+bundle contains unchanged drive/probe files, journal/state and exclusive native
+receipts; it is distinct from a six-file session ZIP. `validate-automatic` inspects
+that bundle, with explicit `--allow-incomplete` for well-formed interrupted files.
+Truncated/corrupt original rows still fail; there is no silent repair.

@@ -285,3 +285,21 @@ See [transport contract/status](MILESTONE_5.md) and [signed build setup](IOS_DEV
 `validate-connection` inspects standalone transport files; canonical mock session
 validation remains unchanged. Native transport fixtures run in the simulator
 without opening EASession. Only device builds enable physical discovery.
+
+
+## M7 automatic evidence replay
+
+`core/cmd/automatic-fixture` exercises the actual Go policy/owner with explicitly
+scripted CAN29 bytes. It creates independent drive/probe anchors and an automation
+journal, never hardware evidence. Run with a new output directory and scenario
+`running`, `engine_off`, `manual_stop`, `interrupted` or `reconnect`; inspect it:
+
+```bash
+analytics/.venv/bin/python -m vehicle_flight_recorder validate-automatic /absolute/bundle-root --allow-incomplete
+```
+
+The reader verifies every drive/probe and claim, reconstructs quality populations,
+and preserves incomplete status. Reconstruct incidents separately using actual IDs.
+Native tests export additional automatic/probe ZIPs; the native validator retains
+all M6 requirements and requires M7 engine-off/running/reconnect coverage as well.
+Appetize remains explicitly mock; physical acceptance is a separate gate.

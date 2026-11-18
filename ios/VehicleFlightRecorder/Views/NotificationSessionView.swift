@@ -7,11 +7,14 @@ struct NotificationSessionView: View {
     @ObservedObject var transport: TransportDebugModel
     @StateObject private var history = RecorderModel(historyOnly: true)
     @State private var lookupComplete = false
+    private var resolution: RecordingRouteResolution {
+        RecordingRouteResolution.resolve(sessionID: sessionID, activeID: transport.automatic?.sessionId, active: transport.live?.active == true && transport.automatic?.enabled == true, savedIDs: Set(history.sessions.map(\.id)))
+    }
     var body: some View {
         Group {
-            if transport.automatic?.sessionId == sessionID, transport.automatic?.enabled == true, let live = transport.live, live.active {
+            if resolution == .active, let live = transport.live {
                 List {
-                    Text("Recording automatically · Limited standard OBD coverage").font(.headline)
+                    Text(transport.automatic?.acceptingTelemetry == true ? "Recording automatically · Limited standard OBD coverage" : "Preparing automatic recording").font(.headline)
                     Text("Session: \(sessionID)").font(.caption)
                     Text("Elapsed: \(live.elapsedMs / 1000) s")
                     ForEach(live.readings) { row in
@@ -31,11 +34,26 @@ struct NotificationSessionView: View {
                 await transport.refresh()
                 if transport.automatic?.sessionId != sessionID {
                     await history.refresh(advance: false)
-                    while history.hasMoreSessions && !history.sessions.contains(where: { $0.id == sessionID }) { await history.loadMoreSessions() }
+                    while history.hasMoreSessions && !history.sessions.contains(where: { $0.id == sessionID }) {
+                        let count = history.sessions.count
+                        await history.loadMoreSessions()
+                        if history.sessions.count == count || history.error != nil { break }
+                    }
                     lookupComplete = true
                 }
                 try? await Task.sleep(for: .seconds(1))
             }
         }
+    }
+}
+
+// Re-evaluated at navigation/render time; notification arrival does not freeze
+// active state, choose an unrelated drive or admit any recording command.
+enum RecordingRouteResolution {
+    case active, saved, unavailable
+    static func resolve(sessionID: String, activeID: String?, active: Bool, savedIDs: Set<String>) -> Self {
+        guard FileConfirmationReceipts.validID(sessionID) else { return .unavailable }
+        if active, activeID == sessionID { return .active }
+        return savedIDs.contains(sessionID) ? .saved : .unavailable
     }
 }

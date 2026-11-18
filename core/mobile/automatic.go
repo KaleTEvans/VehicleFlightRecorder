@@ -1,6 +1,8 @@
 package mobile
 
 import (
+	"crypto/rand"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -10,12 +12,14 @@ import (
 	"strings"
 	"sync"
 	"syscall"
+	"time"
 
 	"vehicleflightrecorder.local/core/acquisition"
 	"vehicleflightrecorder.local/core/activity"
 )
 
 type automaticDisk struct {
+	ProtocolProfile     string `json:"protocol_profile,omitempty"`
 	Version             string `json:"version"`
 	Enabled             bool   `json:"enabled"`
 	Suppressed          bool   `json:"manual_stop_override"`
@@ -35,6 +39,7 @@ type startFact struct {
 // The filesystem lock prevents a second owner. Relaunch preserves interrupted
 // originals and always requires new activity evidence for a distinct drive.
 type AutomaticRecorder struct {
+	ownerID                          string
 	mu                               sync.Mutex
 	root, directory, origin, profile string
 	lock                             *os.File
@@ -70,7 +75,12 @@ func NewAutomaticRecorder(root, origin, profile string) (*AutomaticRecorder, err
 		lock.Close()
 		return nil, fmt.Errorf("automatic owner already exists: %w", err)
 	}
-	a := &AutomaticRecorder{root: root, directory: directory, origin: origin, profile: profile, lock: lock, state: "disabled", phase: "unknown", disk: automaticDisk{Version: activity.Version}}
+	var nonce [16]byte
+	if _, err = rand.Read(nonce[:]); err != nil {
+		lock.Close()
+		return nil, err
+	}
+	a := &AutomaticRecorder{ownerID: "owner-" + hex.EncodeToString(nonce[:]), root: root, directory: directory, origin: origin, profile: profile, lock: lock, state: "disabled", phase: "unknown", disk: automaticDisk{Version: activity.Version}}
 	data, err := os.ReadFile(filepath.Join(directory, "state.json"))
 	if err == nil {
 		err = decodeDocument(data, &a.disk)
@@ -84,8 +94,24 @@ func NewAutomaticRecorder(root, origin, profile string) (*AutomaticRecorder, err
 		a.Close()
 		return nil, err
 	}
+	if a.disk.ProtocolProfile != "" {
+		if a.disk.ProtocolProfile != "can11-single-frame-headers-pci" && a.disk.ProtocolProfile != "can29-normal-fixed-single-frame-headers-pci" {
+			a.Close()
+			return nil, fmt.Errorf("invalid persisted protocol profile")
+		}
+		a.profile = a.disk.ProtocolProfile
+	}
+	if a.disk.ActiveDrive != "" && !ValidAutomaticSessionID(a.disk.ActiveDrive) {
+		a.Close()
+		return nil, fmt.Errorf("invalid persisted drive identity")
+	}
+	a.disk.ProtocolProfile = a.profile
 	a.policy = activity.New(a.disk.Suppressed)
 	// No repair, append, adoption or finalization of the previous evidence files.
+	if err = a.journal("owner_opened", map[string]any{"origin": a.origin, "clock_scope": "new_process", "relaunch": "fresh_evidence_new_drive"}); err != nil {
+		a.Close()
+		return nil, err
+	}
 	if a.disk.ActiveDrive != "" {
 		a.previous = a.disk.ActiveDrive
 		a.disk.ActiveDrive = ""
@@ -145,7 +171,7 @@ func (a *AutomaticRecorder) journal(kind string, details any) error {
 	if info.Size() > 16<<20 {
 		return fmt.Errorf("automation journal storage limit; originals preserved")
 	}
-	b, err := json.Marshal(map[string]any{"policy_version": activity.Version, "event": kind, "native_ns": a.lastNS, "phase": a.phase, "details": details})
+	b, err := json.Marshal(map[string]any{"policy_version": activity.Version, "owner_id": a.ownerID, "origin": a.origin, "observed_wall_unix_ms": time.Now().UnixMilli(), "event": kind, "native_ns": a.lastNS, "phase": a.phase, "details": details})
 	if err != nil {
 		return err
 	}
@@ -429,6 +455,9 @@ func (a *AutomaticRecorder) Live() *LiveRecorder { a.mu.Lock(); defer a.mu.Unloc
 func (a *AutomaticRecorder) Stop(nativeNS, wallMS int64) error {
 	a.mu.Lock()
 	defer a.mu.Unlock()
+	if nativeNS < a.lastNS {
+		return fmt.Errorf("automatic clock regression")
+	}
 	a.lastNS = nativeNS
 	if a.live == nil {
 		return nil
@@ -459,6 +488,9 @@ func (a *AutomaticRecorder) Stop(nativeNS, wallMS int64) error {
 func (a *AutomaticRecorder) ClaimConfirmation(nativeNS int64) (string, error) {
 	a.mu.Lock()
 	defer a.mu.Unlock()
+	if nativeNS < a.lastNS {
+		return "", fmt.Errorf("automatic clock regression")
+	}
 	a.lastNS = nativeNS
 	if a.fact == nil || a.disk.ConfirmationClaimed {
 		return "", nil
@@ -478,6 +510,9 @@ func (a *AutomaticRecorder) NativeEvent(kind, detail string, nativeNS int64) err
 	defer a.mu.Unlock()
 	if len(detail) > 2048 {
 		return fmt.Errorf("native automation detail budget")
+	}
+	if nativeNS < a.lastNS {
+		return fmt.Errorf("automatic clock regression")
 	}
 	a.lastNS = nativeNS
 	switch kind {
@@ -502,7 +537,7 @@ func (a *AutomaticRecorder) NativeEvent(kind, detail string, nativeNS int64) err
 func (a *AutomaticRecorder) Snapshot() string {
 	a.mu.Lock()
 	defer a.mu.Unlock()
-	b, _ := json.Marshal(map[string]any{"policy": a.policy.Config, "enabled": a.disk.Enabled, "state": a.state, "error": a.failure, "session_id": a.disk.ActiveDrive, "manual_stop_override": a.policy.Suppressed, "previous_interrupted_session": a.previous, "phase": a.phase, "maximum_drive_seconds": 1800})
+	b, _ := json.Marshal(map[string]any{"policy": a.policy.Config, "enabled": a.disk.Enabled, "state": a.state, "error": a.failure, "session_id": a.disk.ActiveDrive, "accepting_telemetry": a.fact != nil && a.disk.ActiveDrive != "", "manual_stop_override": a.policy.Suppressed, "previous_interrupted_session": a.previous, "phase": a.phase, "maximum_drive_seconds": 1800})
 	return string(b)
 }
 func (a *AutomaticRecorder) Close() error {
@@ -528,5 +563,24 @@ func (a *AutomaticRecorder) Close() error {
 // Avoid accidental native calls to path-driven commands: only existing session IDs
 // are used for navigation. No new drive can be created by a notification tap.
 func ValidAutomaticSessionID(id string) bool {
-	return strings.HasPrefix(id, "live-") && len(id) == 37 && !strings.ContainsAny(id, "/\\.")
+	if !strings.HasPrefix(id, "live-") || len(id) != 37 {
+		return false
+	}
+	_, err := hex.DecodeString(id[5:])
+	return err == nil
+}
+
+// Profile selection changes are explicit and allowed only while disarmed.
+func (a *AutomaticRecorder) SetProfile(profile string) error {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	if a.disk.Enabled || a.lock == nil {
+		return fmt.Errorf("disable monitoring before selecting its fixed profile")
+	}
+	if profile != "can11-single-frame-headers-pci" && profile != "can29-normal-fixed-single-frame-headers-pci" {
+		return fmt.Errorf("unknown automatic profile")
+	}
+	a.profile = profile
+	a.disk.ProtocolProfile = profile
+	return a.persist()
 }

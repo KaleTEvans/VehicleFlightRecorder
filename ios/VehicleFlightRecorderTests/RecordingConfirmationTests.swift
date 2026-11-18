@@ -83,4 +83,14 @@ private final class MemoryConfirmationReceipts: ConfirmationReceipts {
         adapter.status = "denied"; await controller.enableWithPermission()
         XCTAssertEqual(adapter.requests, 1)
     }
+    func testTapRoutingRechecksActiveEndedColdAndMissingOriginalID() {
+        let original = fact.sessionId
+        let other = "live-22222222222222222222222222222222"
+        XCTAssertEqual(RecordingRouteResolution.resolve(sessionID: original, activeID: original, active: true, savedIDs: []), .active)
+        XCTAssertEqual(RecordingRouteResolution.resolve(sessionID: original, activeID: other, active: true, savedIDs: [original]), .saved)
+        XCTAssertEqual(RecordingRouteResolution.resolve(sessionID: original, activeID: nil, active: false, savedIDs: [original]), .saved)
+        XCTAssertEqual(RecordingRouteResolution.resolve(sessionID: original, activeID: other, active: true, savedIDs: []), .unavailable)
+        XCTAssertEqual(RecordingRouteResolution.resolve(sessionID: "../unrelated", activeID: original, active: true, savedIDs: []), .unavailable)
+    }
+
 }

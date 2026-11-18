@@ -2,6 +2,7 @@ import Foundation
 import VehicleFlightRecorderCore
 
 struct AutomaticSnapshot: Decodable {
+    let acceptingTelemetry: Bool?
     let enabled: Bool
     let state: String
     let error: String

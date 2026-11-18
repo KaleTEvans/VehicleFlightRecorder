@@ -133,3 +133,55 @@ func TestAutomaticInterruptedOriginalAndStorageFailure(t *testing.T) {
 		t.Fatal("failure not exposed")
 	}
 }
+
+func TestAutomaticDurationLimitDoesNotCreateChunks(t *testing.T) {
+	a, e := NewAutomaticRecorder(t.TempDir(), "scripted-fixture", obd.CAN29Profile)
+	if e != nil {
+		t.Fatal(e)
+	}
+	defer a.Close()
+	a.disk.Enabled = true
+	if e = a.create("automatic", 1700000000000, fixtureNative); e != nil {
+		t.Fatal(e)
+	}
+	a.policy.Recording = true
+	first := a.live
+	// Trigger the actual bound without pretending this is a sustained acquisition.
+	if _, e = first.NextCommand(fixtureNative+1800*acquisition.Second, 1700001800000); e != nil {
+		t.Fatal(e)
+	}
+	if e = a.Tick(fixtureNative+1800*acquisition.Second, 1700001800000); e != nil {
+		t.Fatal(e)
+	}
+	if !a.policy.Suppressed || a.disk.ActiveDrive != "" || a.live.options.StartOrigin != "activity_probe" {
+		t.Fatal("duration end restarted a drive")
+	}
+}
+func TestExplicitAutomaticProfileAndInvalidClock(t *testing.T) {
+	root := t.TempDir()
+	a, e := NewAutomaticRecorder(root, "scripted-fixture", obd.CAN29Profile)
+	if e != nil {
+		t.Fatal(e)
+	}
+	if e = a.SetProfile(obd.Profile); e != nil {
+		t.Fatal(e)
+	}
+	if e = a.SetEnabled(true, 1700000000000, fixtureNative); e != nil {
+		t.Fatal(e)
+	}
+	if e = a.SetProfile(obd.CAN29Profile); e == nil {
+		t.Fatal("armed profile changed")
+	}
+	if a.live.core.Session().Live.Protocol != obd.Profile {
+		t.Fatal("selected profile not used")
+	}
+	a.Close()
+	b, e := NewAutomaticRecorder(root, "scripted-fixture", obd.CAN29Profile)
+	if e != nil {
+		t.Fatal(e)
+	}
+	defer b.Close()
+	if b.profile != obd.Profile {
+		t.Fatal("persisted profile was ignored")
+	}
+}

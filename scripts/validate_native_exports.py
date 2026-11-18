@@ -7,6 +7,7 @@ import zipfile
 
 from vehicle_flight_recorder.session import load_session
 from vehicle_flight_recorder.incidents import reconstruct
+from vehicle_flight_recorder.automatic import validate_automatic
 
 root = Path(sys.argv[1])
 archives = sorted((root / 'Exports').glob('*.zip'))
@@ -125,3 +126,27 @@ if automatic_cases != {'running','engine_off','reconnect'} or live_count < 20 or
     raise SystemExit('Native test scenario coverage is incomplete')
 (root / 'python-validation.json').write_text(json.dumps(results, indent=2) + '\n')
 print(f'Validated {len(archives)} native ZIP exports, including ordinary CAN29 full/partial manual, reconnect, individual/no-data and diagnostic/handoff evidence; reconstructed all available incidents')
+
+# Whole diagnostic bundles are independent artifacts, not ordinary six-file ZIPs.
+bundles=sorted((root/'AutomationBundles').glob('*.zip'))
+if len(bundles)<3: raise SystemExit('Expected native running/reconnect/engine-off automation bundles')
+bundle_cases=set();bundle_results=[]
+for archive in bundles:
+    destination=root/'automation-unpacked'/archive.stem
+    with zipfile.ZipFile(archive) as source:
+        names=source.namelist()
+        if len(names)!=len(set(names)) or len(names)>20000 or any(n.startswith('/') or '..' in n.split('/') for n in names) or sum(i.file_size for i in source.infolist())>128*1024*1024 or source.testzip() is not None:
+            raise SystemExit('Invalid native automation archive')
+        source.extractall(destination)
+    result=validate_automatic(destination)
+    if any(d['live']['origin']!='native-fixture' for d in result['drives']+result['probes']): raise SystemExit('Public automation evidence must be explicitly native-fixture')
+    if result['drive_count']==0 and result['confirmation_claim_count']==0:bundle_cases.add('engine_off')
+    elif result['drive_count']==1 and result['confirmation_claim_count']==1:
+        drive=result['drives'][0]
+        reconstruct(destination/'Sessions'/drive['session_id'],drive['incidents'][0]['incident_id'])
+        bundle_cases.add('reconnect' if drive['live']['capability_report']['generation']==2 else 'running')
+    else:raise SystemExit('Unexpected automatic bundle ownership/claims')
+    bundle_results.append(result)
+if bundle_cases!={'engine_off','running','reconnect'}:raise SystemExit('Missing native whole-bundle acceptance cases')
+(root/'automation-validation.json').write_text(json.dumps(bundle_results,indent=2)+'\n')
+print(f'Validated {len(bundles)} complete native automation bundles with drive/probe/journal/claim provenance')

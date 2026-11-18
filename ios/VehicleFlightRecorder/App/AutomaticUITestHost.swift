@@ -3,7 +3,7 @@ import SwiftUI
 import VehicleFlightRecorderCore
 
 enum AutomaticFixture {
-    struct Result { let directory: URL; let sessionID: String; let claimCount: Int; let probe: Bool }
+    struct Result { let root: URL; let directory: URL; let sessionID: String; let claimCount: Int; let probe: Bool }
     static func make(kind: String) throws -> Result {
         let documents = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
         let root = documents.appendingPathComponent("NativeAcceptance/Automatic-\(kind)-\(UUID().uuidString)", isDirectory: true)
@@ -65,7 +65,7 @@ enum AutomaticFixture {
         let directory = root.appendingPathComponent(probe ? "Automation/Probes" : "Sessions", isDirectory: true)
         let entries = try FileManager.default.contentsOfDirectory(at: directory, includingPropertiesForKeys: nil)
         guard let session = entries.first else { throw VehicleTransportError.failed("Missing native M7 evidence") }
-        return Result(directory: directory, sessionID: session.lastPathComponent, claimCount: claims, probe: probe)
+        return Result(root: root, directory: directory, sessionID: session.lastPathComponent, claimCount: claims, probe: probe)
     }
 }
 struct AutomaticUITestHost: View {

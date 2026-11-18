@@ -15,9 +15,14 @@ import Foundation
                 }
             }
             try transport.restoreAutomatic(profile: profile)
+            try transport.connect()
         }
     }
-    func setAutomatic(_ enabled: Bool, profile: String) async { await run { try $0.setAutomatic(enabled, profile: profile) } }
+    func setAutomatic(_ enabled: Bool, profile: String) async {
+        if !enabled { await recordAutomaticEvent("battery_sample", detail: NativeResourceSample.json()) }
+        await run { try $0.setAutomatic(enabled, profile: profile) }
+        if enabled { await recordAutomaticEvent("battery_sample", detail: NativeResourceSample.json()) }
+    }
     func recordAutomaticEvent(_ kind: String, detail: String) async {
         let transport = self.transport
         if !executor.submit({ transport.automaticNativeEvent(kind, detail: detail) }) { error = "Automatic event mailbox overflow" }
@@ -94,6 +99,26 @@ import Foundation
             actionFailure = error.localizedDescription; self.error = actionFailure
             return nil
         }
+    }
+    func exportAutomationBundle() async -> URL? {
+        guard !busy else { return nil }; busy = true
+        defer { busy = false }
+        let transport = self.transport
+        do {
+            let output = try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<URL, Error>) in
+                if !executor.submit({
+                    do {
+                        let state = transport.automaticSnapshot.flatMap { try? decodeCore(AutomaticSnapshot.self, $0) }
+                        guard state?.enabled != true else { throw VehicleTransportError.failed("Disable hands-off monitoring before exporting diagnostics") }
+                        if let live = transport.live, try decodeCore(LiveSnapshot.self, live.core.snapshot()).active { throw VehicleTransportError.failed("Stop recording before exporting diagnostics") }
+                        let documents = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
+                        let zip = try SessionExporter.automationBundle(documents: documents, output: FileManager.default.temporaryDirectory.appendingPathComponent("AutomationExports"))
+                        continuation.resume(returning: zip)
+                    } catch { continuation.resume(throwing: error) }
+                }) { continuation.resume(throwing: VehicleTransportError.failed("Transport command mailbox is full")) }
+            }
+            actionFailure = nil; error = nil; return output
+        } catch { actionFailure = error.localizedDescription; self.error = actionFailure; return nil }
     }
     private func run(marksBusy: Bool = true, _ action: @escaping (MXPlusExternalAccessoryTransport) throws -> Void) async {
         guard !busy else { return }

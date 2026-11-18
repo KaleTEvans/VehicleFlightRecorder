@@ -35,6 +35,7 @@ class LiveEvidence:
         self.observations = {(o['transaction_id'], o['generation'], o['ecu'], o['signal_id']): o for o in self.report['observations']}
         require(len(self.observations) == len(self.report['observations']), 'duplicate report observation')
         self.seen = set()
+        self.events = []
         self.tail = 0
         previous_ns = 0
         rows = 0
@@ -76,7 +77,11 @@ class LiveEvidence:
         require(isinstance(p['raw_refs'], list) and all(type(x) is int for x in p['raw_refs']), 'raw reference types')
         self.seen.add(identity)
 
+    def event(self, row):
+        self.events.append(row)
+
     def finish(self):
         if not self.incomplete: require(self.seen == set(self.observations), 'canonical export omitted report observations')
-        return dict(capability_report=self.summary, origin=self.metadata['live']['origin'], uncheckpointed_raw_rows=self.tail,
+        from .automatic import quality
+        return dict(runtime_quality=quality(self.metadata,self.report,self.events),capability_report=self.summary, origin=self.metadata['live']['origin'], uncheckpointed_raw_rows=self.tail,
                     uncommitted_report_observations=len(self.observations)-len(self.seen), interrupted_checkpoint_files=self.temporary)

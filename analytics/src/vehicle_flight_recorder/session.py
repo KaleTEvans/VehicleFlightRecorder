@@ -209,6 +209,7 @@ def load_session(directory, *, allow_incomplete=False):
                 _fail(f"{location}: unsupported severity")
             if "attributes" in event and not isinstance(event["attributes"], dict):
                 _fail(f"{location}: attributes must be a JSON object")
+            if live: live.event(event)
             events[kind] += 1
         event_count = sum(events.values())
         from .incidents import inspect_incidents

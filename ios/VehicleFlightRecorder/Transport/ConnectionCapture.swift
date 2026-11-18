@@ -49,6 +49,7 @@ final class TransportExecutor {
         }
         thread.name = "VFR.ExternalAccessory"; thread.start()
     }
+    var queuedCommandCount: Int { lock.lock(); defer { lock.unlock() }; return pending }
     @discardableResult func submit(_ body: @escaping () -> Void) -> Bool {
         lock.lock()
         guard pending < 32 else { lock.unlock(); return false }

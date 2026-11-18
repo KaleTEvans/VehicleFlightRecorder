@@ -1,5 +1,12 @@
 # Codex Handoff — Vehicle Flight Recorder, Milestone 7 Only
 
+Status: IN PROGRESS — user authorized implementation November 18, 2026.
+M6 is complete/merged as `f793674`. See [implementation report](../docs/MILESTONE_7.md),
+[reliability matrix](../docs/MILESTONE_7_RELIABILITY.md) and
+[prepared consolidated test packet](milestone_7_test_session.md).
+The original future-handoff language below is historical; physical acceptance
+remains gated on verified builds and actual evidence. M8 is not started.
+
 ## Assignment and prerequisites
 
 Implement **Milestone 7 — controlled road logging** in:

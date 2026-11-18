@@ -79,6 +79,7 @@ final class MXPlusExternalAccessoryTransport: NSObject, VehicleTransport, Stream
             throw VehicleTransportError.failed("Stop the deliberate recording before enabling hands-off monitoring")
         }
         disconnect()
+        if enabled, !before.enabled { try automatic.setProfile(profile) }
         try automatic.setEnabled(enabled, wallMS: GoLiveSession.wall(), nativeNS: TransportClock.nanoseconds())
         automaticLivePath = nil
         if enabled { try synchronizeAutomatic(); try connect() }
@@ -104,7 +105,14 @@ final class MXPlusExternalAccessoryTransport: NSObject, VehicleTransport, Stream
     }
     func automaticNativeEvent(_ kind: String, detail: String) {
         guard let automatic else { return }
-        do { try automatic.nativeEvent(kind, detail: String(detail.prefix(2048)), nativeNS: TransportClock.nanoseconds()) }
+        var evidence = detail
+        if kind == "battery_sample", var values = (try? JSONSerialization.jsonObject(with: Data(detail.utf8))) as? [String: Any] {
+            values["native_command_queue_depth"] = executor.queuedCommandCount
+            values["pending_outbound_bytes"] = pump.pending.count
+            values["transport_state"] = state.rawValue
+            if let data = try? JSONSerialization.data(withJSONObject: values, options: [.sortedKeys]) { evidence = String(decoding: data, as: UTF8.self) }
+        }
+        do { try automatic.nativeEvent(kind, detail: String(evidence.prefix(2048)), nativeNS: TransportClock.nanoseconds()) }
         catch { notice = error.localizedDescription }
     }
     private let root: URL

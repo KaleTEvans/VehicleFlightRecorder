@@ -268,3 +268,14 @@ func (r *Recorder) AppendTransport(row acquisition.Raw) error {
 	}
 	return nil
 }
+
+// Sync durably commits existing bytes without completing an active session.
+func (r *Recorder) Sync() error {
+	if r.state != "recording" {
+		return fmt.Errorf("sync requires active recording")
+	}
+	if writer, ok := r.sink.(interface{ Sync() error }); ok {
+		return writer.Sync()
+	}
+	return fmt.Errorf("sink does not support durable checkpoint")
+}

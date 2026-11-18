@@ -8,6 +8,11 @@ import (
 // NewLive retains the offline engine's ordered admission/failure invariants but
 // uses an explicit live schema, setup gate and separately bounded test budget.
 func NewLive(anchorMS int64, specs []Schedule, config LiveConfiguration) (*Scheduler, error) {
+	if config.PolicyVersion != "" || config.StartOrigin != "" {
+		if config.PolicyVersion != "rpm-activity-1" || config.OperatingState != "unknown" || (config.StartOrigin != "automatic" && config.StartOrigin != "activity_probe") || (config.StartOrigin == "automatic" && (config.Workload != "combined" || config.MaximumDurationNS != 1800*Second)) || (config.StartOrigin == "activity_probe" && (config.Workload != "rpm_only" || config.MaximumDurationNS != 300*Second)) {
+			return nil, fmt.Errorf("invalid automatic live contract")
+		}
+	}
 	handoff := config.Workload == obd.HandoffWorkload
 	if !handoff && len(specs) == 0 {
 		return nil, fmt.Errorf("measurement workload needs a schedule")

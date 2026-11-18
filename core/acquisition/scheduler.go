@@ -68,6 +68,8 @@ type LiveConfiguration struct {
 	ReferenceNote      string       `json:"reference_note"`
 	SensorRefresh      string       `json:"sensor_refresh_rate"`
 	EnhancedPack       string       `json:"enhanced_pack"`
+	StartOrigin        string       `json:"start_origin,omitempty"`
+	PolicyVersion      string       `json:"policy_version,omitempty"`
 	MaximumDurationNS  int64        `json:"maximum_duration_ns"`
 	MinimumAdmissionNS int64        `json:"minimum_admission_ns"`
 	SessionID          string       `json:"session_id"`

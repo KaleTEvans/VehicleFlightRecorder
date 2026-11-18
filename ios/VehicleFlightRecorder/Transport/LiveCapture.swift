@@ -18,6 +18,7 @@ final class GoLiveSession {
         }
         core = value
     }
+    init(core: MobileLiveRecorder) { self.core = core }
     static func wall() -> Int64 { Int64(Date().timeIntervalSince1970 * 1000) }
     static func command(_ core: MobileLiveRecorder, nativeNS: Int64, wallMS: Int64) throws -> Data {
         // gomobile imports NSData+NSError as throwing nonoptional Data; a nil

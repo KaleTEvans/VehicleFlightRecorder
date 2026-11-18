@@ -1,4 +1,5 @@
 import Foundation
+import VehicleFlightRecorderCore
 #if !targetEnvironment(simulator)
 import ExternalAccessory
 #endif
@@ -54,6 +55,58 @@ final class MXPlusExternalAccessoryTransport: NSObject, VehicleTransport, Stream
     var capture: GoConnectionCapture?
     private(set) var live: GoLiveSession?
     private var liveAcquisitionEnabled = false
+    private var automatic: MobileAutomaticRecorder?
+    var automaticSnapshot: String? { automatic?.snapshot() }
+    var onAutomaticConfirmation: ((String) -> Void)?
+    private var automaticLivePath: String?
+    private var automaticPhase = "unknown"
+    func restoreAutomatic(profile: String) throws {
+        guard automatic == nil else { return }
+        var error: NSError?
+        let documents = root.deletingLastPathComponent()
+        guard let owner = MobileNewAutomaticRecorder(documents.path, "physical", profile, &error) else {
+            throw error ?? VehicleTransportError.failed("Could not restore automatic recorder")
+        }
+        automatic = owner
+        let snapshot = try decodeCore(AutomaticSnapshot.self, owner.snapshot())
+        if snapshot.enabled { try synchronizeAutomatic(); try connect() }
+    }
+    func setAutomatic(_ enabled: Bool, profile: String) throws {
+        if automatic == nil { try restoreAutomatic(profile: profile) }
+        guard let automatic else { return }
+        let before = try decodeCore(AutomaticSnapshot.self, automatic.snapshot())
+        if !before.enabled, let live, try decodeCore(LiveSnapshot.self, live.core.snapshot()).active {
+            throw VehicleTransportError.failed("Stop the deliberate recording before enabling hands-off monitoring")
+        }
+        disconnect()
+        try automatic.setEnabled(enabled, wallMS: GoLiveSession.wall(), nativeNS: TransportClock.nanoseconds())
+        automaticLivePath = nil
+        if enabled { try synchronizeAutomatic(); try connect() }
+        else { liveAcquisitionEnabled = false; live = nil }
+    }
+    private func synchronizeAutomatic() throws {
+        guard let automatic else { return }
+        let before = try decodeCore(AutomaticSnapshot.self, automatic.snapshot())
+        guard before.enabled else { return }
+        try automatic.tick(TransportClock.nanoseconds(), wallMS: GoLiveSession.wall())
+        let after = try decodeCore(AutomaticSnapshot.self, automatic.snapshot())
+        guard after.error.isEmpty else { throw VehicleTransportError.failed(after.error) }
+        if let core = automatic.live(), core.path() != automaticLivePath {
+            pump.disconnect(); releaseSession()
+            live = GoLiveSession(automaticCore: core); capture = nil
+            liveAcquisitionEnabled = true; automaticLivePath = core.path()
+            attemptsRemaining = 3; nextDiscovery = 0
+        }
+        var error: NSError?
+        let fact = automatic.claimConfirmation(TransportClock.nanoseconds(), error: &error)
+        if let error { throw error }
+        if !fact.isEmpty { onAutomaticConfirmation?(fact) }
+    }
+    func automaticNativeEvent(_ kind: String, detail: String) {
+        guard let automatic else { return }
+        do { try automatic.nativeEvent(kind, detail: String(detail.prefix(2048)), nativeNS: TransportClock.nanoseconds()) }
+        catch { notice = error.localizedDescription }
+    }
     private let root: URL
     private let executor: TransportExecutor
     private let directory: AccessoryDirectory?
@@ -105,6 +158,8 @@ final class MXPlusExternalAccessoryTransport: NSObject, VehicleTransport, Stream
             releaseSession(); return
         }
         pump.tick()
+        do { try synchronizeAutomatic() }
+        catch { pump.fail(error.localizedDescription); disconnect(); notice = error.localizedDescription; return }
         if liveAcquisitionEnabled, let live {
             do {
                 // Advance Go deadlines even while disconnected; UI reads do not poll.
@@ -172,6 +227,9 @@ final class MXPlusExternalAccessoryTransport: NSObject, VehicleTransport, Stream
         } catch { notice = error.localizedDescription; pump.fail(error.localizedDescription); releaseSession() }
     }
     func startLive(operatingState: String, workload: String, reference: String, protocolProfile: String = "") throws {
+        if let automatic, try decodeCore(AutomaticSnapshot.self, automatic.snapshot()).enabled {
+            throw VehicleTransportError.failed("Disable hands-off monitoring before starting a deliberate stationary recording")
+        }
         if let live, try decodeCore(LiveSnapshot.self, live.core.snapshot()).active {
             throw VehicleTransportError.failed("A stationary session is already active")
         }
@@ -184,18 +242,31 @@ final class MXPlusExternalAccessoryTransport: NSObject, VehicleTransport, Stream
     }
     func stopLive() throws {
         guard let live else { return }
+        if let automatic, try decodeCore(AutomaticSnapshot.self, automatic.snapshot()).enabled {
+            pump.disconnect(); releaseSession()
+            try automatic.stop(TransportClock.nanoseconds(), wallMS: GoLiveSession.wall())
+            automaticLivePath = nil
+            try synchronizeAutomatic()
+            return
+        }
         // Drain/cancel native pending bytes before finalizing the Go session.
         liveAcquisitionEnabled = false
         disconnect()
         try live.core.stop(TransportClock.nanoseconds())
     }
     func markLive() throws {
-        guard let live else { throw VehicleTransportError.failed("Start a stationary session first") }
+        guard let live else { throw VehicleTransportError.failed("Start a recording first") }
+        if let automatic, (try decodeCore(AutomaticSnapshot.self, automatic.snapshot())).sessionId.isEmpty {
+            throw VehicleTransportError.failed("No drive is recording; the activity monitor is waiting")
+        }
         var error: NSError?
         _ = live.core.mark("Manual stationary incident", nativeNS: TransportClock.nanoseconds(), error: &error)
         if let error { throw error }
     }
     func lifecycle(_ phase: String) {
+        if automaticPhase != phase {
+            automaticPhase = phase; automaticNativeEvent(phase, detail: "Native application lifecycle; continuity unverified")
+        }
         if liveAcquisitionEnabled, let live {
             do { try live.core.lifecycle(phase, nativeNS: TransportClock.nanoseconds()) }
             catch { pump.fail(error.localizedDescription); notice = error.localizedDescription }

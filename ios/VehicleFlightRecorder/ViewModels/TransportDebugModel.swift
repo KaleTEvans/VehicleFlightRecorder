@@ -1,6 +1,36 @@
 import Foundation
 
 @MainActor final class TransportDebugModel: ObservableObject {
+    static let shared = TransportDebugModel()
+    @Published var automatic: AutomaticSnapshot?
+    private var restoredAutomatic = false
+    func restoreAutomatic() async {
+        guard !restoredAutomatic else { return }; restoredAutomatic = true
+        let profile = UserDefaults.standard.string(forKey: "stationaryProtocolProfile") ?? StationaryProtocol.can29.rawValue
+        await run { transport in
+            transport.onAutomaticConfirmation = { json in
+                Task { @MainActor in
+                    do { let fact = try decodeCore(AutomaticStartFact.self, json); await RecordingConfirmation.shared.consume(fact) }
+                    catch { await TransportDebugModel.shared.recordAutomaticEvent("confirmation_result", detail: "fact_decode_failed_no_retry") }
+                }
+            }
+            try transport.restoreAutomatic(profile: profile)
+        }
+    }
+    func setAutomatic(_ enabled: Bool, profile: String) async { await run { try $0.setAutomatic(enabled, profile: profile) } }
+    func recordAutomaticEvent(_ kind: String, detail: String) async {
+        let transport = self.transport
+        if !executor.submit({ transport.automaticNativeEvent(kind, detail: detail) }) { error = "Automatic event mailbox overflow" }
+    }
+    func isAutomaticSessionActive(_ id: String) async -> Bool {
+        let transport = self.transport
+        return await withCheckedContinuation { continuation in
+            if !executor.submit({
+                let value = transport.automaticSnapshot.flatMap { try? decodeCore(AutomaticSnapshot.self, $0) }
+                continuation.resume(returning: value?.sessionId == id && value?.enabled == true)
+            }) { continuation.resume(returning: false) }
+        }
+    }
     @Published var state = "disconnected"
     @Published var notice = "Ready for physical adapter testing"
     @Published var raw = "No connection capture"
@@ -78,6 +108,7 @@ import Foundation
                 let raw = transport.capture?.core.snapshot() ?? "No capture"
                 let canShareCapture = transport.capture != nil && transport.state != .ready && transport.state != .connecting
                 let pumpFailure = transport.pump.failure
+                let automatic = transport.automaticSnapshot.flatMap { try? decodeCore(AutomaticSnapshot.self, $0) }
                 var live: LiveSnapshot?
                 if let value = transport.live {
                     do { live = try decodeCore(LiveSnapshot.self, value.core.snapshot()) }
@@ -85,10 +116,11 @@ import Foundation
                 }
                 Task { @MainActor [weak self] in
                     if let self {
+                        self.automatic = automatic
                         self.state = state; self.notice = notice; self.raw = raw; self.live = live
                         self.canShareCapture = canShareCapture
                         if marksBusy { self.actionFailure = failure }
-                        self.error = self.actionFailure ?? live.flatMap { $0.error.isEmpty ? nil : $0.error } ?? pumpFailure
+                        self.error = self.actionFailure ?? automatic.flatMap { $0.error.isEmpty ? nil : $0.error } ?? live.flatMap { $0.error.isEmpty ? nil : $0.error } ?? pumpFailure
                         // A pending refresh must not clear a command's busy state.
                         if marksBusy { self.busy = false }
                     }

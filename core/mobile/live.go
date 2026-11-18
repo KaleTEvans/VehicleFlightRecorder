@@ -30,6 +30,8 @@ type liveOptions struct {
 	Workload        string `json:"workload"`
 	ReferenceNote   string `json:"reference_note"`
 	ProtocolProfile string `json:"protocol_profile,omitempty"`
+	StartOrigin     string `json:"start_origin,omitempty"`
+	PolicyVersion   string `json:"policy_version,omitempty"`
 }
 
 // LiveRecorder serializes Go admission/storage. Its caller supplies native
@@ -61,6 +63,18 @@ func NewLiveRecorder(root, options string, wallMS, nativeNS int64) (result *Live
 	if len(config.ReferenceNote) > 512 {
 		return nil, fmt.Errorf("reference note exceeds 512 bytes")
 	}
+	if config.StartOrigin == "" {
+		config.StartOrigin = "manual"
+	}
+	if config.StartOrigin != "manual" && config.StartOrigin != "automatic" && config.StartOrigin != "activity_probe" {
+		return nil, fmt.Errorf("invalid live start origin")
+	}
+	if config.StartOrigin != "manual" && (config.PolicyVersion != "rpm-activity-1" || config.OperatingState != "unknown" || (config.StartOrigin == "automatic" && config.Workload != "combined") || (config.StartOrigin == "activity_probe" && config.Workload != "rpm_only")) {
+		return nil, fmt.Errorf("invalid automatic policy configuration")
+	}
+	if config.StartOrigin == "manual" && config.PolicyVersion != "" {
+		return nil, fmt.Errorf("manual session cannot declare automatic policy")
+	}
 	regular := config.Workload == "combined" || config.Workload == "rpm_only" || config.Workload == "coolant_only" || config.Workload == "voltage_only"
 	if config.ProtocolProfile != "" && (!regular || (config.ProtocolProfile != obd.Profile && config.ProtocolProfile != obd.CAN29Profile)) {
 		return nil, fmt.Errorf("explicit profile requires a regular workload and a supported fixed profile")
@@ -84,11 +98,17 @@ func NewLiveRecorder(root, options string, wallMS, nativeNS int64) (result *Live
 		profile, catalog, protocol, selectedProtocol = "generic-obd-can29-500", obd.CAN29Catalog, obd.CAN29Profile, "ISO15765-4-CAN29-500"
 	}
 	limit := liveLimitNS
+	if config.StartOrigin == "automatic" {
+		limit = 1800 * acquisition.Second
+	}
+	if config.StartOrigin == "activity_probe" {
+		limit = 300 * acquisition.Second
+	}
 	if config.Workload == obd.HandoffWorkload {
 		profile, catalog, protocol, selectedProtocol = obd.HandoffProfile, obd.HandoffCatalog, obd.HandoffProfile, "unmodified-adapter-state"
 		limit = handoffLimitNS
 	}
-	metadata := telemetry.Session{SchemaVersion: 2, SessionID: id, Source: "obd-live", ProfileID: profile, VehiclePackVersion: "none", StartTimeUnixMS: wallMS, State: "recording", Live: &telemetry.LiveMetadata{Origin: config.Origin, OperatingState: config.OperatingState, Workload: config.Workload, NativeAnchorNS: nativeNS, Catalog: catalog, Protocol: protocol, ReportFile: "capability.json", StartOrigin: "manual"}}
+	metadata := telemetry.Session{SchemaVersion: 2, SessionID: id, Source: "obd-live", ProfileID: profile, VehiclePackVersion: "none", StartTimeUnixMS: wallMS, State: "recording", Live: &telemetry.LiveMetadata{Origin: config.Origin, OperatingState: config.OperatingState, Workload: config.Workload, NativeAnchorNS: nativeNS, Catalog: catalog, Protocol: protocol, ReportFile: "capability.json", StartOrigin: config.StartOrigin, PolicyVersion: config.PolicyVersion}}
 	if err = metadata.Validate(); err != nil {
 		return nil, err
 	}
@@ -121,7 +141,12 @@ func NewLiveRecorder(root, options string, wallMS, nativeNS int64) (result *Live
 		specs = nil
 		initialization = obd.HandoffInitializationVersion
 	}
-	engine, err := acquisition.NewLive(wallMS, specs, acquisition.LiveConfiguration{SessionID: id, Origin: config.Origin, OperatingState: config.OperatingState, Workload: config.Workload, NativeAnchorNS: nativeNS, Initialization: initialization, Protocol: selectedProtocol, AppVersion: "0.1.0", BridgeVersion: BridgeVersion(), ReferenceNote: config.ReferenceNote, SensorRefresh: "unknown", EnhancedPack: "none", MaximumDurationNS: limit, MinimumAdmissionNS: acquisition.Second / 2, Connections: []acquisition.Connection{}})
+	engine, err := acquisition.NewLive(wallMS, specs, acquisition.LiveConfiguration{SessionID: id, Origin: config.Origin, OperatingState: config.OperatingState, Workload: config.Workload, NativeAnchorNS: nativeNS, Initialization: initialization, Protocol: selectedProtocol, AppVersion: "0.1.0", BridgeVersion: BridgeVersion(), ReferenceNote: config.ReferenceNote, SensorRefresh: "unknown", EnhancedPack: "none", MaximumDurationNS: limit, MinimumAdmissionNS: acquisition.Second / 2, StartOrigin: func() string {
+		if config.StartOrigin == "manual" {
+			return ""
+		}
+		return config.StartOrigin
+	}(), PolicyVersion: config.PolicyVersion, Connections: []acquisition.Connection{}})
 	if err != nil {
 		return nil, err
 	}
@@ -593,6 +618,6 @@ func (l *LiveRecorder) Snapshot() (result string) {
 	}
 	capabilities := l.scheduler.CapabilityRows()
 	session := l.core.Session()
-	b, _ := json.Marshal(map[string]any{"protocol_profile": session.Live.Protocol, "state": state, "workload": l.options.Workload, "session": session, "elapsed_ms": l.elapsed / 1_000_000, "maximum_duration_ms": l.limitNS / 1_000_000, "generation": l.scheduler.Generation(), "readings": readings, "capabilities": capabilities, "initialized": l.scheduler.Initialized(), "discovery": l.scheduler.DiscoverySummary(l.elapsed), "adapter_state": l.scheduler.AdapterStateReadback(), "incidents": l.core.Incidents(), "error": l.failure, "requires_reconnect": l.reconnectNeeded, "start_origin": "manual", "source": "obd-live"})
+	b, _ := json.Marshal(map[string]any{"protocol_profile": session.Live.Protocol, "state": state, "workload": l.options.Workload, "session": session, "elapsed_ms": l.elapsed / 1_000_000, "maximum_duration_ms": l.limitNS / 1_000_000, "generation": l.scheduler.Generation(), "readings": readings, "capabilities": capabilities, "initialized": l.scheduler.Initialized(), "discovery": l.scheduler.DiscoverySummary(l.elapsed), "adapter_state": l.scheduler.AdapterStateReadback(), "incidents": l.core.Incidents(), "error": l.failure, "requires_reconnect": l.reconnectNeeded, "start_origin": l.options.StartOrigin, "source": "obd-live"})
 	return string(b)
 }

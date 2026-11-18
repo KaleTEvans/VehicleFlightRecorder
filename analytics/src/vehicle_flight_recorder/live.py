@@ -27,6 +27,10 @@ class LiveEvidence:
         require(config['session_id'] == metadata['session_id'] and self.report['anchor_unix_ms'] == metadata['start_time_unix_ms'], 'foreign report/session anchor')
         for key in ('origin', 'operating_state', 'workload', 'native_anchor_ns'):
             require(config[key] == live[key], 'session/report configuration mismatch')
+        if live['start_origin'] != 'manual':
+            require(config.get('start_origin') == live['start_origin'] and config.get('policy_version') == live.get('policy_version'), 'session/report automatic policy mismatch')
+        else:
+            require('start_origin' not in config and 'policy_version' not in config, 'manual session has automatic report')
         self.transactions = {x['id']: x for x in self.report['transactions']}
         self.observations = {(o['transaction_id'], o['generation'], o['ecu'], o['signal_id']): o for o in self.report['observations']}
         require(len(self.observations) == len(self.report['observations']), 'duplicate report observation')

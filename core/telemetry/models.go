@@ -20,6 +20,7 @@ type LiveMetadata struct {
 	Protocol       string `json:"protocol_profile"`
 	ReportFile     string `json:"report_file"`
 	StartOrigin    string `json:"start_origin"`
+	PolicyVersion  string `json:"policy_version,omitempty"`
 }
 type Provenance struct {
 	Transaction   string `json:"transaction_id"`
@@ -272,8 +273,18 @@ func (s Session) Validate() error {
 		return err
 	}
 	if s.SchemaVersion == LiveSchemaVersion {
-		if s.Live == nil || s.Mock != nil || s.Source != "obd-live" || s.VehiclePackVersion != "none" || s.Live.ReportFile != "capability.json" || s.Live.NativeAnchorNS < 0 || s.Live.StartOrigin != "manual" {
+		if s.Live == nil || s.Mock != nil || s.Source != "obd-live" || s.VehiclePackVersion != "none" || s.Live.ReportFile != "capability.json" || s.Live.NativeAnchorNS < 0 {
 			return fmt.Errorf("invalid live session contract")
+		}
+		if s.Live.StartOrigin != "manual" && s.Live.StartOrigin != "automatic" && s.Live.StartOrigin != "activity_probe" {
+			return fmt.Errorf("invalid live start origin")
+		}
+		if s.Live.StartOrigin == "manual" {
+			if s.Live.PolicyVersion != "" {
+				return fmt.Errorf("unexpected policy version")
+			}
+		} else if s.Live.PolicyVersion != "rpm-activity-1" || s.Live.OperatingState != "unknown" || (s.Live.StartOrigin == "automatic" && s.Live.Workload != "combined") || (s.Live.StartOrigin == "activity_probe" && s.Live.Workload != "rpm_only") {
+			return fmt.Errorf("automatic policy/workload mismatch")
 		}
 		profile, catalog, protocol := "generic-obd-can11-500", "standard-live-can11-1", "can11-single-frame-headers-pci"
 		regular := s.Live.Workload == "combined" || s.Live.Workload == "rpm_only" || s.Live.Workload == "coolant_only" || s.Live.Workload == "voltage_only"

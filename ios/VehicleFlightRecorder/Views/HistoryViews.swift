@@ -51,6 +51,8 @@ struct SessionDetailView: View {
                     LabeledContent("Requested readings", value: live.requestedReadings)
                     LabeledContent("Operating state", value: live.operatingStateTitle)
                     LabeledContent("Origin", value: live.originTitle)
+                    LabeledContent("Start", value: live.startOrigin == "automatic" ? "Automatic activity policy" : "Manual")
+                    if let policy = live.policyVersion { LabeledContent("Policy", value: policy) }
                     Text("Workload and operating state are the selections made at Start; they do not confirm that measurements were received.")
                         .font(.caption).foregroundStyle(.secondary)
                     if live.workload == "adapter_handoff" {

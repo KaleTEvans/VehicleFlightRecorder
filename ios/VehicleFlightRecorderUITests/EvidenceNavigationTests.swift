@@ -276,4 +276,25 @@ final class EvidenceNavigationTests: XCTestCase {
         add(screenshot)
     }
 
+    func testAutomaticDriveHistoryKeepsOriginAndManualEvidence() {
+        continueAfterFailure = false
+        let app = XCUIApplication()
+        app.launchArguments = ["--ui-test-automatic"]
+        app.launch()
+        let count = app.staticTexts["automatic-fixture-claims"]
+        XCTAssertTrue(count.waitForExistence(timeout: 45), app.debugDescription)
+        XCTAssertEqual(count.label, "Successful start facts: 1")
+        XCTAssertFalse(app.staticTexts["automatic-fixture-error"].exists)
+        app.buttons["Open automatic drive history"].tap()
+        let row = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH %@", "session-row-")).firstMatch
+        XCTAssertTrue(row.waitForExistence(timeout: 15), app.debugDescription)
+        row.tap()
+        XCTAssertTrue(app.staticTexts["Start, Automatic activity policy"].exists, app.debugDescription)
+        XCTAssertTrue(app.staticTexts["Policy, rpm-activity-1"].exists)
+        let screenshot = XCTAttachment(screenshot: app.screenshot())
+        screenshot.name = "Automatic drive history (native scripted evidence)"
+        screenshot.lifetime = .keepAlways
+        add(screenshot)
+    }
+
 }

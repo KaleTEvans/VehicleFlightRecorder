@@ -2,6 +2,7 @@ import SwiftUI
 
 @main
 struct VehicleFlightRecorderApp: App {
+    @UIApplicationDelegateAdaptor(RecordingAppDelegate.self) private var appDelegate
     var body: some Scene {
         WindowGroup {
             #if DEBUG
@@ -13,6 +14,8 @@ struct VehicleFlightRecorderApp: App {
                 DiscoveryDiagnosticUITestHost(can29: ProcessInfo.processInfo.arguments.contains("--ui-test-can29"))
             } else if ProcessInfo.processInfo.arguments.contains("--ui-test-regular-can29") {
                 RegularCAN29UITestHost()
+            } else if ProcessInfo.processInfo.arguments.contains("--ui-test-automatic") {
+                AutomaticUITestHost()
             } else if ProcessInfo.processInfo.arguments.contains("--ui-test-handoff") {
                 AdapterHandoffUITestHost()
             } else {

@@ -1,7 +1,7 @@
 # Automatic recording confirmations
 
-Implementation contract: M7, November 18, 2026. Native/macOS verification is in
-progress; physical presentation and lifecycle observations remain pending.
+Implementation contract: M7, November 18, 2026. Native fake/resolver and regression verification passed on source `4d6e857`;
+physical notification presentation and lifecycle observations remain pending.
 
 A confirmation means an automatically initialized drive has admitted actual
 telemetry. It does not certify all modules, continuous coverage, user visibility

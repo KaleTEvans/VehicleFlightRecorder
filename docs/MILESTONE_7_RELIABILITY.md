@@ -1,6 +1,7 @@
 # Milestone 7 reliability and acceptance matrix
 
-November 18, 2026 — implementation validation in progress. This matrix separates
+November 18, 2026 — automated implementation/native validation passed; physical
+acceptance and approved beta upload remain pending. This matrix separates
 scripted/native evidence from physical observations. No M7 phone case is accepted
 yet; M6 stationary results remain accepted and are not repeated as a prerequisite.
 
@@ -25,7 +26,7 @@ yet; M6 stationary results remain accepted and are not repeated as a prerequisit
 | Relaunch during active recording | Never append/repair/adopt prior live files; journal identifies interrupted ID and boundary | Go fixtures; physical pending |
 | Notification authorized / denied / not determined / disabled | Quiet adapter behind fake seam, explicit permission-only setup, no recording gate | Native fake tests in CI; physical notification presentation pending |
 | Notification reconnect / relaunch / failure / uncertain submission | Go durable claim plus native exclusive receipts; no retry after uncertainty | Native/Go tests; physical pending |
-| Tap active / ended / missing session | Original ID only; re-resolve current state; active dashboard or exact saved summary/error | Native routing and UI verification in progress; physical pending |
+| Tap active / ended / missing session | Original ID only; re-resolve current state; active dashboard or exact saved summary/error | Native route resolver and saved-history UI passed; actual notification taps pending |
 | Low space, write failures, truncated output | Stop admission, preserve originals; strict reader rejects malformed rows; explicit incomplete inspection only | Controlled storage/reader fixtures; no destructive phone fault requested |
 | Heap, raw/file growth, native queues | Periodic observed resources; fixed queue/log/report/archive bounds, no retention deletion | Phone measurement pending |
 | Short road / repeated / representative long drive | Parked analysis hold first; initial duration cap 30 minutes | Not released for road use; budgets pending |

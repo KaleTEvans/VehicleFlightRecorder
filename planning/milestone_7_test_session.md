@@ -1,9 +1,11 @@
 # Milestone 7 — consolidated physical acceptance
 
-Status: PREPARED, NOT RELEASED — November 18, 2026. Native verification and signed
-beta delivery are in progress. Do not use M6 build 13.1 for these cases. A tested
-M7 build/source and delivery result must be inserted here before requesting a
-visit. No car visit is requested by this draft packet.
+Status: PREPARED, NOT RELEASED — November 18, 2026. Native verification passed;
+signed **0.1.0 (14.1)** from exact source `4d6e857b2cc6c8457c73892597d529e0e1becd9e`
+is prepared and verified in signing-only run `44400084011`. **It has not been
+uploaded to Apple**; explicit upload approval and processing confirmation are
+required before releasing this packet. Do not use M6 build 13.1 for these cases.
+No car visit is requested by this draft packet.
 
 The milestone has three substantial blocks, with an analysis hold before road
 use. Complete desk/native combinations first; collect parked cases in one visit,

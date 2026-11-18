@@ -30,8 +30,10 @@ retained. No additional M6 car test is requested; M7 implementation is now in pr
 **Milestone 7 is in progress** on `codex/milestone-7-hands-off-recording` / [draft PR #6](https://github.com/KaleTEvans/VehicleFlightRecorder/pull/6).
 The initial implementation adds Go-owned RPM activity policy, separate pre-start
 probes, automatic drive ownership, manual Stop override, interruption preservation
-and optional quiet recording confirmations. Native/physical qualification is in
-progress; the accepted M6 beta remains **13.1** until a tested M7 build is delivered.
+and optional quiet recording confirmations. Automated qualification passed: 43 hosted / eight UI tests, 22 native ZIPs,
+three diagnostic bundles and 182 Python tests. Signed **14.1** is prepared and
+verified; its Apple upload awaits approval. **13.1** remains the installed/available
+M6 beta until M7 upload and processing are confirmed.
 See [M7 report](docs/MILESTONE_7.md), [reliability matrix](docs/MILESTONE_7_RELIABILITY.md)
 and [prepared test packet](planning/milestone_7_test_session.md). No car visit or
 road test is requested by the draft packet; M8 has not started.

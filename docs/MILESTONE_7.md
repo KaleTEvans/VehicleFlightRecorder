@@ -1,6 +1,7 @@
 # Milestone 7 — hands-off recording and controlled-road qualification
 
-Status: PARTIALLY COMPLETE — implementation in progress, November 18, 2026.
+Status: PARTIALLY COMPLETE — implementation/native validation passed; signed 14.1
+prepared, Apple upload awaiting user approval, November 18, 2026.
 M6 is accepted/merged as `f793674`; its physical results remain the baseline.
 No M7 physical, road, wake or battery acceptance is claimed. Milestone 8 has not
 started. The existing edit in `docs/OFFLINE_ACQUISITION.md` is unrelated and retained.
@@ -123,8 +124,9 @@ Nine independent Python tests replay actual Go automatic/probe exports, reconstr
 manual incidents, and reject policy/duration relabeling. These are scripted
 fixtures, not physical vehicle evidence.
 
-Full portable regression, native tests/exports, signed delivery and the complete
-parked packet are being prepared. First road use remains gated on analysis of the
+Portable/native regression and signed artifact preparation have passed, and the
+complete parked packet is prepared but not released pending approved upload and
+TestFlight processing. First road use remains gated on analysis of the
 parked results and a permitted workload. Repeated/long drives, quality/reference
 comparison, lifecycle matrix and representative battery/storage budgets remain
 acceptance gates. No car visit is requested before the tested beta and complete
@@ -194,8 +196,56 @@ against final native artifacts. No private phone captures are public fixtures.
 
 The final source has additional manual-after-disabled-setup regression, whole
 native automation-bundle replay, bounded archive handling, canonical success-fact
-time and distinct interruption/context identities. It is undergoing a fresh
-native run before signed beta delivery. Superseded intermediate runs were cancelled
+time and distinct interruption/context identities. Its final native run passed as
+recorded below. Superseded intermediate runs were cancelled
 rather than treating their results as evidence for the final source.
+
+**Milestone 8 not started.**
+
+
+## Final native evidence and prepared signed beta — November 18, 2026
+
+Exact app source: `4d6e857b2cc6c8457c73892597d529e0e1becd9e`.
+[Native run 44397968453](https://github.com/KaleTEvans/VehicleFlightRecorder/actions/runs/44397968453)
+passed **43 hosted tests, eight UI tests, both SDK compile profiles, 22 native
+session ZIP validations and three whole diagnostic-bundle validations**.
+All available incidents reconstructed. The downloaded artifact was independently
+replayed with the final reader and its automatic-history screenshot reviewed.
+The reader-only follow-up preserves the exact `core`/`ios` tree, passes **182 Python
+tests**, and adds independently derived receipt-age/gap populations. Go tests/vet,
+broad and focused race checks passed. Workflow lint passes; **34 script tests**
+include retained-payload hash/provenance/application mismatch rejection.
+
+Native artifact `14471873288` SHA-256:
+`2e9c3a91c4efabfc533cc88dfa8a957f2d3022eff738fbb2bdeb0bfb55979db1`.
+Retained privately under `build/milestone-7/native-4d6e857/`; its origin is
+explicitly native-fixture, not physical telemetry.
+
+[Signing-only run 44400084011](https://github.com/KaleTEvans/VehicleFlightRecorder/actions/runs/44400084011)
+prepared **0.1.0 (14.1)** from that exact source. Archive/export, native signature
+verification and signing-input cleanup passed. **The Apple upload step was
+skipped. Build 14.1 is not yet in TestFlight.**
+
+Signed artifact: `14471274404`, archive SHA-256
+`071d19d9b3deecae60b4944465b31bdd6313941cd6e5c3b90187c1705b732fa8`.
+The retained IPA is `build/milestone-7/signed-14.1/ios-device/export/VehicleFlightRecorder.ipa`.
+Its independently verified SHA-256 is
+`4704885038f15058e8212da61838348a4f373546cad8d2fb3ccc1960b1df4fe7`;
+bundle `com.kaleevans.vehicleflightrecorder`, version `0.1.0`, build `14.1`, and
+provenance match. A local prepared-upload manifest records these exact identities.
+
+Automatic approval review rejected sending this new IPA to Apple because prior
+approval covered an earlier build, not this exact M7 payload/destination action.
+The upload remains blocked pending explicit approval. The existing signed workflow
+now supports verification/upload of the retained IPA without rebuilding; it checks
+its approved checksum, source, bundle/version and build before any upload. Its
+default is verification-only. The approved Apple API/authentication path is unchanged.
+No alternate upload has been attempted. No M7 car visit is requested until upload,
+processing and the released packet are confirmed.
+
+The [parked packet](../planning/milestone_7_test_session.md),
+[reliability matrix](MILESTONE_7_RELIABILITY.md), and
+[confirmation contract](RECORDING_CONFIRMATIONS.md) retain all actual physical,
+road, reference and representative resource gates. PR #6 remains draft/unmerged.
 
 **Milestone 8 not started.**

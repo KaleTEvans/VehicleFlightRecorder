@@ -18,7 +18,12 @@ edge cases remain listed in the M5 report.
 
 M7 is in progress as [draft PR #6](https://github.com/KaleTEvans/VehicleFlightRecorder/pull/6).
 The initial automatic policy, native confirmation seam and consolidated diagnostic
-bundle are undergoing native verification. No new signed M7 beta is delivered yet;
+bundle passed native verification: 43 hosted / eight UI tests, both SDK profiles,
+22 session ZIPs and three whole bundles. Signing-only run
+[44400084011](https://github.com/KaleTEvans/VehicleFlightRecorder/actions/runs/44400084011)
+prepared verified **0.1.0 (14.1)** from native-tested source `4d6e857`.
+**Upload was skipped; 14.1 is not yet in TestFlight.** Sending this exact IPA to
+Apple requires new user approval after automatic review rejected the upload.
 13.1 below remains the accepted M6 build. The [prepared packet](../planning/milestone_7_test_session.md)
 is not released for a car visit or road use. See [the M7 report](MILESTONE_7.md)
 and [reliability matrix](MILESTONE_7_RELIABILITY.md). M8 has not started.
@@ -43,8 +48,8 @@ All five ordinary-mode exports validate and both real manual incidents reconstru
 same-session reconnect repeats setup/support and restores fresh values. See the
 [stationary quality report](MILESTONE_6_STATIONARY_ACCEPTANCE.md). M6 is complete,
 accepted and integrated through [PR #5](https://github.com/KaleTEvans/VehicleFlightRecorder/pull/5)
-following user-authorized closeout November 10; no additional M6 car visit is requested. M7 is not
-started. The brief Disconnected state at Stop is intentional stream teardown;
+following user-authorized closeout November 10; no additional M6 car visit is requested. M7 implementation is tracked above.
+The brief Disconnected state at Stop is intentional stream teardown;
 Ready afterward is idle transport availability and does not resume recording.
 
 ### Earlier beta deliveries and physical evidence
@@ -328,3 +333,20 @@ behavior was added by these transport fixes. Reassess this metadata when shipped
 app/dependency encryption functionality changes; signing/API credentials are build
 inputs and are not bundled as app encryption functionality. Build 5.1 predates
 this metadata and still required its own questionnaire.
+
+
+## Upload an already prepared signed IPA
+
+The signed workflow can download its own repository's retained signed artifact
+using `prepared_run_id`, then require `expected_ipa_sha256`,
+`expected_source_commit` and `expected_build`. It verifies the actual IPA bytes,
+provenance and fixed application/version before any Apple upload. With
+`upload_testflight=false` it is a verification-only dry run. Only after explicit
+approval for that exact payload may the same prepared artifact be dispatched with
+`upload_testflight=true`; it is never rebuilt or assigned a different build number.
+This path preserves the existing API-key handling, positive upload receipt check
+and cleanup. Credentials stay in the existing `ios-device` environment.
+
+References checked November 18, 2026:
+[GitHub artifact download inputs](https://github.com/actions/download-artifact/tree/v4),
+[Apple upload builds](https://developer.apple.com/help/app-store-connect/manage-builds/upload-builds).

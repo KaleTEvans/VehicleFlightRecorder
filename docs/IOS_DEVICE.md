@@ -350,3 +350,10 @@ and cleanup. Credentials stay in the existing `ios-device` environment.
 References checked November 18, 2026:
 [GitHub artifact download inputs](https://github.com/actions/download-artifact/tree/v4),
 [Apple upload builds](https://developer.apple.com/help/app-store-connect/manage-builds/upload-builds).
+
+M7 retained-payload dry run
+[44401118905](https://github.com/KaleTEvans/VehicleFlightRecorder/actions/runs/44401118905)
+passed for the already signed **14.1** IPA with upload disabled. It verified SHA-256
+`4704885038f15058e8212da61838348a4f373546cad8d2fb3ccc1960b1df4fe7` and app source
+`4d6e857b2cc6c8457c73892597d529e0e1becd9e`. That run did not build a 15.1 IPA or
+send anything to Apple. Actual TestFlight processing/availability remains pending.

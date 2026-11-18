@@ -249,3 +249,23 @@ The [parked packet](../planning/milestone_7_test_session.md),
 road, reference and representative resource gates. PR #6 remains draft/unmerged.
 
 **Milestone 8 not started.**
+
+## Retained-payload verification-only run
+
+[Run 44401118905](https://github.com/KaleTEvans/VehicleFlightRecorder/actions/runs/44401118905)
+passed on upload-workflow source `21794aa90df9310e6e89b1f23abd1f9a8f35e454`.
+It downloaded the signed artifact from run `44400084011`, independently verified
+IPA SHA-256 `4704885038f15058e8212da61838348a4f373546cad8d2fb3ccc1960b1df4fe7`,
+app source `4d6e857b2cc6c8457c73892597d529e0e1becd9e`, bundle/version and build
+**14.1**, then **skipped Apple upload**. Its workflow run number 15 does not create
+a build 15.1; it reuses the exact retained 14.1 payload. No rebuild is needed once
+that specific upload is approved. All 34 script tests, workflow lint and local
+link checks pass. The only remaining local worktree edit is the pre-existing
+unrelated `docs/OFFLINE_ACQUISITION.md` change, which was not committed.
+
+The app/core/native-validation tree remains identical to accepted native source
+`4d6e857`; later commits update analysis, upload verification and documentation.
+M7 stays partially complete pending upload consent, Apple processing and the
+actual parked/road/reliability/resource acceptance matrix. No merge or M8 work.
+
+**Milestone 8 not started.**

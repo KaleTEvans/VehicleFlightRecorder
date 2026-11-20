@@ -3,7 +3,8 @@
 Status: IN PROGRESS — **14.1 parked results reviewed November 20, 2026**.
 Ordinary automatic acquisition and a full manual incident window validate, but
 startup/reconnect and diagnostic export failures block physical acceptance.
-Targeted recovery fixes and regression validation are in progress; see the
+Targeted recovery fixes/native verification passed; signed **20.1** awaits
+explicit upload approval and TestFlight delivery. See the
 [first physical review](MILESTONE_7_PHYSICAL_REVIEW.md). The 14.1 test packet is
 paused; no new car visit or road use is requested until a verified replacement
 beta and consolidated follow-up are ready. M6 remains accepted/merged as
@@ -312,3 +313,28 @@ remain open. Source/core/iOS behavior and prior automated acceptance are unchang
 by these delivery/checklist documentation updates.
 
 **Milestone 8 not started.**
+
+
+## November 20 recovery verification and retained 20.1
+
+The [first physical review](MILESTONE_7_PHYSICAL_REVIEW.md) records preserved
+originals, the failure sequence, startup/export/UX changes, all verification and
+exact IPA/artifact checksums. Final native run **44827283375** passed 46 hosted
+and nine UI tests plus both SDK profiles. All 23 native session ZIPs and four
+whole automation bundles replay independently after download; all available
+incidents reconstruct. The first-tap/repeated failed-owner share test passes.
+Portable Go/vet/race, 185 Python tests, 34 script tests and workflow lint pass.
+
+Signed **20.1**, signing-only run **44825527697**, is retained and verified.
+Its source is `19e83737ef623014c076dbc8f18d24a65efe0604`; final native revision
+`4666c1b66713070f69678e72015d0d397277f832` differs only in the UI test target's
+scroll/tap setup. All app/core/build inputs match exactly. Apple upload was
+skipped; a new exact-payload approval is still required. No 20.1 delivery is
+claimed. Superseded signing candidates and failed/canceled native runs are not
+acceptance evidence; see the detailed review.
+
+The [15–20 minute recovery packet](../planning/milestone_7_recovery_test_session.md)
+remains held until approved upload/processing. It reuses successful ordinary
+readings/full incident and M6 baseline. Road, physical recovery, lifecycle/wake,
+notification and representative resource acceptance remain open. PR #6 stays
+draft/unmerged; Milestone 8 has not started.

@@ -94,9 +94,55 @@ open until an updated beta is tested.
 ## Follow-up scope
 
 Reuse successful ordinary reads, the full incident window and accepted M6 data.
-The next single parked block should concentrate on drive-to-probe handover,
+The [held recovery packet](../planning/milestone_7_recovery_test_session.md)
+collects one 15–20 minute parked block. It should concentrate on drive-to-probe handover,
 stop/rearm, force-quit/relaunch, scanner reconnect and export after any failure;
 check the improved incident feedback and compact readings in that same block.
 Only after recovery passes should the remaining lock/background/notification and
 normal sustained-end cases proceed. Road and representative resource/battery
 qualification remain separate gated work. Milestone 8 has not started.
+
+
+## Retained recovery beta — not delivered
+
+Final signed candidate: **0.1.0 (20.1)**, prepared by
+[signing-only run 44825527697](https://github.com/KaleTEvans/VehicleFlightRecorder/actions/runs/44825527697).
+Signing/export passed and the Apple upload step was skipped. This is not a
+TestFlight delivery. Original 14.1 upload approval does not cover a new payload.
+
+- Signed app source: `19e83737ef623014c076dbc8f18d24a65efe0604`.
+- IPA SHA-256: `8cebea51d08bd7eda3957c7647b4b8ccc53c705099aac8bec673be78b8b64cf3`.
+- Retained signed artifact: `14674560791`; outer ZIP SHA-256
+  `d2d0ee752ff9ff3660de3203e5a48fe5c90f4ef51a44bfd8b76c118716c2e739`.
+  Downloaded ZIP CRC/digest and IPA app/version/build/source provenance verify.
+- Final native test revision: `4666c1b66713070f69678e72015d0d397277f832`.
+  Git comparison with signed source changes only
+  `ios/VehicleFlightRecorderUITests/EvidenceNavigationTests.swift` to reveal the
+  whole row before the test's single tap. App/core/build inputs are identical.
+- Final native gate: **passed**
+  [run 44827283375](https://github.com/KaleTEvans/VehicleFlightRecorder/actions/runs/44827283375):
+  **46 hosted tests, 9 UI tests, both iOS SDK build profiles, 23 native session
+  ZIPs and 4 whole automation bundles**. All available incidents reconstruct.
+  First-tap/repeated M7 diagnostic sharing after real Go synchronization
+  exhaustion passes; its Save to Files screenshot was reviewed.
+- Native artifact `14675387888`, SHA-256
+  `22f63569114b4b44b1d18e0bf003629f085414f49286636df4b65c45b026f0c7`,
+  was downloaded with CRC/digest verification. Local independent replay again
+  validates all 23 native ZIPs and four automation bundles.
+- Portable validation: all Go tests/vet; acquisition/mobile race checks and focused
+  final four-timeout recovery race checks; **185 Python** and **34 script** tests;
+  workflow lint. Final branch portable CI passes. All 37 phone captures and their
+  whole automation bundle still validate under the stricter reader.
+
+Superseded runs are not acceptance evidence. One reproduction omitted the old
+connection's disconnect before reconnect; the corrected sequence passes directly
+in Go. The next native run passed all 46 hosted tests and eight existing UI tests,
+but the new UI test tapped a partly clipped row's center below the visible screen.
+The final test requires the full row above the bottom safe area, without adding
+any repeat-tap workaround. Signing-only 17.1 and 19.1 candidates are superseded;
+one incorrect-source preparation was canceled. None were uploaded to Apple.
+
+The native gate is complete. The held recovery packet remains unreleased until
+explicit approval, upload and processing of this exact 20.1 IPA are complete.
+Physical recovery and the remaining M7 acceptance matrix still need actual
+phone evidence; automated success does not close the milestone.

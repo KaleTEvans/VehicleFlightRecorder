@@ -3,8 +3,8 @@
 November 20, 2026 — first 14.1 parked evidence reviewed. Ordinary automatic
 acquisition and a full manual window validate; startup/reconnect and export
 failures keep M7 open and road use on hold. See the
-[physical review](MILESTONE_7_PHYSICAL_REVIEW.md). Targeted fixes require a verified
-replacement beta before one consolidated follow-up. M6 acceptance is retained.
+[physical review](MILESTONE_7_PHYSICAL_REVIEW.md). Recovery **20.1** is signed and passes native verification; it awaits approved
+TestFlight delivery before one consolidated follow-up. M6 acceptance is retained.
 
 | Case | Implemented behavior / evidence | Physical status |
 | --- | --- | --- |

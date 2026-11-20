@@ -3,14 +3,15 @@
 **November 20 review: 14.1 packet paused after startup/reconnect and M7 export
 failures.** Originals from Files validate; see the
 [physical review](../docs/MILESTONE_7_PHYSICAL_REVIEW.md). No further car visit or
-road use is requested while targeted recovery/native regression work is in
-progress. Reuse passed observations and issue one affected-case follow-up only
+road use is requested until verified recovery build **20.1** receives approved
+TestFlight delivery. Reuse passed observations and issue one affected-case follow-up only
 after a verified replacement beta. The earlier release instructions below are
 historical for 14.1.
 
 Status: IN PROGRESS — user authorized implementation November 18, 2026.
 Build **0.1.0 (14.1)** is delivered and VALID / internal IN_BETA_TESTING;
-[the consolidated parked packet](milestone_7_test_session.md) is released.
+[the original parked packet](milestone_7_test_session.md) was released before
+the November 20 hold.
 Parked evidence review still gates road use; physical acceptance remains open.
 M6 is complete/merged as `f793674`. See [implementation report](../docs/MILESTONE_7.md),
 [reliability matrix](../docs/MILESTONE_7_RELIABILITY.md) and

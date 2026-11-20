@@ -28,16 +28,19 @@ coverage gaps and Stop-state behavior. Prior diagnostic/reference acceptance is
 retained. No additional M6 car test is requested; M7 implementation is now in progress.
 
 **Milestone 7 is in progress** on `codex/milestone-7-hands-off-recording` / [draft PR #6](https://github.com/KaleTEvans/VehicleFlightRecorder/pull/6).
-The initial implementation adds Go-owned RPM activity policy, separate pre-start
-probes, automatic drive ownership, manual Stop override, interruption preservation
-and optional quiet recording confirmations. Automated qualification passed: 43 hosted / eight UI tests, 22 native ZIPs,
-three diagnostic bundles and 182 Python tests. TestFlight **0.1.0 (14.1)** is now confirmed VALID / internal IN_BETA_TESTING after
-the approved upload November 18 at **5:30:38 p.m. CST**. The app payload is unchanged
-from native-tested source `4d6e857`; physical M7 acceptance remains pending.
-See [M7 report](docs/MILESTONE_7.md), [reliability matrix](docs/MILESTONE_7_RELIABILITY.md)
-and [released parked test packet](planning/milestone_7_test_session.md). Group the
-phone checks into one parked visit and one evidence handoff; road use remains on
-hold pending review of those results. M8 has not started.
+The first 14.1 parked archive validates four automatic drives and a full manual
+incident, but startup/reconnect and diagnostic export failures block acceptance.
+Targeted recovery fixes add bounded startup synchronization, failed-owner export
+and rearm, incident feedback, compact primary readings and better diagnostics.
+Signed **0.1.0 (20.1)** is retained locally. Native verification passed: 46 hosted
+tests, nine UI tests, 23 session ZIPs and four automation bundles, also replayed
+locally. Upload approval remains pending; it has not been sent to Apple.
+See the [physical review](docs/MILESTONE_7_PHYSICAL_REVIEW.md),
+[M7 report](docs/MILESTONE_7.md), [reliability matrix](docs/MILESTONE_7_RELIABILITY.md)
+and [held recovery checklist](planning/milestone_7_recovery_test_session.md).
+No further car visit is requested until the replacement beta and single follow-up
+are released. Reuse successful M6/M7 baseline results. Road use remains on hold;
+M8 has not started.
 
 Regular Combined, RPM-only, Coolant-only and Adapter-voltage-only now have an
 explicit CAN11/CAN29 protocol choice. The native test-car UI defaults to CAN29

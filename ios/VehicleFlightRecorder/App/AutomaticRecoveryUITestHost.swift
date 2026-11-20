@@ -24,6 +24,7 @@ enum FailedAutomaticFixture {
             try core.accepted(generation, nativeNS: now + 1_000_001_000, data: bytes)
             _ = try? GoLiveSession.command(core, nativeNS: now + 4_000_000_000, wallMS: anchor + Int64(attempt) * 10_000 + 4000)
             _ = try? GoLiveSession.command(core, nativeNS: now + 6_000_000_000, wallMS: anchor + Int64(attempt) * 10_000 + 6000)
+            if attempt < 3 { try core.disconnected(generation, nativeNS: now + 7_000_000_000, reason: "Scripted native channel closes before fresh generation") }
         }
         _ = try? owner.tick(base + 40_000_000_000, wallMS: anchor + 40_000)
         let state = try decodeCore(AutomaticSnapshot.self, owner.snapshot())

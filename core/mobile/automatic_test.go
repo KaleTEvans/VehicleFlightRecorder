@@ -252,3 +252,57 @@ func TestFailedAutomaticDisarmExportAndRearmPreservesOriginals(t *testing.T) {
 		t.Fatal("rearm reused failed engine")
 	}
 }
+
+// The native regression fixture must reproduce the real channel lifecycle:
+// failed generations close before another EASession is created.
+func TestAutomaticFourStartupTimeoutsCanDisarmAndRearm(t *testing.T) {
+	a, err := NewAutomaticRecorder(t.TempDir(), "native-fixture", obd.CAN29Profile)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer a.Close()
+	if err = a.SetEnabled(true, 1700000000000, fixtureNative); err != nil {
+		t.Fatal(err)
+	}
+	l := a.Live()
+	for attempt := int64(0); attempt < 4; attempt++ {
+		now := fixtureNative + attempt*10*acquisition.Second
+		gen, e := l.Connected(`{"protocol":"com.obdlink","name":"Scripted timeout fixture"}`, now)
+		if e != nil {
+			t.Fatal(attempt, e)
+		}
+		if e = l.NativeEvent(gen, now, "streams_ready", "scripted"); e != nil {
+			t.Fatal(e)
+		}
+		data, e := l.NextCommand(now+acquisition.Second, 1700000000000+(attempt*10+1)*1000)
+		if e != nil || string(data) != "STPC\r" {
+			t.Fatal(attempt, string(data), e)
+		}
+		if e = l.Accepted(gen, now+acquisition.Second+1000, data); e != nil {
+			t.Fatal(e)
+		}
+		_, _ = l.NextCommand(now+4*acquisition.Second, 1700000000000+(attempt*10+4)*1000)
+		_, _ = l.NextCommand(now+6*acquisition.Second, 1700000000000+(attempt*10+6)*1000)
+		if attempt < 3 {
+			if e = l.Disconnected(gen, now+7*acquisition.Second, "scripted native close"); e != nil {
+				t.Fatal(e)
+			}
+		}
+	}
+	if err = a.Tick(fixtureNative+40*acquisition.Second, 1700000040000); err == nil || !strings.Contains(err.Error(), "synchronization retries") {
+		t.Fatal(err)
+	}
+	if a.disk.Enabled || a.state != "failed" {
+		t.Fatal(a.Snapshot())
+	}
+	original := l.Path()
+	if err = a.SetEnabled(false, 1700000041000, fixtureNative+41*acquisition.Second); err != nil {
+		t.Fatal(err)
+	}
+	if err = a.SetEnabled(true, 1700000042000, fixtureNative+42*acquisition.Second); err != nil {
+		t.Fatal(err)
+	}
+	if a.Live().Path() == original {
+		t.Fatal("reused failed capture")
+	}
+}

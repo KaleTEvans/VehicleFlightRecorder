@@ -303,11 +303,15 @@ final class EvidenceNavigationTests: XCTestCase {
         app.launchArguments = ["--ui-test-automatic-recovery"]
         app.launch()
         let export = app.buttons["export-m7-diagnostics"]
+        let list = app.collectionViews.firstMatch
         for _ in 0..<8 {
-            if export.exists && export.isHittable { break }
-            if app.collectionViews.firstMatch.waitForExistence(timeout: 10) { app.collectionViews.firstMatch.swipeUp() }
+            // XCTest can report a partly clipped bottom row as hittable even
+            // when its default center tap falls on the home indicator.
+            if export.exists && export.isHittable && export.frame.maxY < list.frame.maxY - 40 { break }
+            if list.waitForExistence(timeout: 10) { list.swipeUp() }
         }
         XCTAssertTrue(export.isHittable, app.debugDescription)
+        XCTAssertLessThan(export.frame.maxY, list.frame.maxY - 40, app.debugDescription)
         XCTAssertTrue(export.isEnabled, app.debugDescription)
         for _ in 0..<2 {
             export.tap()

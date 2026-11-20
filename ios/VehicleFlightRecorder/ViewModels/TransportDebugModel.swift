@@ -166,7 +166,9 @@ import Foundation
                 let notice = transport.notice
                 let raw = transport.capture?.core.snapshot() ?? "No capture"
                 let canShareCapture = transport.capture != nil && transport.state != .ready && transport.state != .connecting
-                let pumpFailure = transport.pump.failure
+                // Historical pump errors remain in the evidence. A successfully
+                // disarmed/exported owner must not redisplay one as a new error.
+                let pumpFailure = transport.state == .failed ? transport.pump.failure : nil
                 let automatic = transport.automaticSnapshot.flatMap { try? decodeCore(AutomaticSnapshot.self, $0) }
                 var live: LiveSnapshot?
                 if let value = transport.live {

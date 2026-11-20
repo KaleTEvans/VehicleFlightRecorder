@@ -37,6 +37,7 @@ final class AutomaticRecorderTests: XCTestCase {
 
         let executor = TransportExecutor()
         let transport = MXPlusExternalAccessoryTransport(root: value.root.appendingPathComponent("ConnectionCaptures"), executor: executor, automatic: value.owner, live: value.live)
+        transport.pump.fail("Previous native acquisition failure")
         let model = TransportDebugModel(documents: value.root, executor: executor, transport: transport)
         await model.refresh()
         XCTAssertEqual(model.automatic?.state, "failed")

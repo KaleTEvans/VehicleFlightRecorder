@@ -1,11 +1,14 @@
 # Milestone 7 — targeted recovery follow-up
 
-**HOLD — signed 0.1.0 (20.1) has not been uploaded or delivered.**
-Native verification passed (46 hosted / 9 UI tests). Do not start another car
-visit using 14.1. Release this packet only after approved TestFlight delivery is
-confirmed. Final source:
-`19e83737ef623014c076dbc8f18d24a65efe0604`. Earlier signing-only candidates are
-superseded and must not be uploaded.
+**RELEASED FOR PARKED RECOVERY TESTING — November 20, 2026.**
+Install **Vehicle Flight Recorder 0.1.0 (20.1)** from internal TestFlight.
+Apple confirms VALID / internal IN_BETA_TESTING. User-approved
+[upload run 44830599129](https://github.com/KaleTEvans/VehicleFlightRecorder/actions/runs/44830599129)
+reused the unchanged signed IPA at **4:39:02 p.m. CST November 20**. Workflow
+run 21 did not rebuild or create a 21.1 app. App source:
+`19e83737ef623014c076dbc8f18d24a65efe0604`. Native verification passed (46 hosted /
+9 UI tests). Earlier signing-only candidates are superseded. Only this affected-case
+parked block is released; the broader 14.1 packet and road use remain paused.
 
 Purpose: retest the failed handover/relaunch/export paths in one parked block.
 Reuse the successful ordinary readings, full manual incident and earlier M6

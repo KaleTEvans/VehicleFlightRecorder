@@ -1,8 +1,8 @@
 # Milestone 7 — first parked review and recovery work
 
 November 20, 2026. Build **0.1.0 (14.1)**. Milestone 7 remains open;
-road testing is on hold. No additional car visit is requested until a verified
-replacement beta and one consolidated follow-up checklist are ready.
+road testing is on hold. Recovery build **20.1** is delivered and VALID / internal
+IN_BETA_TESTING; one consolidated parked follow-up is released below.
 
 ## Retrieved evidence
 
@@ -94,7 +94,7 @@ open until an updated beta is tested.
 ## Follow-up scope
 
 Reuse successful ordinary reads, the full incident window and accepted M6 data.
-The [held recovery packet](../planning/milestone_7_recovery_test_session.md)
+The [released recovery packet](../planning/milestone_7_recovery_test_session.md)
 collects one 15–20 minute parked block. It should concentrate on drive-to-probe handover,
 stop/rearm, force-quit/relaunch, scanner reconnect and export after any failure;
 check the improved incident feedback and compact readings in that same block.
@@ -103,12 +103,13 @@ normal sustained-end cases proceed. Road and representative resource/battery
 qualification remain separate gated work. Milestone 8 has not started.
 
 
-## Retained recovery beta — not delivered
+## Verified recovery beta — 20.1 delivered
 
-Final signed candidate: **0.1.0 (20.1)**, prepared by
+Signed recovery build: **0.1.0 (20.1)**, prepared by
 [signing-only run 44825527697](https://github.com/KaleTEvans/VehicleFlightRecorder/actions/runs/44825527697).
-Signing/export passed and the Apple upload step was skipped. This is not a
-TestFlight delivery. Original 14.1 upload approval does not cover a new payload.
+Signing/export passed; the signing-only run skipped Apple upload. The user then
+explicitly approved this exact 20.1 payload, and the retained-IPA upload below
+completed without rebuilding.
 
 - Signed app source: `19e83737ef623014c076dbc8f18d24a65efe0604`.
 - IPA SHA-256: `8cebea51d08bd7eda3957c7647b4b8ccc53c705099aac8bec673be78b8b64cf3`.
@@ -142,7 +143,24 @@ The final test requires the full row above the bottom safe area, without adding
 any repeat-tap workaround. Signing-only 17.1 and 19.1 candidates are superseded;
 one incorrect-source preparation was canceled. None were uploaded to Apple.
 
-The native gate is complete. The held recovery packet remains unreleased until
-explicit approval, upload and processing of this exact 20.1 IPA are complete.
+The native and delivery gates are complete. The recovery packet is released
+for one parked follow-up.
 Physical recovery and the remaining M7 acceptance matrix still need actual
 phone evidence; automated success does not close the milestone.
+
+
+## Approved delivery
+
+[Upload run 44830599129](https://github.com/KaleTEvans/VehicleFlightRecorder/actions/runs/44830599129)
+verified the approved retained checksum and source, then uploaded the same 20.1
+IPA. Receipt: **UPLOAD SUCCEEDED with 1 warning, 0 messages**, no errors,
+**22:39:02 UTC / 4:39:02 p.m. CST November 20**. Delivery UUID:
+`40494bf8-46dd-43ce-a792-bda9127e2fad`. Apple confirms upload COMPLETE, build
+VALID, usesNonExemptEncryption=false and internal IN_BETA_TESTING (build
+uploadedDate 22:39:38 UTC). Workflow run 21 reused 20.1; no 21.1 app was created.
+The single future-SDK warning does not block current processing. Receipt and
+Apple status snapshots are retained in the ignored build/cache directories.
+
+Only the targeted parked checklist is released. Reconnect recovery, lifecycle,
+notifications and representative driving/resource acceptance still require
+physical evidence; no road release, merge or M7 closure is claimed.

@@ -1,12 +1,12 @@
 # Milestone 7 — consolidated physical acceptance
 
-**November 20 review: 14.1 packet paused after startup/reconnect and M7 export
-failures.** Originals from Files validate; see the
-[physical review](../docs/MILESTONE_7_PHYSICAL_REVIEW.md). No further car visit or
-road use is requested until verified recovery build **20.1** receives approved
-TestFlight delivery. Reuse passed observations and issue one affected-case follow-up only
-after a verified replacement beta. The earlier release instructions below are
-historical for 14.1.
+**November 20 recovery release: 20.1 is VALID / internal IN_BETA_TESTING.**
+The original 14.1 packet remains paused after startup/reconnect and export
+failures. Use the [released targeted recovery checklist](milestone_7_recovery_test_session.md)
+for one 15–20 minute parked block and one ZIP/note handoff. Reuse passed
+observations; the broader packet and road use remain on hold pending recovery
+review. See the [physical review](../docs/MILESTONE_7_PHYSICAL_REVIEW.md).
+The earlier 14.1 release instructions below are historical.
 
 Original release: November 18, 2026 — superseded by the November 20 hold above.
 Install **Vehicle Flight Recorder 0.1.0 (14.1)** from internal TestFlight.

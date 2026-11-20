@@ -3,11 +3,11 @@
 Status: IN PROGRESS — **14.1 parked results reviewed November 20, 2026**.
 Ordinary automatic acquisition and a full manual incident window validate, but
 startup/reconnect and diagnostic export failures block physical acceptance.
-Targeted recovery fixes/native verification passed; signed **20.1** awaits
-explicit upload approval and TestFlight delivery. See the
+Targeted recovery fixes/native verification passed; **20.1** is delivered and
+VALID / internal IN_BETA_TESTING following explicit approval. See the
 [first physical review](MILESTONE_7_PHYSICAL_REVIEW.md). The 14.1 test packet is
-paused; no new car visit or road use is requested until a verified replacement
-beta and consolidated follow-up are ready. M6 remains accepted/merged as
+paused; the separate 20.1 recovery checklist releases one 15–20 minute parked
+block. Road use and broader physical acceptance remain on hold. M6 remains accepted/merged as
 `f793674`. Milestone 8 has not started.
 
 ## Workload and activity policy
@@ -328,13 +328,41 @@ Portable Go/vet/race, 185 Python tests, 34 script tests and workflow lint pass.
 Signed **20.1**, signing-only run **44825527697**, is retained and verified.
 Its source is `19e83737ef623014c076dbc8f18d24a65efe0604`; final native revision
 `4666c1b66713070f69678e72015d0d397277f832` differs only in the UI test target's
-scroll/tap setup. All app/core/build inputs match exactly. Apple upload was
-skipped; a new exact-payload approval is still required. No 20.1 delivery is
-claimed. Superseded signing candidates and failed/canceled native runs are not
+scroll/tap setup. All app/core/build inputs match exactly. The signing-only run
+skipped Apple upload. After exact-payload approval, retained-IPA upload run
+**44830599129** sent the same 20.1 bytes at **4:39:02 p.m. CST November 20**.
+Apple confirms upload COMPLETE, build VALID / internal IN_BETA_TESTING, with
+usesNonExemptEncryption=false. Workflow run 21 did not create a 21.1 app.
+Superseded signing candidates and failed/canceled native runs are not
 acceptance evidence; see the detailed review.
 
 The [15–20 minute recovery packet](../planning/milestone_7_recovery_test_session.md)
-remains held until approved upload/processing. It reuses successful ordinary
+is released for one parked follow-up. It reuses successful ordinary
 readings/full incident and M6 baseline. Road, physical recovery, lifecycle/wake,
 notification and representative resource acceptance remain open. PR #6 stays
 draft/unmerged; Milestone 8 has not started.
+
+
+## Approved 20.1 TestFlight delivery — November 20, 2026
+
+[Upload run 44830599129](https://github.com/KaleTEvans/VehicleFlightRecorder/actions/runs/44830599129)
+verified and sent the unchanged retained 20.1 IPA after the user's explicit
+approval. The device build job was skipped; no new app was built.
+
+- Receipt: **UPLOAD SUCCEEDED with 1 warning, 0 messages**, no upload errors,
+  **22:39:02 UTC / 4:39:02 p.m. CST November 20**.
+- Delivery UUID: `40494bf8-46dd-43ce-a792-bda9127e2fad`.
+- IPA SHA-256: `8cebea51d08bd7eda3957c7647b4b8ccc53c705099aac8bec673be78b8b64cf3`.
+- Read-only Apple confirmation: upload COMPLETE, build VALID,
+  usesNonExemptEncryption=false, internal IN_BETA_TESTING; build uploadedDate
+  **22:39:38 UTC / 4:39:38 p.m. CST**.
+- Receipt retained privately in `build/milestone-7/testflight-upload-20.1.log`.
+  Warning 90725 concerns the future April 2027 iOS 27 SDK requirement; current
+  upload and beta processing passed.
+
+The [targeted recovery packet](../planning/milestone_7_recovery_test_session.md)
+is now released for a single 15–20 minute parked block and one ZIP/note handoff.
+It reuses prior ordinary/full-incident and M6 baseline results. A persistent
+failure stops dependent cases and moves directly to diagnostic export or Files
+retrieval. The original broad packet/road block remains paused until recovery
+results are reviewed. PR #6 stays draft; M7 remains open and M8 has not started.

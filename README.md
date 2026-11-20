@@ -32,14 +32,15 @@ The first 14.1 parked archive validates four automatic drives and a full manual
 incident, but startup/reconnect and diagnostic export failures block acceptance.
 Targeted recovery fixes add bounded startup synchronization, failed-owner export
 and rearm, incident feedback, compact primary readings and better diagnostics.
-Signed **0.1.0 (20.1)** is retained locally. Native verification passed: 46 hosted
-tests, nine UI tests, 23 session ZIPs and four automation bundles, also replayed
-locally. Upload approval remains pending; it has not been sent to Apple.
+**0.1.0 (20.1)** is delivered and confirmed VALID / internal IN_BETA_TESTING
+following the approved unchanged-IPA upload November 20 at **4:39 p.m. CST**.
+Native verification passed: 46 hosted tests, nine UI tests, 23 session ZIPs and
+four automation bundles, also replayed locally.
 See the [physical review](docs/MILESTONE_7_PHYSICAL_REVIEW.md),
 [M7 report](docs/MILESTONE_7.md), [reliability matrix](docs/MILESTONE_7_RELIABILITY.md)
-and [held recovery checklist](planning/milestone_7_recovery_test_session.md).
-No further car visit is requested until the replacement beta and single follow-up
-are released. Reuse successful M6/M7 baseline results. Road use remains on hold;
+and [released recovery checklist](planning/milestone_7_recovery_test_session.md).
+One 15–20 minute parked recovery block and one evidence handoff are released.
+Reuse successful M6/M7 baseline results. Road use remains on hold;
 M8 has not started.
 
 Regular Combined, RPM-only, Coolant-only and Adapter-voltage-only now have an

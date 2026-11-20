@@ -63,6 +63,7 @@ type Statistics struct {
 	LatencyP95NS int64   `json:"latency_p95_ns"`
 }
 type LiveConfiguration struct {
+	StartupSyncVersion string       `json:"startup_sync_version,omitempty"`
 	AppVersion         string       `json:"app_version"`
 	BridgeVersion      int64        `json:"bridge_version"`
 	ReferenceNote      string       `json:"reference_note"`
@@ -119,6 +120,9 @@ type Work struct {
 	Bytes      []byte
 }
 type Scheduler struct {
+	settling                                             bool
+	quietUntil, settleLimit                              int64
+	stoppedRetries                                       int
 	entries                                              []entry
 	report                                               Report
 	capabilities                                         *obd.Capabilities
@@ -231,7 +235,7 @@ func (s *Scheduler) Poll(now int64) (*Work, error) {
 	if err := s.Tick(now); err != nil {
 		return nil, err
 	}
-	if s.report.State != "ready" || now < s.nextSend {
+	if s.settling || s.report.State != "ready" || now < s.nextSend {
 		return nil, nil
 	}
 	selected := -1
@@ -357,6 +361,21 @@ func (s *Scheduler) finish(now int64, outcome string) {
 	if s.live {
 		s.nextSend = now + Second/2
 		if obd.IsInitialization(tx.Key) && outcome != "ok" {
+			if tx.Key == "init_close" && outcome == "protocol_error" && s.report.Configuration.StartupSyncVersion == StartupSyncVersion && len(tx.AdapterStatus) == 1 && tx.AdapterStatus[0] == "STOPPED" && s.stoppedRetries < 2 {
+				s.stoppedRetries++
+				s.nextSend = now + Second
+				s.settling = true
+				s.quietUntil = now + Second
+				s.settleLimit = now + 3*Second
+				for i := range s.entries {
+					if s.entries[i].spec.Key == "init_close" {
+						s.entries[i].due = now + Second
+					}
+				}
+				s.report.State = "ready"
+				s.issue("startup_command_interrupted")
+				return
+			}
 			s.report.State = "blocked"
 			s.issue("initialization_failed")
 			return
@@ -367,6 +386,18 @@ func (s *Scheduler) finish(now int64, outcome string) {
 func (s *Scheduler) Tick(now int64) error {
 	if err := s.clock(now); err != nil {
 		return err
+	}
+	if s.settling {
+		if now >= s.settleLimit && s.quietUntil > s.settleLimit {
+			s.report.State = "blocked"
+			s.issue("startup_quiet_deadline")
+			return fmt.Errorf("startup stream did not become quiet")
+		}
+		if now < s.quietUntil {
+			return nil
+		}
+		s.settling = false
+		s.framer.Reset()
 	}
 	if s.report.State == "draining" && now >= s.drainDeadline {
 		s.report.State = "blocked"
@@ -397,6 +428,9 @@ func (s *Scheduler) Receive(generation int, now int64, data []byte) error {
 	}
 	if generation != s.report.Generation {
 		return fmt.Errorf("stale connection generation")
+	}
+	if s.settling && s.active < 0 {
+		return s.captureSettling(now, data)
 	}
 	if err := s.Tick(now); err != nil {
 		return err
@@ -455,6 +489,11 @@ func (s *Scheduler) Receive(generation int, now int64, data []byte) error {
 	if s.live && obd.IsInitialization(tx.Key) {
 		value, err := obd.ParseInitialization(tx.Key, frames[0])
 		if err != nil {
+			if tx.Key == "init_close" && s.report.Configuration.StartupSyncVersion == StartupSyncVersion && stoppedClose(frames[0]) {
+				tx.AdapterStatus = []string{"STOPPED"}
+				s.finish(now, "protocol_error")
+				return nil
+			}
 			s.finish(now, "protocol_error")
 			return err
 		}
@@ -548,6 +587,8 @@ func (s *Scheduler) Reconnect(now int64) error {
 	s.finish(now, "cancelled")
 	s.report.Generation++
 	s.initIndex = 0
+	s.settling = false
+	s.stoppedRetries = 0
 	s.report.State = "ready"
 	s.drain = -1
 	s.framer.Reset()

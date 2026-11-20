@@ -58,4 +58,23 @@ final class TransportDebugModelTests: XCTestCase {
         XCTAssertNil(model.error)
     }
     #endif
+    @MainActor func testMarkFeedbackRequiresSuccessfulCoreAcknowledgement() async throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent("Mark-feedback-\(UUID().uuidString)")
+        let live = try GoLiveSession(root: root.appendingPathComponent("Sessions"), operatingState: "stationary_running", workload: "combined", reference: "Scripted feedback", origin: "native-fixture")
+        defer { try? live.core.stop(TransportClock.nanoseconds()); try? FileManager.default.removeItem(at: root) }
+        let executor = TransportExecutor()
+        let transport = MXPlusExternalAccessoryTransport(root: root.appendingPathComponent("ConnectionCaptures"), executor: executor, live: live)
+        let model = TransportDebugModel(documents: root, executor: executor, transport: transport)
+        await model.markLive()
+        XCTAssertNil(model.error)
+        XCTAssertEqual(model.markFeedbackSequence, 1)
+        XCTAssertNotNil(model.incidentFeedback)
+        XCTAssertEqual(model.live?.incidents.count, 1)
+        try live.core.stop(TransportClock.nanoseconds())
+        await model.markLive()
+        XCTAssertNotNil(model.error)
+        XCTAssertEqual(model.markFeedbackSequence, 1, "A rejected mark must not acknowledge success")
+        XCTAssertFalse(model.markingIncident)
+    }
+
 }

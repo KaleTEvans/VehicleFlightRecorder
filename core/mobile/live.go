@@ -141,7 +141,12 @@ func NewLiveRecorder(root, options string, wallMS, nativeNS int64) (result *Live
 		specs = nil
 		initialization = obd.HandoffInitializationVersion
 	}
-	engine, err := acquisition.NewLive(wallMS, specs, acquisition.LiveConfiguration{SessionID: id, Origin: config.Origin, OperatingState: config.OperatingState, Workload: config.Workload, NativeAnchorNS: nativeNS, Initialization: initialization, Protocol: selectedProtocol, AppVersion: "0.1.0", BridgeVersion: BridgeVersion(), ReferenceNote: config.ReferenceNote, SensorRefresh: "unknown", EnhancedPack: "none", MaximumDurationNS: limit, MinimumAdmissionNS: acquisition.Second / 2, StartOrigin: func() string {
+	engine, err := acquisition.NewLive(wallMS, specs, acquisition.LiveConfiguration{SessionID: id, Origin: config.Origin, OperatingState: config.OperatingState, Workload: config.Workload, NativeAnchorNS: nativeNS, Initialization: initialization, Protocol: selectedProtocol, AppVersion: "0.1.0", BridgeVersion: BridgeVersion(), ReferenceNote: config.ReferenceNote, SensorRefresh: "unknown", EnhancedPack: "none", MaximumDurationNS: limit, MinimumAdmissionNS: acquisition.Second / 2, StartupSyncVersion: func() string {
+		if config.StartOrigin != "manual" {
+			return acquisition.StartupSyncVersion
+		}
+		return ""
+	}(), StartOrigin: func() string {
 		if config.StartOrigin == "manual" {
 			return ""
 		}
@@ -395,8 +400,11 @@ func (l *LiveRecorder) NextCommand(nativeNS, wallMS int64) (data []byte, err err
 		if l.options.Workload == obd.HandoffWorkload && !resource {
 			return nil, l.stop("handoff_readback_unavailable")
 		}
-		if resource || l.resyncs > 3 {
-			return nil, l.fail(fmt.Errorf("live acquisition stopped: evidence or resynchronization budget exhausted"))
+		if resource {
+			return nil, l.fail(fmt.Errorf("acquisition evidence budget exhausted; originals preserved"))
+		}
+		if l.resyncs > 3 {
+			return nil, l.fail(fmt.Errorf("adapter synchronization retries exhausted; originals preserved"))
 		}
 		l.reconnectNeeded = true
 		l.failure = "Fresh connection required after acquisition synchronization failure"
@@ -506,6 +514,9 @@ func (l *LiveRecorder) NativeEvent(generation, nativeNS int64, kind, detail stri
 			return nil
 		}
 		l.ready = true
+		if err = l.scheduler.BeginStartup(l.elapsed); err != nil {
+			return l.fail(err)
+		}
 		return l.event("transport_connected", "info", map[string]any{"generation": generation, "scope": "adapter_streams_only", "initialization": "pending"})
 	case "error":
 		return l.event("native_transport_error", "warning", map[string]any{"generation": generation, "detail": detail})

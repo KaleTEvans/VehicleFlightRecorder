@@ -17,10 +17,8 @@ struct NotificationSessionView: View {
                     Text(transport.automatic?.acceptingTelemetry == true ? "Recording automatically · Limited standard OBD coverage" : "Preparing automatic recording").font(.headline)
                     Text("Session: \(sessionID)").font(.caption)
                     Text("Elapsed: \(live.elapsedMs / 1000) s")
-                    ForEach(live.readings) { row in
-                        Text("\(row.ecu) · \(row.signalId): \(row.value, specifier: "%.2f") \(row.unit) · \(row.quality)")
-                    }
-                    Button("Mark Incident") { Task { await transport.markLive() } }.disabled(transport.busy)
+                    LiveReadingSummaryView(readings: live.readings)
+                    LiveIncidentControls(model: transport, live: live)
                     Button("Stop and save") { Task { await transport.stopLive() } }.disabled(transport.busy)
                 }.navigationTitle("Active drive")
             } else if let row = history.sessions.first(where: { $0.id == sessionID }) {

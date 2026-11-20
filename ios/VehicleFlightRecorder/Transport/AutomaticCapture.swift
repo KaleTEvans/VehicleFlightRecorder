@@ -9,7 +9,7 @@ struct AutomaticSnapshot: Decodable {
     let sessionId: String
     let manualStopOverride: Bool
     let maximumDriveSeconds: Int
-    var recording: Bool { !sessionId.isEmpty }
+    var recording: Bool { enabled && !sessionId.isEmpty }
 }
 struct AutomaticStartFact: Codable {
     let sessionId: String

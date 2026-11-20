@@ -1,7 +1,7 @@
 import SwiftUI
 
 struct TransportDebugView: View {
-    @ObservedObject private var model = TransportDebugModel.shared
+    @ObservedObject var model: TransportDebugModel = .shared
     @ObservedObject private var confirmations = RecordingConfirmation.shared
     @Environment(\.scenePhase) private var phase
     @State private var enableIdentity = false
@@ -19,6 +19,7 @@ struct TransportDebugView: View {
                     Text("Vehicle Flight Recorder").font(.headline)
                     Text("Transport: \(model.state)")
                     Text(model.notice)
+                    if let notice = model.recoveryNotice { Text(notice).font(.caption).accessibilityIdentifier("adapter-recovering") }
                     if workload == "adapter_handoff" { Text("Adapter-only handoff capture · VFR leaves the vehicle protocol unchanged.").font(.caption) }
                     else if workload == "can29_diagnostic" { Text("Standard OBD stationary diagnostic · CAN 29-bit / 500 kbps. Enhanced Alfa / TCM signals are not enabled.").font(.caption) }
                     else { Text("Standard OBD stationary testing · \(isRegularWorkload ? StationaryProtocol.title(protocolProfile) : StationaryProtocol.can11.title). Enhanced Alfa / TCM signals are not enabled.").font(.caption) }
@@ -42,17 +43,11 @@ struct TransportDebugView: View {
                         Text(model.automatic?.acceptingTelemetry == true ? "Recording automatically · Limited standard OBD coverage" : "Preparing automatic recording · Waiting for fresh telemetry").font(.headline)
                             .accessibilityIdentifier("automatic-recording-active")
                         Text("Elapsed: \(live.elapsedMs / 1000) s · \(live.protocolTitle)")
-                        Button("Mark Incident") { Task { await model.markLive() } }
-                            .buttonStyle(.borderless).disabled(model.busy)
+                        LiveIncidentControls(model: model, live: live)
                         Button("Stop and save") { Task { await model.stopLive() } }
                             .buttonStyle(.borderless).disabled(model.busy)
                         Text("Stop saves this drive and prevents another automatic start until sustained engine-off evidence, or until you disable and re-enable monitoring. Monitoring continues while armed.").font(.caption)
-                        ForEach(live.readings) { row in
-                            VStack(alignment: .leading) {
-                                Text(row.signalId).font(.caption)
-                                Text("\(row.ecu): \(row.value, specifier: "%.2f") \(row.unit) · \(row.quality) · \(row.ageMs / 1000) s old")
-                            }
-                        }
+                        LiveReadingSummaryView(readings: live.readings)
                     } else if model.automatic?.enabled == true {
                         Text("No drive recording. Activity evidence is kept separately; waiting for validated engine-running activity.").font(.caption)
                         if model.automatic?.manualStopOverride == true { Text("Manual Stop override is active.").font(.caption) }
@@ -62,8 +57,11 @@ struct TransportDebugView: View {
                     Button("Export M7 diagnostic bundle") {
                         Task { if let url = await model.exportAutomationBundle() { share = SessionShareRequest(url: url) } }
                     }.buttonStyle(.borderless)
-                        .disabled(model.busy || model.automatic?.enabled == true || share != nil)
-                    Text("Disable monitoring before export. This bundle includes automatic drives, retained activity probes and policy/notification/resource logs for one combined review. It preserves incomplete originals without repair.").font(.caption)
+                        .disabled(model.busy || model.exportingDiagnostics || share != nil)
+                        .accessibilityIdentifier("export-m7-diagnostics")
+                    if model.exportingDiagnostics { ProgressView("Preparing diagnostic ZIP…") }
+                    if let error = model.error { Text(error).foregroundStyle(.red).textSelection(.enabled).accessibilityIdentifier("automatic-export-error") }
+                    Text("Export stops monitoring, saves an active healthy drive and preserves failed/interrupted originals. The bundle includes all activity probes, policy/resource logs and connection captures; no repair is performed.").font(.caption)
                 }
                 Section("Optional recording confirmation") {
                     Text("A quiet confirmation can tell you when an automatic drive has started accepting telemetry. It does not enable recording or background execution. Configure permissions while parked.").font(.caption)

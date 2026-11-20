@@ -13,6 +13,7 @@ enum AutomaticFixture {
         let base: Int64 = 1_000_000_000_000, anchor: Int64 = 1_700_000_000_000
         try automatic.setEnabled(true, wallMS: anchor, nativeNS: base)
         var previous: String?, generation: Int64 = 0, claims = 0
+        var stopped = Set<String>()
         let metadata = "{\"protocol\":\"com.obdlink\",\"name\":\"Explicit native M7 fixture\"}"
         let setup: Set<String> = ["STPC\r", "ATD\r", "ATE0\r", "ATL0\r", "ATM0\r", "ATS1\r", "ATH1\r", "ATD0\r", "ATCAF1\r", "ATCFC1\r", "ATR1\r", "ATAT0\r", "STP34\r", "STPTO500\r", "ATSH18DB33F1\r", "STCAF0\r", "ATCRA\r", "STFA\r"]
         for step in 0...2900 {
@@ -22,6 +23,7 @@ enum AutomaticFixture {
             if core.path() != previous {
                 try core.connected(metadata, nativeNS: base + now, generation: &generation)
                 try core.nativeEvent(generation, nativeNS: base + now, kind: "streams_ready", detail: "Native M7 fixture")
+                if kind == "startup_stopped" { try core.receive(generation, nativeNS: base + now, data: Data("old reply\r>".utf8)) }
                 previous = core.path()
             }
             if kind == "reconnect", step == 2400 { try core.disconnected(generation, nativeNS: base + now, reason: "Scripted M7 loss"); continue }
@@ -30,14 +32,14 @@ enum AutomaticFixture {
                 try core.connected(metadata, nativeNS: base + now, generation: &generation)
                 try core.nativeEvent(generation, nativeNS: base + now, kind: "streams_ready", detail: "Native M7 restored")
             }
-            if kind != "engine_off", step == 1000 {
+            if kind != "engine_off", step == (kind == "startup_stopped" ? 1100 : 1000) {
                 _ = core.mark("Native M7 manual window", nativeNS: base + now, error: &error)
                 if let error { throw error }
             }
             let bytes = try GoLiveSession.command(core, nativeNS: base + now, wallMS: anchor + now / 1_000_000)
             if !bytes.isEmpty {
                 let request = String(decoding: bytes, as: UTF8.self)
-                let reply: String
+                var reply: String
                 if setup.contains(request) { reply = "OK\r>" }
                 else {
                     switch request {
@@ -53,6 +55,7 @@ enum AutomaticFixture {
                     default: throw VehicleTransportError.failed("Unexpected native M7 request")
                     }
                 }
+                if kind == "startup_stopped", request == "STPC\r", !stopped.contains(core.path()) { stopped.insert(core.path()); reply = "STOPPED\r\r>" }
                 try core.accepted(generation, nativeNS: base + now + 1000, data: bytes)
                 try core.receive(generation, nativeNS: base + now + 2000, data: Data(reply.utf8))
             }

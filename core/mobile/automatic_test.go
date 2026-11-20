@@ -1,6 +1,7 @@
 package mobile
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -214,5 +215,40 @@ func TestClosedAutomaticOwnerCannotWriteAfterReplacement(t *testing.T) {
 	}
 	if e = a.NativeEvent("foreground", "closed", fixtureNative); e == nil {
 		t.Fatal("closed callback wrote journal")
+	}
+}
+
+func TestFailedAutomaticDisarmExportAndRearmPreservesOriginals(t *testing.T) {
+	root := t.TempDir()
+	a, e := NewAutomaticRecorder(root, "scripted-fixture", obd.CAN29Profile)
+	if e != nil {
+		t.Fatal(e)
+	}
+	defer a.Close()
+	if e = a.SetEnabled(true, 1700000000000, fixtureNative); e != nil {
+		t.Fatal(e)
+	}
+	old := a.Live()
+	oldPath := old.Path()
+	before, e := os.ReadFile(filepath.Join(oldPath, "session.json"))
+	if e != nil {
+		t.Fatal(e)
+	}
+	_ = a.fail(fmt.Errorf("adapter synchronization retries exhausted"))
+	if e = a.SetEnabled(false, 1700000001000, fixtureNative+acquisition.Second); e != nil {
+		t.Fatal("cannot disarm failed engine", e)
+	}
+	after, _ := os.ReadFile(filepath.Join(oldPath, "session.json"))
+	if string(before) != string(after) {
+		t.Fatal("failed original finalized/rewritten")
+	}
+	if a.disk.Enabled || a.live != nil || a.failure != "" {
+		t.Fatal("failed owner still blocks diagnostic snapshot")
+	}
+	if e = a.SetEnabled(true, 1700000002000, fixtureNative+2*acquisition.Second); e != nil {
+		t.Fatal(e)
+	}
+	if a.Live().Path() == oldPath {
+		t.Fatal("rearm reused failed engine")
 	}
 }

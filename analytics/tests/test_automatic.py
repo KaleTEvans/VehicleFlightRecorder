@@ -16,13 +16,13 @@ def automatic_exports(tmp_path_factory):
     env = os.environ | {'GOCACHE': str(root/'.cache/go-build'), 'GOMODCACHE': str(root/'.cache/go-mod')}
     subprocess.run(['go','build','-o',str(binary),'./cmd/automatic-fixture'], cwd=root/'core',env=env,check=True)
     result = {}
-    for scenario in ('running','engine_off','manual_stop','interrupted','reconnect'):
+    for scenario in ('running','engine_off','manual_stop','interrupted','reconnect','startup_stopped'):
         folder=output/scenario
         subprocess.run([str(binary),'--output',str(folder),'--scenario',scenario],check=True,capture_output=True,text=True)
         result[scenario]=folder
     return result
 
-@pytest.mark.parametrize('scenario',['running','engine_off','manual_stop','interrupted','reconnect'])
+@pytest.mark.parametrize('scenario',['running','engine_off','manual_stop','interrupted','reconnect','startup_stopped'])
 def test_automatic_actual_exports(automatic_exports,scenario):
     root=automatic_exports[scenario]
     paths=sorted((root/'Sessions').glob('live-*'))
@@ -60,7 +60,7 @@ def test_automatic_config_relabel_rejected(automatic_exports,tmp_path,change):
     (path/'session.json').write_text(json.dumps(meta));(path/'capability.json').write_text(json.dumps(report))
     with pytest.raises(ValidationError): load_session(path)
 
-@pytest.mark.parametrize('scenario',['running','engine_off','manual_stop','interrupted','reconnect'])
+@pytest.mark.parametrize('scenario',['running','engine_off','manual_stop','interrupted','reconnect','startup_stopped'])
 def test_whole_automatic_bundle(automatic_exports,scenario):
     from vehicle_flight_recorder.automatic import validate_automatic
     result=validate_automatic(automatic_exports[scenario],allow_incomplete=scenario=='interrupted')
@@ -126,3 +126,23 @@ def test_wrong_runtime_field_types_fail_cleanly(automatic_exports,tmp_path,targe
         next(x for x in rows if x['event_type']=='automatic_activity_transition')['attributes']['state']=[]
         file.write_text(''.join(json.dumps(x)+'\n' for x in rows))
     with pytest.raises(ValidationError):validate_automatic(path)
+
+
+def test_stopped_startup_replay_requires_actual_ok_and_quiet(automatic_exports, tmp_path):
+    from vehicle_flight_recorder.acquisition import validate_acquisition
+    source = next((automatic_exports['startup_stopped']/'Sessions').glob('live-*'))
+    report = json.loads((source/'capability.json').read_text())
+    interrupted = report['transactions'][0]
+    assert interrupted['key'] == 'init_close'
+    assert interrupted['outcome'] == 'protocol_error' and interrupted['adapter_status'] == ['STOPPED']
+    assert report['transactions'][1]['key'] == 'init_close' and report['transactions'][1]['outcome'] == 'ok'
+    assert any(row['kind'] == 'unsolicited' for row in report['raw'])
+    target = tmp_path/'report.json'
+    for mutation in ('fake_ack', 'missing_sync', 'short_quiet', 'unknown_sync'):
+        value = json.loads(json.dumps(report))
+        if mutation == 'fake_ack': value['transactions'][0]['outcome'] = 'ok'
+        elif mutation == 'missing_sync': value['configuration'].pop('startup_sync_version')
+        elif mutation == 'unknown_sync': value['configuration']['startup_sync_version'] = 'invented'
+        else: value['configuration']['connections'][0]['start_ns'] = value['transactions'][0]['start_ns']
+        target.write_text(json.dumps(value))
+        with pytest.raises(ValidationError): validate_acquisition(target)

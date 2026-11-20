@@ -1,12 +1,13 @@
 # Milestone 7 — hands-off recording and controlled-road qualification
 
-Status: PARTIALLY COMPLETE — implementation/native validation passed;
-**0.1.0 (14.1) delivered and VALID / internal IN_BETA_TESTING**, November 18, 2026.
-The consolidated parked packet is released; physical acceptance and road use
-remain gated on actual evidence.
-M6 is accepted/merged as `f793674`; its physical results remain the baseline.
-No M7 physical, road, wake or battery acceptance is claimed. Milestone 8 has not
-started. The existing edit in `docs/OFFLINE_ACQUISITION.md` is unrelated and retained.
+Status: IN PROGRESS — **14.1 parked results reviewed November 20, 2026**.
+Ordinary automatic acquisition and a full manual incident window validate, but
+startup/reconnect and diagnostic export failures block physical acceptance.
+Targeted recovery fixes and regression validation are in progress; see the
+[first physical review](MILESTONE_7_PHYSICAL_REVIEW.md). The 14.1 test packet is
+paused; no new car visit or road use is requested until a verified replacement
+beta and consolidated follow-up are ready. M6 remains accepted/merged as
+`f793674`. Milestone 8 has not started.
 
 ## Workload and activity policy
 
@@ -122,14 +123,15 @@ force-quit remain distinct unqualified physical cases until measured.
 Go policy and owner integration tests pass locally, including zero RPM, repeated
 running activity, same-drive reconnect, manual override, exclusive ownership,
 notification claim deduplication, preserved relaunch identity and storage failure.
-Nine independent Python tests replay actual Go automatic/probe exports, reconstruct
+Independent Python tests replay actual Go automatic/probe exports, reconstruct
 manual incidents, and reject policy/duration relabeling. These are scripted
 fixtures, not physical vehicle evidence.
 
-Portable/native regression and signed artifact preparation have passed, and the
-complete parked packet is released following approved upload and confirmed
-TestFlight processing. First road use remains gated on analysis of the
-parked results and a permitted workload. Repeated/long drives, quality/reference
+The original 14.1 portable/native regression and signed artifact preparation
+passed before the first parked release. The November 20 physical review found
+recovery/export failures; that packet is now paused pending targeted regression
+and a replacement beta. First road use remains gated on reviewed parked results
+and a permitted workload. Repeated/long drives, quality/reference
 comparison, lifecycle matrix and representative battery/storage budgets remain
 acceptance gates. No car visit is requested before the tested beta and complete
 packet are ready.

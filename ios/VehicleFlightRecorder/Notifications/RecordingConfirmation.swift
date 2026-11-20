@@ -143,13 +143,26 @@ struct RecordingRoute: Identifiable, Hashable { let id = UUID(); let sessionID: 
 
 @MainActor final class RecordingAppDelegate: NSObject, UIApplicationDelegate {
     private var resourceTimer: Timer?
+    private var lifecycleObservers: [NSObjectProtocol] = []
     func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]? = nil) -> Bool {
         #if !targetEnvironment(simulator)
         let confirmations = RecordingConfirmation.shared
         UNUserNotificationCenter.current().delegate = confirmations
         confirmations.isSessionActive = { await TransportDebugModel.shared.isAutomaticSessionActive($0) }
         confirmations.onEvent = { detail in Task { await TransportDebugModel.shared.recordAutomaticEvent("confirmation_result", detail: detail) } }
-        Task { await TransportDebugModel.shared.restoreAutomatic() }
+        lifecycleObservers = [
+            (UIApplication.didBecomeActiveNotification, "foreground"),
+            (UIApplication.willResignActiveNotification, "inactive"),
+            (UIApplication.didEnterBackgroundNotification, "background")
+        ].map { name, phase in
+            NotificationCenter.default.addObserver(forName: name, object: nil, queue: .main) { _ in
+                Task { @MainActor in await TransportDebugModel.shared.lifecycle(phase) }
+            }
+        }
+        Task {
+            await TransportDebugModel.shared.restoreAutomatic()
+            await TransportDebugModel.shared.lifecycle(application.applicationState == .active ? "foreground" : application.applicationState == .background ? "background" : "inactive")
+        }
         UIDevice.current.isBatteryMonitoringEnabled = true
         resourceTimer = Timer.scheduledTimer(withTimeInterval: 60, repeats: true) { _ in
             Task { @MainActor in

@@ -13,6 +13,9 @@ func NewLive(anchorMS int64, specs []Schedule, config LiveConfiguration) (*Sched
 			return nil, fmt.Errorf("invalid automatic live contract")
 		}
 	}
+	if config.StartupSyncVersion != "" && (config.StartupSyncVersion != StartupSyncVersion || config.PolicyVersion != "rpm-activity-1") {
+		return nil, fmt.Errorf("unknown startup synchronization policy")
+	}
 	handoff := config.Workload == obd.HandoffWorkload
 	if !handoff && len(specs) == 0 {
 		return nil, fmt.Errorf("measurement workload needs a schedule")

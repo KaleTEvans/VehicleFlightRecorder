@@ -94,8 +94,9 @@ enum SessionExporter {
                 let values = try file.resourceValues(forKeys: [.isRegularFileKey, .isSymbolicLinkKey])
                 guard values.isSymbolicLink != true else { throw VehicleTransportError.failed("Evidence bundle contains a symbolic link") }
                 guard values.isRegularFile == true, file.lastPathComponent != "owner.lock" else { continue }
-                guard file.path.hasPrefix(root.path + "/") else { throw VehicleTransportError.failed("Nonlocal automation evidence") }
-                names.append(String(file.path.dropFirst(root.path.count + 1)))
+                let canonical = file.standardizedFileURL.resolvingSymlinksInPath()
+                guard canonical.path.hasPrefix(root.path + "/") else { throw VehicleTransportError.failed("Nonlocal automation evidence") }
+                names.append(String(canonical.path.dropFirst(root.path.count + 1)))
                 guard names.count <= 20_000 else { throw VehicleTransportError.failed("Automation bundle file limit") }
             }
             if let enumerationFailure { throw enumerationFailure }
@@ -104,6 +105,8 @@ enum SessionExporter {
             throw VehicleTransportError.failed("No complete automation journal/state is available; original files remain in Files")
         }
         try collect(root.appendingPathComponent("Automation", isDirectory: true))
+        let connections = root.appendingPathComponent("ConnectionCaptures", isDirectory: true)
+        if FileManager.default.fileExists(atPath: connections.path) { try collect(connections) }
         let sessions = root.appendingPathComponent("Sessions", isDirectory: true)
         for directory in (try? FileManager.default.contentsOfDirectory(at: sessions, includingPropertiesForKeys: nil)) ?? [] where directory.lastPathComponent.hasPrefix("live-") {
             let metadataURL = directory.appendingPathComponent("session.json")

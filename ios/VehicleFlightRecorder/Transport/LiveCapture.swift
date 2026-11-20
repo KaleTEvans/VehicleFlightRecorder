@@ -55,6 +55,8 @@ final class GoLiveCapture: TransportCapture {
     func close(_ reason: String) throws { try session.core.disconnected(generation, nativeNS: TransportClock.nanoseconds(), reason: reason) }
 }
 struct LiveSnapshot: Decodable {
+    let session: SessionInfo?
+    let requiresReconnect: Bool?
     let state: String
     let workload: String?
     let protocolProfile: String?

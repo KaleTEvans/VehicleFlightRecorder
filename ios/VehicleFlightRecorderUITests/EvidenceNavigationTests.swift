@@ -297,4 +297,31 @@ final class EvidenceNavigationTests: XCTestCase {
         add(screenshot)
     }
 
+    func testM7DiagnosticShareAfterSynchronizationFailureOpensOnFirstTap() {
+        continueAfterFailure = false
+        let app = XCUIApplication()
+        app.launchArguments = ["--ui-test-automatic-recovery"]
+        app.launch()
+        let export = app.buttons["export-m7-diagnostics"]
+        for _ in 0..<8 {
+            if export.exists && export.isHittable { break }
+            if app.collectionViews.firstMatch.waitForExistence(timeout: 10) { app.collectionViews.firstMatch.swipeUp() }
+        }
+        XCTAssertTrue(export.isHittable, app.debugDescription)
+        XCTAssertTrue(export.isEnabled, app.debugDescription)
+        for _ in 0..<2 {
+            export.tap()
+            let sheet = app.otherElements["ActivityListView"]
+            XCTAssertTrue(sheet.waitForExistence(timeout: 15), app.debugDescription)
+            XCTAssertTrue(app.cells.matching(NSPredicate(format: "label == %@", "Save to Files")).firstMatch.waitForExistence(timeout: 15))
+            let shot = XCTAttachment(screenshot: app.screenshot())
+            shot.name = "M7 diagnostic share after real Go synchronization exhaustion (scripted)"
+            shot.lifetime = .keepAlways; add(shot)
+            app.buttons["header.closeButton"].firstMatch.tap()
+            expectation(for: NSPredicate { _, _ in !sheet.exists && export.isHittable && export.isEnabled }, evaluatedWith: app)
+            waitForExpectations(timeout: 10)
+        }
+        XCTAssertFalse(app.staticTexts["automatic-export-error"].exists)
+    }
+
 }

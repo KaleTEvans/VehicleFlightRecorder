@@ -1,19 +1,19 @@
 # Milestone 7 reliability and acceptance matrix
 
-November 18, 2026 — automated implementation/native validation passed; physical
-acceptance remains pending. Approved 14.1 upload is complete and Apple confirms
-VALID / internal IN_BETA_TESTING; the parked packet is released. This matrix separates
-scripted/native evidence from physical observations. No M7 phone case is accepted
-yet; M6 stationary results remain accepted and are not repeated as a prerequisite.
+November 20, 2026 — first 14.1 parked evidence reviewed. Ordinary automatic
+acquisition and a full manual window validate; startup/reconnect and export
+failures keep M7 open and road use on hold. See the
+[physical review](MILESTONE_7_PHYSICAL_REVIEW.md). Targeted fixes require a verified
+replacement beta before one consolidated follow-up. M6 acceptance is retained.
 
 | Case | Implemented behavior / evidence | Physical status |
 | --- | --- | --- |
-| Ready scanner, ignition on / engine off | Separate RPM probe; no drive or success confirmation; Go and independent replay fixtures | Pending M7 parked visit; M6 valid zero RPM is baseline |
-| Stationary engine running | Repeated fresh RPM starts one drive; actual admitted telemetry produces one durable fact | Pending |
+| Ready scanner, ignition on / engine off | Separate RPM probe; no drive or success confirmation; Go and independent replay fixtures | User observed pass on 14.1; no scanner-only drive |
+| Stationary engine running | Repeated fresh RPM starts one drive; actual admitted telemetry produces one durable fact | Still pending unless qualified below |
 | One responder / missing TCM | Any validated running responder can qualify; no mandatory TCM/dual-ECM assumption; coverage limited | Deterministic policy scope; no physical distinct-module qualification |
-| Brief stop/start | Fresh zero requires 60 s span; brief zero/dropout cannot end drive | Pending |
+| Brief stop/start | Fresh zero requires 60 s span; brief zero/dropout cannot end drive | User observed recovery after about 15 s stop |
 | Sustained end | One finalization; pending incident becomes partial if post coverage ends | Pending |
-| Brief adapter loss | Retain logical drive within 180 s unknown grace; new generation, setup/support and fresh values | Pending M7; M6 same-session recovery accepted |
+| Brief adapter loss | Retain logical drive within 180 s unknown grace; new generation, setup/support and fresh values | Brief reconnect observed; later startup/reconnect failures remain open |
 | Stale / missing RPM | Unknown rather than zero; bounded grace; recorded gap | Fixtures only |
 | Manual Stop | Save once; persisted override until sustained off or explicit rearm; monitoring continues while armed | Pending |
 | Foreground | Process-owned transport and independent owner timer | Pending |
@@ -24,7 +24,7 @@ yet; M6 stationary results remain accepted and are not repeated as a prerequisit
 | User force-quit | No promised wake/restart; deliberate relaunch preserves interrupted original and starts distinct drive only when eligible | Pending; unavoidable reopen limitation must remain explicit |
 | Cold launch, adapter already attached | Process-owned restore arms persisted policy; no UI task required | Pending |
 | Adapter becomes available later | Existing accessory observer/backoff plus owner policy | Pending |
-| Relaunch during active recording | Never append/repair/adopt prior live files; journal identifies interrupted ID and boundary | Go fixtures; physical pending |
+| Relaunch during active recording | Never append/repair/adopt prior live files; journal identifies interrupted ID and boundary | Go fixtures; physical relaunch led to startup failure, recovery open |
 | Notification authorized / denied / not determined / disabled | Quiet adapter behind fake seam, explicit permission-only setup, no recording gate | Native fake tests in CI; physical notification presentation pending |
 | Notification reconnect / relaunch / failure / uncertain submission | Go durable claim plus native exclusive receipts; no retry after uncertainty | Native/Go tests; physical pending |
 | Tap active / ended / missing session | Original ID only; re-resolve current state; active dashboard or exact saved summary/error | Native route resolver and saved-history UI passed; actual notification taps pending |

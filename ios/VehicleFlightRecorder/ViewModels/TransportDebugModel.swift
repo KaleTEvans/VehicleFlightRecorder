@@ -42,13 +42,21 @@ import Foundation
     @Published var error: String?
     @Published var busy = false
     @Published var canShareCapture = false
+    @Published var recoveryNotice: String?
+    @Published var exportingDiagnostics = false
     @Published var live: LiveSnapshot?
+    @Published var markingIncident = false
+    @Published var incidentFeedback: String?
+    @Published var markFeedbackSequence = 0
+    private var markedSessionID: String?
     private var actionFailure: String?
-    private let executor = TransportExecutor()
+    private let executor: TransportExecutor
+    private let documents: URL
     private let transport: MXPlusExternalAccessoryTransport
-    init() {
-        let root = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0].appendingPathComponent("ConnectionCaptures", isDirectory: true)
-        transport = MXPlusExternalAccessoryTransport(root: root, executor: executor)
+    init(documents: URL? = nil, executor: TransportExecutor = TransportExecutor(), transport: MXPlusExternalAccessoryTransport? = nil) {
+        let documents = documents ?? FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
+        self.documents = documents; self.executor = executor
+        self.transport = transport ?? MXPlusExternalAccessoryTransport(root: documents.appendingPathComponent("ConnectionCaptures", isDirectory: true), executor: executor)
     }
     deinit {
         let transport = self.transport
@@ -63,7 +71,22 @@ import Foundation
         await run { try $0.startLive(operatingState: operatingState, workload: workload, reference: reference, protocolProfile: protocolProfile) }
     }
     func stopLive() async { await run { try $0.stopLive() } }
-    func markLive() async { await run { try $0.markLive() } }
+    func markLive() async {
+        guard !busy, !markingIncident else { return }
+        markingIncident = true; incidentFeedback = nil
+        await run { try $0.markLive() }
+        markingIncident = false
+        if actionFailure == nil {
+            markedSessionID = live?.session?.id
+            markFeedbackSequence += 1
+            incidentFeedback = "Incident marked · Evidence capture in progress"
+            let sequence = markFeedbackSequence
+            Task { [weak self] in
+                try? await Task.sleep(for: .seconds(2))
+                if self?.markFeedbackSequence == sequence { self?.incidentFeedback = nil }
+            }
+        }
+    }
     func identify() async { await run { try $0.requestIdentity() } }
     func lifecycle(_ phase: String) async {
         let transport = self.transport
@@ -101,24 +124,35 @@ import Foundation
         }
     }
     func exportAutomationBundle() async -> URL? {
-        guard !busy else { return nil }; busy = true
-        defer { busy = false }
+        guard !busy else { return nil }; busy = true; exportingDiagnostics = true
+        defer { busy = false; exportingDiagnostics = false }
         let transport = self.transport
+        let documents = self.documents
         do {
             let output = try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<URL, Error>) in
                 if !executor.submit({
                     do {
-                        let state = transport.automaticSnapshot.flatMap { try? decodeCore(AutomaticSnapshot.self, $0) }
-                        guard state?.enabled != true else { throw VehicleTransportError.failed("Disable hands-off monitoring before exporting diagnostics") }
-                        if let live = transport.live, try decodeCore(LiveSnapshot.self, live.core.snapshot()).active { throw VehicleTransportError.failed("Stop recording before exporting diagnostics") }
-                        let documents = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
+                        try transport.prepareDiagnosticExport()
+                        transport.automaticNativeEvent("export_requested", detail: "Native streams stopped; preserve complete and incomplete originals")
                         let zip = try SessionExporter.automationBundle(documents: documents, output: FileManager.default.temporaryDirectory.appendingPathComponent("AutomationExports"))
+                        transport.automaticNativeEvent("export_result", detail: "Diagnostic ZIP prepared; share/retrieval not yet confirmed")
                         continuation.resume(returning: zip)
-                    } catch { continuation.resume(throwing: error) }
+                    } catch {
+                        transport.automaticNativeEvent("export_result", detail: "Export failed: \(error.localizedDescription)")
+                        continuation.resume(throwing: error)
+                    }
                 }) { continuation.resume(throwing: VehicleTransportError.failed("Transport command mailbox is full")) }
             }
-            actionFailure = nil; error = nil; return output
-        } catch { actionFailure = error.localizedDescription; self.error = actionFailure; return nil }
+            actionFailure = nil; error = nil
+            busy = false
+            await refresh()
+            return output
+        } catch {
+            actionFailure = error.localizedDescription; self.error = actionFailure
+            busy = false
+            await refresh()
+            return nil
+        }
     }
     private func run(marksBusy: Bool = true, _ action: @escaping (MXPlusExternalAccessoryTransport) throws -> Void) async {
         guard !busy else { return }
@@ -141,11 +175,14 @@ import Foundation
                 }
                 Task { @MainActor [weak self] in
                     if let self {
+                        if self.markedSessionID != live?.session?.id { self.incidentFeedback = nil }
                         self.automatic = automatic
                         self.state = state; self.notice = notice; self.raw = raw; self.live = live
                         self.canShareCapture = canShareCapture
                         if marksBusy { self.actionFailure = failure }
-                        self.error = self.actionFailure ?? automatic.flatMap { $0.error.isEmpty ? nil : $0.error } ?? live.flatMap { $0.error.isEmpty ? nil : $0.error } ?? pumpFailure
+                        let recovering = automatic?.enabled == true && automatic?.error.isEmpty == true && (state == "failed" || live?.requiresReconnect == true)
+                        self.recoveryNotice = recovering ? "Adapter synchronization interrupted; retrying a fresh connection. Coverage has a gap." : nil
+                        self.error = self.actionFailure ?? automatic.flatMap { $0.error.isEmpty ? nil : $0.error } ?? (recovering ? nil : live.flatMap { $0.error.isEmpty ? nil : $0.error } ?? pumpFailure)
                         // A pending refresh must not clear a command's busy state.
                         if marksBusy { self.busy = false }
                     }

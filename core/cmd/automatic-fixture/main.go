@@ -20,7 +20,7 @@ func main() {
 }
 func run() error {
 	output := flag.String("output", "", "new output directory")
-	scenario := flag.String("scenario", "running", "running, engine_off, manual_stop, interrupted, reconnect")
+	scenario := flag.String("scenario", "running", "running, engine_off, manual_stop, interrupted, reconnect, startup_stopped")
 	flag.Parse()
 	if *output == "" {
 		return fmt.Errorf("output required")
@@ -44,6 +44,7 @@ func run() error {
 	}
 	var old *mobile.LiveRecorder
 	var generation int64
+	stopped := map[string]bool{}
 	metadata := `{"protocol":"com.obdlink","name":"Explicit scripted M7 fixture"}`
 	for step := int64(0); step <= 3000; step++ {
 		now := step * 100000000
@@ -58,6 +59,11 @@ func run() error {
 			}
 			if e = l.NativeEvent(generation, base+now, "streams_ready", "scripted fixture"); e != nil {
 				return e
+			}
+			if *scenario == "startup_stopped" {
+				if e = l.Receive(generation, base+now, []byte("residual old reply\r>")); e != nil {
+					return e
+				}
 			}
 			old = l
 		}
@@ -85,7 +91,11 @@ func run() error {
 				return e
 			}
 		}
-		if step == 1000 {
+		markStep := int64(1000)
+		if *scenario == "startup_stopped" {
+			markStep = 1100
+		}
+		if step == markStep {
 			var meta map[string]any
 			if e = json.Unmarshal([]byte(l.Snapshot()), &meta); e != nil {
 				return e
@@ -135,6 +145,10 @@ func run() error {
 			if !found {
 				return fmt.Errorf("unreviewed scripted request %q", request)
 			}
+		}
+		if *scenario == "startup_stopped" && request == "STPC\r" && !stopped[l.Path()] {
+			stopped[l.Path()] = true
+			reply = "STPC\rSTOPPED\r\r>"
 		}
 		if e = l.Accepted(generation, base+now+1000, bytes); e != nil {
 			return e

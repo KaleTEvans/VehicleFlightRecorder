@@ -19,6 +19,7 @@ import (
 )
 
 type automaticDisk struct {
+	LastFailure         string `json:"last_failure,omitempty"`
 	ProtocolProfile     string `json:"protocol_profile,omitempty"`
 	Version             string `json:"version"`
 	Enabled             bool   `json:"enabled"`
@@ -108,6 +109,11 @@ func NewAutomaticRecorder(root, origin, profile string) (*AutomaticRecorder, err
 	}
 	a.disk.ProtocolProfile = a.profile
 	a.policy = activity.New(a.disk.Suppressed)
+	if a.disk.LastFailure != "" {
+		a.failure = a.disk.LastFailure
+		a.state = "failed"
+		a.disk.Enabled = false
+	}
 	// No repair, append, adoption or finalization of the previous evidence files.
 	if err = a.journal("owner_opened", map[string]any{"origin": a.origin, "clock_scope": "new_process", "relaunch": "fresh_evidence_new_drive"}); err != nil {
 		a.Close()
@@ -191,13 +197,19 @@ func (a *AutomaticRecorder) journal(kind string, details any) error {
 }
 func (a *AutomaticRecorder) fail(err error) error {
 	a.failure = err.Error()
+	if len(a.failure) > 512 {
+		a.failure = a.failure[:512]
+	}
+	a.disk.LastFailure = a.failure
 	a.state = "failed"
+	a.fact = nil
 	a.disk.Enabled = false
 	if a.live != nil {
 		a.live.mu.Lock()
 		a.live.fail(err)
 		a.live.mu.Unlock()
 	}
+	_ = a.journal("monitoring_failed", map[string]any{"failure": a.failure, "evidence": "preserved_incomplete", "recovery": "explicit_rearm_after_adapter_ready"})
 	_ = a.persist()
 	return err
 }
@@ -235,17 +247,35 @@ func (a *AutomaticRecorder) SetEnabled(enabled bool, wallMS, nativeNS int64) err
 		return fmt.Errorf("automatic clock regression")
 	}
 	a.lastNS = nativeNS
-	if a.failure != "" {
-		return fmt.Errorf("automatic recorder failed; preserve evidence and relaunch: %s", a.failure)
-	}
-	if enabled == a.disk.Enabled && a.live != nil {
+	if enabled && a.disk.Enabled && a.failure == "" && a.live != nil {
 		return nil
 	}
+	previousFailure := a.failure
 	if a.live != nil {
-		if err := a.live.Stop(nativeNS); err != nil {
-			return a.fail(err)
+		a.live.mu.Lock()
+		incomplete := a.live.failed || a.live.core.State() == "failed"
+		a.live.mu.Unlock()
+		if !incomplete {
+			if err := a.live.Stop(nativeNS); err != nil {
+				previousFailure = err.Error()
+				incomplete = true
+			}
+		}
+		if incomplete {
+			a.live.mu.Lock()
+			_ = a.live.core.Close()
+			a.live.mu.Unlock()
 		}
 		a.live = nil
+	}
+	// Disarming remains available after acquisition failure. Successful explicit
+	// rearm still has to create/checkpoint a new engine and persist its state.
+	a.failure = ""
+	a.disk.LastFailure = ""
+	if previousFailure != "" {
+		if err := a.journal("failed_capture_preserved", map[string]any{"failure": previousFailure, "action": "explicit_disarm_or_rearm"}); err != nil {
+			return a.fail(err)
+		}
 	}
 	a.disk.Enabled = enabled
 	a.disk.ActiveDrive = ""
@@ -288,6 +318,7 @@ func (a *AutomaticRecorder) Tick(nativeNS, wallMS int64) error {
 	l.mu.Lock()
 	complete := l.core.State() == "complete"
 	failed := l.failed
+	failureReason := l.failure
 	connected := l.connected && l.ready
 	var evidence *activity.Evidence
 	for _, o := range l.cached {
@@ -321,7 +352,7 @@ func (a *AutomaticRecorder) Tick(nativeNS, wallMS int64) error {
 	purpose := l.options.StartOrigin
 	l.mu.Unlock()
 	if failed {
-		return a.fail(fmt.Errorf("live evidence storage/acquisition failed"))
+		return a.fail(fmt.Errorf("%s; original evidence preserved", failureReason))
 	}
 	if complete {
 		if purpose == "automatic" {
@@ -536,7 +567,7 @@ func (a *AutomaticRecorder) NativeEvent(kind, detail string, nativeNS int64) err
 		if !a.disk.Enabled {
 			return nil
 		}
-	case "confirmation_result", "notification_tap":
+	case "confirmation_result", "notification_tap", "accessory_directory", "export_requested", "export_result":
 	default:
 		return fmt.Errorf("unknown automatic native event")
 	}
@@ -544,6 +575,12 @@ func (a *AutomaticRecorder) NativeEvent(kind, detail string, nativeNS int64) err
 		return a.fail(err)
 	}
 	if a.live != nil && a.disk.ActiveDrive != "" {
+		a.live.mu.Lock()
+		active := !a.live.failed && a.live.core.State() == "recording"
+		a.live.mu.Unlock()
+		if !active {
+			return nil
+		}
 		return a.live.runtimeEvent(nativeNS, "automatic_"+kind, map[string]any{"detail": detail})
 	}
 	return nil

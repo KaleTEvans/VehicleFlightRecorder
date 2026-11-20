@@ -60,6 +60,20 @@ final class MXPlusExternalAccessoryTransport: NSObject, VehicleTransport, Stream
     var onAutomaticConfirmation: ((String) -> Void)?
     private var automaticLivePath: String?
     private var automaticPhase = "unknown"
+    private var handoverUntil: TimeInterval = 0
+    private var lastDirectorySummary = ""
+    private var lastDirectoryEvidence: TimeInterval = -60
+    // Native channels are closed even if the Go writer cannot finalize. Originals
+    // remain incomplete; diagnostics never require a healthy acquisition engine.
+    func prepareDiagnosticExport() throws {
+        disconnect(); liveAcquisitionEnabled = false; automaticLivePath = nil
+        defer { live = nil }
+        if let live, let snapshot = try? decodeCore(LiveSnapshot.self, live.core.snapshot()), snapshot.session?.live?.startOrigin == "manual", snapshot.active {
+            try live.core.stop(TransportClock.nanoseconds())
+        }
+        if let automatic { try automatic.setEnabled(false, wallMS: GoLiveSession.wall(), nativeNS: TransportClock.nanoseconds()) }
+        else if let live, (try? decodeCore(LiveSnapshot.self, live.core.snapshot()))?.active == true { try live.core.stop(TransportClock.nanoseconds()) }
+    }
     func restoreAutomatic(profile: String) throws {
         guard automatic == nil else { return }
         var error: NSError?
@@ -68,6 +82,7 @@ final class MXPlusExternalAccessoryTransport: NSObject, VehicleTransport, Stream
             throw error ?? VehicleTransportError.failed("Could not restore automatic recorder")
         }
         automatic = owner
+        if automaticPhase != "unknown" { automaticNativeEvent(automaticPhase, detail: "Initial native lifecycle restored after owner creation") }
         let snapshot = try decodeCore(AutomaticSnapshot.self, owner.snapshot())
         if snapshot.enabled { try synchronizeAutomatic(); try connect() }
     }
@@ -75,12 +90,14 @@ final class MXPlusExternalAccessoryTransport: NSObject, VehicleTransport, Stream
         if automatic == nil { try restoreAutomatic(profile: profile) }
         guard let automatic else { return }
         let before = try decodeCore(AutomaticSnapshot.self, automatic.snapshot())
-        if !before.enabled, let live, try decodeCore(LiveSnapshot.self, live.core.snapshot()).active {
+        if enabled, !before.enabled, let live, try decodeCore(LiveSnapshot.self, live.core.snapshot()).active {
             throw VehicleTransportError.failed("Stop the deliberate recording before enabling hands-off monitoring")
         }
         disconnect()
+        if !enabled { liveAcquisitionEnabled = false; automaticLivePath = nil }
         if enabled, !before.enabled { try automatic.setProfile(profile) }
-        try automatic.setEnabled(enabled, wallMS: GoLiveSession.wall(), nativeNS: TransportClock.nanoseconds())
+        do { try automatic.setEnabled(enabled, wallMS: GoLiveSession.wall(), nativeNS: TransportClock.nanoseconds()) }
+        catch { if !enabled { live = nil }; throw error }
         automaticLivePath = nil
         if enabled { try synchronizeAutomatic(); try connect() }
         else { liveAcquisitionEnabled = false; live = nil }
@@ -94,6 +111,7 @@ final class MXPlusExternalAccessoryTransport: NSObject, VehicleTransport, Stream
         guard after.error.isEmpty else { throw VehicleTransportError.failed(after.error) }
         if let core = automatic.live(), core.path() != automaticLivePath {
             pump.disconnect(); releaseSession()
+            handoverUntil = pump.now() + 1
             live = GoLiveSession(automaticCore: core); capture = nil
             liveAcquisitionEnabled = true; automaticLivePath = core.path()
             attemptsRemaining = 3; nextDiscovery = 0
@@ -127,8 +145,8 @@ final class MXPlusExternalAccessoryTransport: NSObject, VehicleTransport, Stream
     private var observedCandidates = Set<Int>()
     private var attemptsRemaining = 3
     private var nextDiscovery: TimeInterval = 0
-    init(root: URL, executor: TransportExecutor, directory: AccessoryDirectory? = nil) {
-        self.root = root; self.executor = executor
+    init(root: URL, executor: TransportExecutor, directory: AccessoryDirectory? = nil, automatic: MobileAutomaticRecorder? = nil, live: GoLiveSession? = nil) {
+        self.root = root; self.executor = executor; self.automatic = automatic; self.live = live
         #if targetEnvironment(simulator)
         self.directory = directory
         #else
@@ -192,6 +210,12 @@ final class MXPlusExternalAccessoryTransport: NSObject, VehicleTransport, Stream
         let all = directory.accessories
         let matches = all.filter { $0.protocols.contains("com.obdlink") }
         let candidates = Set(matches.map { $0.id })
+        let directorySummary = "accessories=\(all.count); compatible=\(matches.count); state=\(state.rawValue); retries_remaining=\(attemptsRemaining); automatic=\(liveAcquisitionEnabled)"
+        if directorySummary != lastDirectorySummary || pump.now() - lastDirectoryEvidence >= 30 {
+            lastDirectorySummary = directorySummary; lastDirectoryEvidence = pump.now()
+            automaticNativeEvent("accessory_directory", detail: directorySummary)
+        }
+        guard pump.now() >= handoverUntil else { notice = "Settling the previous adapter connection before reopening"; return }
         if candidates != observedCandidates {
             observedCandidates = candidates
             attemptsRemaining = 3
@@ -201,7 +225,7 @@ final class MXPlusExternalAccessoryTransport: NSObject, VehicleTransport, Stream
         }
         guard state != .connecting && state != .ready else { return }
         guard matches.count == 1 else {
-            notice = matches.isEmpty ? "No com.obdlink accessory (\(all.count) connected accessories)" : "Multiple com.obdlink accessories; disconnect all but the test adapter"
+            notice = matches.isEmpty ? "No compatible OBD accessory exposed by iOS (\(all.count) accessories). Bluetooth pairing alone does not provide an app stream." : "Multiple com.obdlink accessories; disconnect all but the test adapter"
             return
         }
         guard attemptsRemaining > 0 else {

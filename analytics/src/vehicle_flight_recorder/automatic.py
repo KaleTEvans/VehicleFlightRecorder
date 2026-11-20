@@ -95,14 +95,15 @@ def validate_automatic(directory, allow_incomplete=False):
     require(state_path.is_file() and not state_path.is_symlink() and state_path.stat().st_size<=8192,'missing/nonlocal/oversized automatic state')
     state=_decode(state_path.read_bytes(),'automatic state')
     required={'version','enabled','manual_stop_override','confirmation_claimed','protocol_profile'}
-    require(isinstance(state,dict) and required<=set(state)<=required|{'active_drive'} and state['version']==POLICY,'unsupported automatic state')
+    require(isinstance(state,dict) and required<=set(state)<=required|{'active_drive','last_failure'} and state['version']==POLICY,'unsupported automatic state')
     require(all(type(state[k]) is bool for k in ('enabled','manual_stop_override','confirmation_claimed')) and state['protocol_profile'] in {'can11-single-frame-headers-pci','can29-normal-fixed-single-frame-headers-pci'},'state policy/profile types')
+    if 'last_failure' in state:require(isinstance(state['last_failure'],str) and len(state['last_failure'].encode())<=512,'invalid persisted failure')
     if 'active_drive' in state:require(isinstance(state['active_drive'],str) and ID.fullmatch(state['active_drive']),'state drive identity')
     journal=root/'Automation'/'journal.jsonl' 
     require(journal.is_file() and not journal.is_symlink() and journal.stat().st_size<=16*1024*1024+8193,'missing/nonlocal/oversized automation journal')
     counts=Counter(); owners={}; claims={}; resources={}; batteries={}
     current=None
-    known={'owner_opened','activity_transition','confirmation_claimed','automatic_preference_changed','interrupted_session_preserved','bounded_session_ended','manual_stop_override','resource_sample','foreground','background','inactive','confirmation_result','battery_sample','notification_tap'}
+    known={'owner_opened','activity_transition','confirmation_claimed','automatic_preference_changed','interrupted_session_preserved','bounded_session_ended','manual_stop_override','resource_sample','foreground','background','inactive','confirmation_result','battery_sample','notification_tap','monitoring_failed','failed_capture_preserved','accessory_directory','export_requested','export_result'}
     for _,row in _records(journal):
         fields(row,'policy_version owner_id origin observed_wall_unix_ms event native_ns phase details')
         require(all(isinstance(row[k],str) for k in ('owner_id','origin','event','phase','policy_version')),'journal string field types')

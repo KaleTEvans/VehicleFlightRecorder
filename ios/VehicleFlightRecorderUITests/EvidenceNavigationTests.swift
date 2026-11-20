@@ -338,14 +338,23 @@ final class EvidenceNavigationTests: XCTestCase {
         let monitoring = app.switches["automatic-monitoring-toggle"]
         XCTAssertTrue(mode.waitForExistence(timeout: 15), app.debugDescription)
         XCTAssertFalse(parked.exists, "Restored mode must not show an unchecked, disabled parked declaration")
-        monitoring.tap()
-        XCTAssertTrue(parked.waitForExistence(timeout: 5))
+        func setSwitch(_ row: XCUIElement, to value: String) {
+            // SwiftUI exposes a row-sized accessibility switch plus the real
+            // UISwitch child. A center tap can hit only the text label.
+            let control = row.switches.firstMatch
+            if control.exists { control.tap() }
+            else { row.coordinate(withNormalizedOffset: CGVector(dx: 0.9, dy: 0.5)).tap() }
+            expectation(for: NSPredicate { _, _ in row.value as? String == value }, evaluatedWith: row)
+            waitForExpectations(timeout: 5)
+        }
+        setSwitch(monitoring, to: "0")
+        XCTAssertTrue(parked.waitForExistence(timeout: 5), app.debugDescription)
         XCTAssertTrue(parked.isEnabled)
         XCTAssertEqual(parked.value as? String, "0")
         XCTAssertFalse(monitoring.isEnabled)
-        parked.tap()
+        setSwitch(parked, to: "1")
         XCTAssertTrue(monitoring.isEnabled)
-        monitoring.tap()
+        setSwitch(monitoring, to: "1")
         XCTAssertTrue(mode.waitForExistence(timeout: 5))
         app.terminate(); app.launch()
         XCTAssertTrue(mode.waitForExistence(timeout: 15))

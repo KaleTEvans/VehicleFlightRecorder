@@ -62,7 +62,8 @@ jobs:
           cache: false
 
       - name: Restore pinned native Go build and module cache
-        uses: actions/cache@v4
+        id: go_cache
+        uses: actions/cache/restore@v4
         with:
           path: |
             .cache/go-build
@@ -73,6 +74,15 @@ jobs:
 
       - name: Build pinned device and simulator XCFramework from source
         run: ./scripts/build_go_ios.sh
+
+      - name: Save verified Go compiler cache before tests
+        if: steps.go_cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: |
+            .cache/go-build
+            .cache/go-mod
+          key: ${{ steps.go_cache.outputs.cache-primary-key }}
 
       - name: Generate existing XcodeGen project
         run: |
@@ -101,21 +111,35 @@ jobs:
         timeout-minutes: 10
         run: python3 scripts/boot_ios_simulator.py
 
-      - name: Test selected native scope and retain evidence
+      - name: Test selected native scope
+        id: native_tests
         env:
           SIMULATOR_ID: ${{ steps.destination.outputs.id }}
           NATIVE_TEST_SCOPE: ${{ inputs.test_scope }}
           NATIVE_TEST_SELECTORS: ${{ inputs.test_selectors }}
           UPLOAD_TO_APPETIZE: ${{ inputs.upload_to_appetize }}
+        run: python3 scripts/run_native_tests.py
+
+      - name: Collect native evidence even when a test fails
+        if: always() && steps.destination.outputs.id != ''
+        env:
+          SIMULATOR_ID: ${{ steps.destination.outputs.id }}
+          NATIVE_TEST_SCOPE: ${{ inputs.test_scope }}
+          TEST_OUTCOME: ${{ steps.native_tests.outcome }}
         run: |
-          python3 scripts/run_native_tests.py
-          APP_DATA=$(xcrun simctl get_app_container "$SIMULATOR_ID" com.kaleevans.vehicleflightrecorder data)
-          xcrun xcresulttool export attachments \
-            --path build/ios-preview/NativeTests.xcresult \
-            --output-path build/native-acceptance/ui-attachments
+          mkdir -p build/native-acceptance
+          if [[ -d build/ios-preview/NativeTests.xcresult ]]; then
+            xcrun xcresulttool export attachments \
+              --path build/ios-preview/NativeTests.xcresult \
+              --output-path build/native-acceptance/ui-attachments
+          fi
+          APP_DATA=$(xcrun simctl get_app_container "$SIMULATOR_ID" com.kaleevans.vehicleflightrecorder data 2>/dev/null || true)
           for directory in Exports Connections AutomationBundles; do
-            if [[ "$NATIVE_TEST_SCOPE" == full || -d "$APP_DATA/Documents/NativeAcceptance/$directory" ]]; then
+            if [[ -n "$APP_DATA" && -d "$APP_DATA/Documents/NativeAcceptance/$directory" ]]; then
               cp -R "$APP_DATA/Documents/NativeAcceptance/$directory" build/native-acceptance/
+            elif [[ "$NATIVE_TEST_SCOPE" == full && "$TEST_OUTCOME" == success ]]; then
+              echo "Full acceptance is missing $directory evidence" >&2
+              exit 1
             fi
           done
           printf 'Simulator: %s\nCommit: %s\nScope: %s\n' "$SIMULATOR_ID" "$GITHUB_SHA" "$NATIVE_TEST_SCOPE" > build/native-acceptance/provenance.txt
@@ -270,7 +294,8 @@ jobs:
           go-version: ${{ steps.toolchain.outputs.go_version }}
           cache: false
       - name: Restore pinned native Go build and module cache
-        uses: actions/cache@v4
+        id: go_cache
+        uses: actions/cache/restore@v4
         with:
           path: |
             .cache/go-build
@@ -284,6 +309,15 @@ jobs:
           ./scripts/build_go_ios.sh
           if ! command -v xcodegen >/dev/null; then brew install xcodegen; fi
           ./scripts/generate_xcode_project.sh
+      - name: Save verified Go compiler cache before tests
+        if: steps.go_cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: |
+            .cache/go-build
+            .cache/go-mod
+          key: ${{ steps.go_cache.outputs.cache-primary-key }}
+
       - name: Compile unsigned release archive with upload-compatible SDK
         run: |
           xcodebuild -project ios/VehicleFlightRecorder.xcodeproj -scheme VehicleFlightRecorder \

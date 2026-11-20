@@ -79,7 +79,8 @@ jobs:
           go-version: ${{ steps.toolchain.outputs.go_version }}
           cache: false
       - name: Restore pinned native Go build and module cache
-        uses: actions/cache@v4
+        id: go_cache
+        uses: actions/cache/restore@v4
         with:
           path: |
             .cache/go-build
@@ -93,6 +94,15 @@ jobs:
           ./scripts/build_go_ios.sh
           if ! command -v xcodegen >/dev/null; then brew install xcodegen; fi
           ./scripts/generate_xcode_project.sh
+      - name: Save verified Go compiler cache before tests
+        if: steps.go_cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: |
+            .cache/go-build
+            .cache/go-mod
+          key: ${{ steps.go_cache.outputs.cache-primary-key }}
+
       - name: Import signing material into temporary keychain
         env:
           CERT: ${{ secrets.IOS_DISTRIBUTION_P12_BASE64 }}

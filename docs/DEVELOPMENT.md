@@ -22,8 +22,9 @@ manually, download `VehicleFlightRecorder-ios-simulator`, configure optional
 `APPETIZE_API_TOKEN` / `APPETIZE_PUBLIC_KEY` repository secrets, and observe the
 mock-only app in Appetize. The unsigned simulator workflow needs no signing secrets.
 It uses the existing XcodeGen definition, iOS 17 floor, and fixed approved identity.
-There is no Go XCFramework reference in this app yet; this validates the SwiftUI
-shell, not Go recorder integration. The workflow's ZIP is retained for 14 days
+The current workflow builds the pinned Go XCFramework from source and tests the
+real SwiftUI/Go bridge. Simulator/browser operation uses explicit fixtures;
+physical acceptance remains a separate device/car gate. The workflow's ZIP is retained for 14 days
 even if a subsequent Appetize upload fails.
 
 Linux/WSL needs Bash, Git, Go 1.24+, Python 3.11+ with `venv` and pip, and network

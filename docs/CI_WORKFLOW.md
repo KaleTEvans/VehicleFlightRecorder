@@ -22,7 +22,8 @@ GH_CONFIG_DIR="$PWD/.cache/gh" ./.tools/gh workflow run ios-preview.yml \
 ```
 
 Targeted runs compile the actual simulator app and selected XCTest cases, retain
-logs/results/screenshots and `native-test-scope.json`, and require successful
+logs/results/screenshots (including failed-test attachments) and
+`native-test-scope.json`, and require successful
 output for every requested selector. Zero-test success cannot qualify. They
 skip unsigned device compilation, the second device SDK job, full fixture
 population assertions, simulator packaging and Appetize publication. The
@@ -61,7 +62,9 @@ from a successful verification run.
 - Go compiler/module caches use OS, architecture, pinned Go, pinned Xcode,
   toolchain/build flags and source/dependency hashes, with compatible incremental
   restore prefixes. Frameworks are still generated and verified from current
-  source every run. Python caches retain downloads; editable installation is fresh.
+  source every run. Verified Go caches save before UI tests, so a later test
+  failure does not discard the expensive compiler warm-up. Python caches retain
+  downloads; editable installation is fresh.
 - No virtual environment, DerivedData, signed app, signing keychain, certificate,
   profile, API key, phone original or test result is a dependency cache entry.
   Prepared IPA artifacts retain their separate checksum/approval contract.

@@ -36,7 +36,7 @@ def main():
     with (output/'xcodebuild-test.log').open('w') as log:
         with subprocess.Popen(args, cwd=ROOT, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, errors='replace') as process:
             for line in process.stdout:
-                sys.stdout.write(line); log.write(line); lines.append(line)
+                sys.stdout.write(line); sys.stdout.flush(); log.write(line); lines.append(line)
             code = process.wait()
     if code:
         report.write_text(json.dumps(dict(plan, status='failed', exit_code=code), indent=2)+'\n')

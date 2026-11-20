@@ -328,4 +328,31 @@ final class EvidenceNavigationTests: XCTestCase {
         XCTAssertFalse(app.staticTexts["automatic-export-error"].exists)
     }
 
+    func testRestoredParkedValidationSetupRequiresFreshConfirmationOnlyWhenRearming() {
+        continueAfterFailure = false
+        let app = XCUIApplication()
+        app.launchArguments = ["--ui-test-parked-setup"]
+        app.launch()
+        let mode = app.staticTexts["parked-validation-active"]
+        let parked = app.switches["parked-confirmation-toggle"]
+        let monitoring = app.switches["automatic-monitoring-toggle"]
+        XCTAssertTrue(mode.waitForExistence(timeout: 15), app.debugDescription)
+        XCTAssertFalse(parked.exists, "Restored mode must not show an unchecked, disabled parked declaration")
+        monitoring.tap()
+        XCTAssertTrue(parked.waitForExistence(timeout: 5))
+        XCTAssertTrue(parked.isEnabled)
+        XCTAssertEqual(parked.value as? String, "0")
+        XCTAssertFalse(monitoring.isEnabled)
+        parked.tap()
+        XCTAssertTrue(monitoring.isEnabled)
+        monitoring.tap()
+        XCTAssertTrue(mode.waitForExistence(timeout: 5))
+        app.terminate(); app.launch()
+        XCTAssertTrue(mode.waitForExistence(timeout: 15))
+        XCTAssertFalse(parked.exists)
+        let shot = XCTAttachment(screenshot: app.screenshot())
+        shot.name = "Restored parked validation mode with no false parked declaration (scripted)"
+        shot.lifetime = .keepAlways; add(shot)
+    }
+
 }

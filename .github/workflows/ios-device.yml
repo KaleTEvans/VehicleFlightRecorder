@@ -78,6 +78,16 @@ jobs:
         with:
           go-version: ${{ steps.toolchain.outputs.go_version }}
           cache: false
+      - name: Restore pinned native Go build and module cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            .cache/go-build
+            .cache/go-mod
+          key: native-go-v1-${{ runner.os }}-${{ runner.arch }}-${{ steps.toolchain.outputs.go_version }}-xcode-${{ steps.toolchain.outputs.xcode_version }}-${{ hashFiles('core/go.sum', 'scripts/*toolchain.env', 'scripts/build_go_ios.sh') }}-${{ hashFiles('core/**/*.go', 'core/go.mod') }}
+          restore-keys: |
+            native-go-v1-${{ runner.os }}-${{ runner.arch }}-${{ steps.toolchain.outputs.go_version }}-xcode-${{ steps.toolchain.outputs.xcode_version }}-${{ hashFiles('core/go.sum', 'scripts/*toolchain.env', 'scripts/build_go_ios.sh') }}-
+
       - name: Build pinned framework and project
         run: |
           ./scripts/build_go_ios.sh

@@ -28,8 +28,7 @@ struct TransportDebugView: View {
                     Button("Disconnect") { Task { await model.disconnect() } }.disabled(model.busy || model.automatic?.enabled == true)
                 }
                 Section("Hands-off recording — parked validation") {
-                    Toggle("Vehicle is parked", isOn: $parked)
-                        .disabled(model.automatic?.enabled == true)
+                    ParkedValidationSetupView(monitoringEnabled: model.automatic?.enabled == true, parked: $parked)
                     Text("Enable while parked. VFR watches for repeated fresh engine RPM; connecting the scanner alone does not create a drive. Initial validation is limited to 30-minute recordings. Road and background behavior still require physical acceptance.")
                         .font(.caption)
                     Toggle("Hands-off monitoring", isOn: Binding(get: { model.automatic?.enabled == true }, set: { value in
@@ -50,7 +49,7 @@ struct TransportDebugView: View {
                         LiveReadingSummaryView(readings: live.readings)
                     } else if model.automatic?.enabled == true {
                         Text("No drive recording. Activity evidence is kept separately; waiting for validated engine-running activity.").font(.caption)
-                        if model.automatic?.manualStopOverride == true { Text("Manual Stop override is active.").font(.caption) }
+                        if model.automatic?.manualStopOverride == true { Text("Manual Stop override is active. Automatic rearm needs 60 seconds of fresh readings at 0 RPM. Missing readings leave engine state unknown. While parked, turn monitoring off/on to rearm.").font(.caption) }
                     }
                     NavigationLink("Saved sessions, incidents and export") { PhysicalHistoryView() }
                         .disabled(model.automatic?.recording == true)

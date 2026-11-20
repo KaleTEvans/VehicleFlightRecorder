@@ -1,5 +1,9 @@
 # Development
 
+Use [the current CI/debugging workflow](CI_WORKFLOW.md) for evidence-first reports,
+targeted native iteration, one frozen full acceptance pass, and retained approved
+IPA delivery. This also records cache boundaries and documentation-only skips.
+
 ## Scope and prerequisites
 
 Work at `~/dev/VehicleFlightRecorder`; this directory is the monorepo. Milestone 0

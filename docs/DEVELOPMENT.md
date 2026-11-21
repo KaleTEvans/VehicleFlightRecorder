@@ -1,5 +1,9 @@
 # Development
 
+Use [the current CI/debugging workflow](CI_WORKFLOW.md) for evidence-first reports,
+targeted native iteration, one frozen full acceptance pass, and retained approved
+IPA delivery. This also records cache boundaries and documentation-only skips.
+
 ## Scope and prerequisites
 
 Work at `~/dev/VehicleFlightRecorder`; this directory is the monorepo. Milestone 0
@@ -18,8 +22,9 @@ manually, download `VehicleFlightRecorder-ios-simulator`, configure optional
 `APPETIZE_API_TOKEN` / `APPETIZE_PUBLIC_KEY` repository secrets, and observe the
 mock-only app in Appetize. The unsigned simulator workflow needs no signing secrets.
 It uses the existing XcodeGen definition, iOS 17 floor, and fixed approved identity.
-There is no Go XCFramework reference in this app yet; this validates the SwiftUI
-shell, not Go recorder integration. The workflow's ZIP is retained for 14 days
+The current workflow builds the pinned Go XCFramework from source and tests the
+real SwiftUI/Go bridge. Simulator/browser operation uses explicit fixtures;
+physical acceptance remains a separate device/car gate. The workflow's ZIP is retained for 14 days
 even if a subsequent Appetize upload fails.
 
 Linux/WSL needs Bash, Git, Go 1.24+, Python 3.11+ with `venv` and pip, and network
@@ -285,3 +290,21 @@ See [transport contract/status](MILESTONE_5.md) and [signed build setup](IOS_DEV
 `validate-connection` inspects standalone transport files; canonical mock session
 validation remains unchanged. Native transport fixtures run in the simulator
 without opening EASession. Only device builds enable physical discovery.
+
+
+## M7 automatic evidence replay
+
+`core/cmd/automatic-fixture` exercises the actual Go policy/owner with explicitly
+scripted CAN29 bytes. It creates independent drive/probe anchors and an automation
+journal, never hardware evidence. Run with a new output directory and scenario
+`running`, `engine_off`, `manual_stop`, `interrupted` or `reconnect`; inspect it:
+
+```bash
+analytics/.venv/bin/python -m vehicle_flight_recorder validate-automatic /absolute/bundle-root --allow-incomplete
+```
+
+The reader verifies every drive/probe and claim, reconstructs quality populations,
+and preserves incomplete status. Reconstruct incidents separately using actual IDs.
+Native tests export additional automatic/probe ZIPs; the native validator retains
+all M6 requirements and requires M7 engine-off/running/reconnect coverage as well.
+Appetize remains explicitly mock; physical acceptance is a separate gate.

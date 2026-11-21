@@ -6,14 +6,23 @@ on:
       upload_to_appetize:
         description: "Upload mock-only build to Appetize using account access defaults (requires secret)"
         type: boolean
-        default: true
+        default: false
+      test_scope:
+        description: "Full acceptance, or a focused iteration (never full qualification)"
+        type: choice
+        options: [full, targeted]
+        default: full
+      test_selectors:
+        description: "Targeted only: comma-separated XCTest target/class/method selectors"
+        type: string
+        default: ''
 
 permissions:
   contents: read
 
 concurrency:
-  group: ios-preview
-  cancel-in-progress: false
+  group: ios-preview-${{ github.ref }}-${{ inputs.upload_to_appetize && 'publish' || inputs.test_scope }}
+  cancel-in-progress: ${{ !inputs.upload_to_appetize }}
 
 jobs:
   simulator:
@@ -27,6 +36,13 @@ jobs:
         uses: actions/checkout@v6
         with:
           persist-credentials: false
+
+      - name: Validate test scope before building
+        env:
+          NATIVE_TEST_SCOPE: ${{ inputs.test_scope }}
+          NATIVE_TEST_SELECTORS: ${{ inputs.test_selectors }}
+          UPLOAD_TO_APPETIZE: ${{ inputs.upload_to_appetize }}
+        run: python3 scripts/native_test_plan.py
 
       - name: Read and verify native toolchain contract
         id: toolchain
@@ -45,8 +61,28 @@ jobs:
           go-version: ${{ steps.toolchain.outputs.go_version }}
           cache: false
 
+      - name: Restore pinned native Go build and module cache
+        id: go_cache
+        uses: actions/cache/restore@v4
+        with:
+          path: |
+            .cache/go-build
+            .cache/go-mod
+          key: native-go-v1-${{ runner.os }}-${{ runner.arch }}-${{ steps.toolchain.outputs.go_version }}-xcode-${{ steps.toolchain.outputs.xcode_version }}-${{ hashFiles('core/go.sum', 'scripts/*toolchain.env', 'scripts/build_go_ios.sh') }}-${{ hashFiles('core/**/*.go', 'core/go.mod') }}
+          restore-keys: |
+            native-go-v1-${{ runner.os }}-${{ runner.arch }}-${{ steps.toolchain.outputs.go_version }}-xcode-${{ steps.toolchain.outputs.xcode_version }}-${{ hashFiles('core/go.sum', 'scripts/*toolchain.env', 'scripts/build_go_ios.sh') }}-
+
       - name: Build pinned device and simulator XCFramework from source
         run: ./scripts/build_go_ios.sh
+
+      - name: Save verified Go compiler cache before tests
+        if: steps.go_cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: |
+            .cache/go-build
+            .cache/go-mod
+          key: ${{ steps.go_cache.outputs.cache-primary-key }}
 
       - name: Generate existing XcodeGen project
         run: |
@@ -57,6 +93,7 @@ jobs:
           ./scripts/generate_xcode_project.sh
 
       - name: Compile unsigned device app (no installation or hardware claim)
+        if: inputs.test_scope == 'full'
         run: |
           xcodebuild \
             -project ios/VehicleFlightRecorder.xcodeproj \
@@ -69,51 +106,60 @@ jobs:
           mkdir -p build/native-acceptance/device-compile
           cp build/ios-device-validation/Build/Products/Debug-iphoneos/VehicleFlightRecorder.app/Info.plist build/native-acceptance/device-compile/Info.plist
 
-      - name: Build real SwiftUI app for ARM iOS Simulator
-        run: |
-          xcodebuild \
-            -project ios/VehicleFlightRecorder.xcodeproj \
-            -scheme VehicleFlightRecorder \
-            -configuration Debug \
-            -sdk iphonesimulator \
-            -destination 'generic/platform=iOS Simulator' \
-            -derivedDataPath build/ios-preview/DerivedData \
-            ARCHS=arm64 ONLY_ACTIVE_ARCH=NO CODE_SIGNING_ALLOWED=NO build
-
       - name: Create and boot matching iPhone simulator (bounded)
         id: destination
         timeout-minutes: 10
         run: python3 scripts/boot_ios_simulator.py
 
-      - name: Test real native Go bridge and export
+      - name: Test selected native scope
+        id: native_tests
         env:
           SIMULATOR_ID: ${{ steps.destination.outputs.id }}
+          NATIVE_TEST_SCOPE: ${{ inputs.test_scope }}
+          NATIVE_TEST_SELECTORS: ${{ inputs.test_selectors }}
+          UPLOAD_TO_APPETIZE: ${{ inputs.upload_to_appetize }}
+        run: python3 scripts/run_native_tests.py
+
+      - name: Collect native evidence even when a test fails
+        if: always() && steps.destination.outputs.id != ''
+        env:
+          SIMULATOR_ID: ${{ steps.destination.outputs.id }}
+          NATIVE_TEST_SCOPE: ${{ inputs.test_scope }}
+          TEST_OUTCOME: ${{ steps.native_tests.outcome }}
         run: |
-          xcodebuild \
-            -project ios/VehicleFlightRecorder.xcodeproj \
-            -scheme VehicleFlightRecorder \
-            -configuration Debug \
-            -destination "platform=iOS Simulator,id=$SIMULATOR_ID" \
-            -derivedDataPath build/ios-preview/DerivedData \
-            -resultBundlePath build/ios-preview/NativeTests.xcresult \
-            -parallel-testing-enabled NO \
-            ARCHS=arm64 CODE_SIGNING_ALLOWED=NO test
-          APP_DATA=$(xcrun simctl get_app_container "$SIMULATOR_ID" com.kaleevans.vehicleflightrecorder data)
           mkdir -p build/native-acceptance
-          xcrun xcresulttool export attachments \
-            --path build/ios-preview/NativeTests.xcresult \
-            --output-path build/native-acceptance/ui-attachments
-          cp -R "$APP_DATA/Documents/NativeAcceptance/Exports" build/native-acceptance/
-          cp -R "$APP_DATA/Documents/NativeAcceptance/Connections" build/native-acceptance/
-          printf 'Simulator: %s\nCommit: %s\n' "$SIMULATOR_ID" "$GITHUB_SHA" > build/native-acceptance/provenance.txt
+          if [[ -d build/ios-preview/NativeTests.xcresult ]]; then
+            xcrun xcresulttool export attachments \
+              --path build/ios-preview/NativeTests.xcresult \
+              --output-path build/native-acceptance/ui-attachments
+          fi
+          APP_DATA=$(xcrun simctl get_app_container "$SIMULATOR_ID" com.kaleevans.vehicleflightrecorder data 2>/dev/null || true)
+          for directory in Exports Connections AutomationBundles; do
+            if [[ -n "$APP_DATA" && -d "$APP_DATA/Documents/NativeAcceptance/$directory" ]]; then
+              cp -R "$APP_DATA/Documents/NativeAcceptance/$directory" build/native-acceptance/
+            elif [[ "$NATIVE_TEST_SCOPE" == full && "$TEST_OUTCOME" == success ]]; then
+              echo "Full acceptance is missing $directory evidence" >&2
+              exit 1
+            fi
+          done
+          printf 'Simulator: %s\nCommit: %s\nScope: %s\n' "$SIMULATOR_ID" "$GITHUB_SHA" "$NATIVE_TEST_SCOPE" > build/native-acceptance/provenance.txt
           xcrun simctl io "$SIMULATOR_ID" screenshot build/native-acceptance/simulator.png
 
       - name: Validate native-generated session exports in Python
+        if: inputs.test_scope == 'full'
         uses: actions/setup-python@v5
         with:
           python-version: "3.11"
 
+      - name: Restore Python download cache
+        if: inputs.test_scope == 'full'
+        uses: actions/cache@v4
+        with:
+          path: .cache/pip
+          key: pip-v1-${{ runner.os }}-${{ runner.arch }}-py311-${{ hashFiles('analytics/pyproject.toml') }}
+
       - name: Reconstruct native exports
+        if: inputs.test_scope == 'full'
         run: |
           ./scripts/bootstrap.sh
           analytics/.venv/bin/python scripts/validate_native_exports.py build/native-acceptance
@@ -125,7 +171,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: VehicleFlightRecorder-native-acceptance
+          name: VehicleFlightRecorder-native-${{ inputs.test_scope == 'full' && 'acceptance' || 'targeted' }}
           path: |
             build/native-acceptance/
             build/ios-preview/NativeTests.xcresult/
@@ -135,6 +181,7 @@ jobs:
           retention-days: 14
 
       - name: Verify and package simulator app
+        if: inputs.test_scope == 'full'
         run: |
           mkdir -p build/ios-preview/PackageProducts
           ditto \
@@ -146,6 +193,7 @@ jobs:
 
       # Keep the ZIP even if the optional external upload fails later.
       - name: Publish simulator ZIP
+        if: inputs.test_scope == 'full'
         id: artifact
         uses: actions/upload-artifact@v4
         with:
@@ -155,6 +203,7 @@ jobs:
           retention-days: 14
 
       - name: Report downloadable build
+        if: inputs.test_scope == 'full'
         env:
           ARTIFACT_URL: ${{ steps.artifact.outputs.artifact-url }}
         run: |
@@ -169,7 +218,14 @@ jobs:
             echo 'Browser launch remains unverified until someone opens the preview and observes the screen.'
           } >> "$GITHUB_STEP_SUMMARY"
 
+      - name: Report targeted scope
+        if: inputs.test_scope == 'targeted'
+        run: |
+          echo '## Targeted native tests passed' >> "$GITHUB_STEP_SUMMARY"
+          echo 'See native-test-scope.json for selectors and successful cases. Full SDK/export/UI acceptance was not run; no simulator preview is published.' >> "$GITHUB_STEP_SUMMARY"
+
       - name: Check optional Appetize configuration
+        if: inputs.test_scope == 'full'
         id: appetize_config
         env:
           APPETIZE_API_TOKEN: ${{ secrets.APPETIZE_API_TOKEN }}
@@ -221,6 +277,7 @@ jobs:
           fi
 
   device-compatibility:
+    if: inputs.test_scope == 'full'
     runs-on: macos-15
     timeout-minutes: 20
     env:
@@ -236,11 +293,31 @@ jobs:
         with:
           go-version: ${{ steps.toolchain.outputs.go_version }}
           cache: false
+      - name: Restore pinned native Go build and module cache
+        id: go_cache
+        uses: actions/cache/restore@v4
+        with:
+          path: |
+            .cache/go-build
+            .cache/go-mod
+          key: native-go-v1-${{ runner.os }}-${{ runner.arch }}-${{ steps.toolchain.outputs.go_version }}-xcode-${{ steps.toolchain.outputs.xcode_version }}-${{ hashFiles('core/go.sum', 'scripts/*toolchain.env', 'scripts/build_go_ios.sh') }}-${{ hashFiles('core/**/*.go', 'core/go.mod') }}
+          restore-keys: |
+            native-go-v1-${{ runner.os }}-${{ runner.arch }}-${{ steps.toolchain.outputs.go_version }}-xcode-${{ steps.toolchain.outputs.xcode_version }}-${{ hashFiles('core/go.sum', 'scripts/*toolchain.env', 'scripts/build_go_ios.sh') }}-
+
       - name: Build device-compatible framework and project
         run: |
           ./scripts/build_go_ios.sh
           if ! command -v xcodegen >/dev/null; then brew install xcodegen; fi
           ./scripts/generate_xcode_project.sh
+      - name: Save verified Go compiler cache before tests
+        if: steps.go_cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: |
+            .cache/go-build
+            .cache/go-mod
+          key: ${{ steps.go_cache.outputs.cache-primary-key }}
+
       - name: Compile unsigned release archive with upload-compatible SDK
         run: |
           xcodebuild -project ios/VehicleFlightRecorder.xcodeproj -scheme VehicleFlightRecorder \

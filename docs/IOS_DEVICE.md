@@ -14,9 +14,34 @@ passed native verification and uploaded at 17:20:58 CDT on October 30. On Novemb
 Bluetooth reconnects; M5 transport acceptance is complete. Unverified physical
 edge cases remain listed in the M5 report.
 
+## Milestone 7 implementation
+
+M7 is in progress as [draft PR #6](https://github.com/KaleTEvans/VehicleFlightRecorder/pull/6).
+**Current M7 beta: 0.1.0 (14.1), VALID / internal IN_BETA_TESTING.**
+The initial automatic policy, native confirmation seam and consolidated diagnostic
+bundle passed 43 hosted / eight UI tests, both SDK profiles, 22 native session ZIPs
+and three whole bundles. App source `4d6e857b2cc6c8457c73892597d529e0e1becd9e` is the
+exact native-tested/signed source; later reader/workflow/docs commits do not alter
+that IPA.
+
+With explicit user approval, [run 44421246901](https://github.com/KaleTEvans/VehicleFlightRecorder/actions/runs/44421246901)
+uploaded the retained signed 14.1 IPA at **5:30:38 p.m. CST November 18, 2026**.
+SHA-256 `4704885038f15058e8212da61838348a4f373546cad8d2fb3ccc1960b1df4fe7`
+matched before upload. Delivery UUID `9a5d6d91-18ab-48ad-90bc-8522376bad83`.
+Apple confirms upload COMPLETE, build VALID, usesNonExemptEncryption=false and
+internal IN_BETA_TESTING (build uploadedDate 5:31:59 p.m. CST). The one altool
+warning concerns the future April 2027 SDK requirement; it did not block this build.
+The upload workflow's run number 16 did not create a build 16.1: it sent the
+already signed, approved **14.1** bytes without rebuilding.
+
+The [parked test packet](../planning/milestone_7_test_session.md) is released for
+one grouped parked visit and indoor evidence handoff. Road tests remain on hold
+pending analysis. See [M7 report](MILESTONE_7.md) and
+[reliability matrix](MILESTONE_7_RELIABILITY.md). M8 has not started.
+
 ## Milestone 6 beta
 
-**Current ordinary-mode beta: 0.1.0 (13.1), ready in internal TestFlight.** It adds an explicit
+**Accepted M6 beta: 0.1.0 (13.1), retained in internal TestFlight.** It adds an explicit
 CAN11/CAN29 choice for Combined, RPM-only, Coolant-only and Adapter-voltage-only,
 with the selected profile shown in status/history. The test-car UI defaults to
 CAN29 and remembers it; omitted core options remain CAN11. The native app source
@@ -34,8 +59,8 @@ All five ordinary-mode exports validate and both real manual incidents reconstru
 same-session reconnect repeats setup/support and restores fresh values. See the
 [stationary quality report](MILESTONE_6_STATIONARY_ACCEPTANCE.md). M6 is complete,
 accepted and integrated through [PR #5](https://github.com/KaleTEvans/VehicleFlightRecorder/pull/5)
-following user-authorized closeout November 10; no additional M6 car visit is requested. M7 is not
-started. The brief Disconnected state at Stop is intentional stream teardown;
+following user-authorized closeout November 10; no additional M6 car visit is requested. M7 implementation is tracked above.
+The brief Disconnected state at Stop is intentional stream teardown;
 Ready afterward is idle transport availability and does not resume recording.
 
 ### Earlier beta deliveries and physical evidence
@@ -319,3 +344,30 @@ behavior was added by these transport fixes. Reassess this metadata when shipped
 app/dependency encryption functionality changes; signing/API credentials are build
 inputs and are not bundled as app encryption functionality. Build 5.1 predates
 this metadata and still required its own questionnaire.
+
+
+## Upload an already prepared signed IPA
+
+The signed workflow can download its own repository's retained signed artifact
+using `prepared_run_id`, then require `expected_ipa_sha256`,
+`expected_source_commit` and `expected_build`. It verifies the actual IPA bytes,
+provenance and fixed application/version before any Apple upload. With
+`upload_testflight=false` it is a verification-only dry run. Only after explicit
+approval for that exact payload may the same prepared artifact be dispatched with
+`upload_testflight=true`; it is never rebuilt or assigned a different build number.
+This path preserves the existing API-key handling, positive upload receipt check
+and cleanup. Credentials stay in the existing `ios-device` environment.
+
+References checked November 18, 2026:
+[GitHub artifact download inputs](https://github.com/actions/download-artifact/tree/v4),
+[Apple upload builds](https://developer.apple.com/help/app-store-connect/manage-builds/upload-builds).
+
+### Historical M7 prepared-payload verification
+
+M7 retained-payload dry run
+[44401118905](https://github.com/KaleTEvans/VehicleFlightRecorder/actions/runs/44401118905)
+passed for the already signed **14.1** IPA with upload disabled. It verified SHA-256
+`4704885038f15058e8212da61838348a4f373546cad8d2fb3ccc1960b1df4fe7` and app source
+`4d6e857b2cc6c8457c73892597d529e0e1becd9e`. That run did not build a 15.1 IPA or
+send anything to Apple. At that point actual TestFlight availability was pending;
+the current 14.1 delivery record above supersedes that state.

@@ -164,7 +164,7 @@ def _validate_acquisition(path, *, allow_incomplete=False):
     if not live: require(len(data) <= 8 * 1024 * 1024, '8 MiB offline report limit')
     if live:
         config = report['configuration']
-        fields(config, 'app_version bridge_version reference_note sensor_refresh_rate enhanced_pack maximum_duration_ns minimum_admission_ns session_id origin operating_state workload native_anchor_ns initialization_version selected_protocol connections')
+        fields({k:v for k,v in config.items() if k not in {'start_origin','policy_version','startup_sync_version'}}, 'app_version bridge_version reference_note sensor_refresh_rate enhanced_pack maximum_duration_ns minimum_admission_ns session_id origin operating_state workload native_anchor_ns initialization_version selected_protocol connections')
         require(isinstance(config['session_id'], str) and re.fullmatch(r'live-[0-9a-f]{32}', config['session_id']), 'live session identity')
         require(config['origin'] in ('physical', 'native-fixture', 'scripted-fixture') and config['operating_state'] in ('unknown', 'ignition_on_engine_off', 'stationary_running') and config['workload'] in ('combined', 'rpm_only', 'coolant_only', 'voltage_only', 'discovery_diagnostic', 'can29_diagnostic', 'adapter_handoff'), 'live configuration')
         diagnostic = config['workload'] in ('discovery_diagnostic','can29_diagnostic')
@@ -172,7 +172,13 @@ def _validate_acquisition(path, *, allow_incomplete=False):
         require((regular or (can29 == (config['workload']=='can29_diagnostic'))), 'workload/protocol mismatch')
         init_steps = HANDOFF_INITIALIZATION if handoff else CAN29_INITIALIZATION if can29 else DIAGNOSTIC_INITIALIZATION if diagnostic else INITIALIZATION
         require(config['initialization_version'] == (('obdlink-stp34-diagnostic-1' if diagnostic else 'obdlink-stp34-runtime-1') if can29 else 'obdlink-adapter-handoff-1' if handoff else 'obdlink-stp33-diagnostic-2' if diagnostic else 'obdlink-stp33-runtime-1') and config['selected_protocol'] == ('ISO15765-4-CAN29-500' if can29 else 'unmodified-adapter-state' if handoff else 'ISO15765-4-CAN11-500') and config['app_version'] == '0.1.0' and type(config['bridge_version']) is int and config['bridge_version'] == 1, 'configuration version/protocol')
-        require(config['sensor_refresh_rate'] == 'unknown' and config['enhanced_pack'] == 'none' and config['maximum_duration_ns'] == (15 if handoff else 600)*10**9 and config['minimum_admission_ns'] == 5*10**8, 'unsupported live policy')
+        automatic = 'start_origin' in config or 'policy_version' in config
+        maximum = 15 if handoff else 600
+        if automatic:
+            require(config.get('policy_version') == 'rpm-activity-1' and config.get('start_origin') in ('automatic','activity_probe') and config['operating_state']=='unknown' and config['workload']==('combined' if config['start_origin']=='automatic' else 'rpm_only'), 'automatic policy/configuration mismatch')
+            maximum = 1800 if config['start_origin']=='automatic' else 300
+        require(config['sensor_refresh_rate'] == 'unknown' and config['enhanced_pack'] == 'none' and config['maximum_duration_ns'] == maximum*10**9 and config['minimum_admission_ns'] == 5*10**8, 'unsupported live policy')
+        if 'startup_sync_version' in config: require(automatic and config['startup_sync_version']=='quiet-start-1','unsupported startup synchronization')
         require(isinstance(config['reference_note'], str) and len(config['reference_note'].encode()) <= 512, 'reference note')
         _integer(config['native_anchor_ns'], 'native anchor')
         require(isinstance(config['connections'], list) and len(config['connections']) <= 16, 'connection budget')
@@ -288,18 +294,41 @@ def _validate_acquisition(path, *, allow_incomplete=False):
             require(lines[0].upper() not in {'?','OK','NO DATA','ERROR','CAN ERROR','BUS ERROR','STOPPED'} and tx['adapter_status'] == lines, 'CAN status receipt mismatch')
     if live:
         positions = defaultdict(int)
+        previous_failed = {}
+        stopped_counts = defaultdict(int)
+        first_admitted = set()
         support_by_generation = defaultdict(dict)
         for tx in report['transactions']:
             gen = tx['generation']
             require(1 <= gen <= len(config['connections']), 'transaction lacks connection provenance')
             require(config['connections'][gen-1]['start_ns'] <= tx['start_ns'], 'transaction precedes connection')
+            sync=config.get('startup_sync_version')=='quiet-start-1'
+            if sync and gen not in first_admitted:
+                require(tx['start_ns']>=config['connections'][gen-1]['start_ns']+10**9,'startup quiet interval skipped')
+                residual=[row['monotonic_ns'] for row in report['raw'] if row['generation']==gen and row['kind']=='unsolicited' and config['connections'][gen-1]['start_ns']<=row['monotonic_ns']<=tx['start_ns']]
+                require(not residual or tx['start_ns']>=max(residual)+5*10**8,'startup residual quiet interval skipped')
+                first_admitted.add(gen)
             if tx['key'] in init_steps:
+                if gen in previous_failed:
+                    failed=previous_failed.pop(gen)
+                    require(sync and failed['key']=='init_close' and failed['outcome']=='protocol_error' and failed['adapter_status']==['STOPPED'] and stopped_counts[gen]<=2 and tx['start_ns']>=failed['end_ns']+10**9,'unbounded/unverified initialization retry')
                 position = positions[gen]
                 require(position < len(init_steps) and tx['key'] == list(init_steps)[position], 'setup stage skipped or repeated')
                 if tx['outcome'] == 'ok':
                     frame = b''.join(data for row, data in raw_by_tx[tx['id']] if row['kind'] == 'received')
                     require(tx['adapter_status'] == [initialization_value(tx['key'], frame)], 'setup receipt mismatch')
                     positions[gen] += 1
+                else:
+                    previous_failed[gen]=tx
+                    if tx['key']=='init_close' and tx['adapter_status']==['STOPPED']:
+                        require(sync,'STOPPED retry receipt requires declared startup synchronization')
+                        frame=b''.join(data for row,data in raw_by_tx[tx['id']] if row['kind']=='received')
+                        require(len(frame)<=256 and frame.endswith(b'>') and frame.count(b'>')==1,'invalid stopped-close frame')
+                        try: lines=[x.strip() for x in frame[:-1].decode('ascii').replace('\n','\r').split('\r') if x.strip() and x.strip()!='STPC']
+                        except UnicodeError as error: raise ValidationError('stopped-close ASCII') from error
+                        require(lines==['STOPPED'] and tx['outcome']=='protocol_error','STOPPED cannot acknowledge setup')
+                        stopped_counts[gen]+=1
+                        require(stopped_counts[gen]<=3,'startup retry limit')
             else:
                 require(positions[gen] == len(init_steps), 'measurement requested before setup verification')
                 if tx['key'] == 'support' and tx['outcome'] in {'ok','partial'}:

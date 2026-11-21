@@ -1,5 +1,26 @@
 # Codex Handoff — Vehicle Flight Recorder, Milestone 7 Only
 
+**November 20 update: 20.1 parked recovery review is complete.**
+See the [recovery acceptance report](../docs/MILESTONE_7_RECOVERY_ACCEPTANCE.md).
+Reuse passed start/mark/override/relaunch/reconnect/export cases and the M6
+baseline. The zero-RPM duration condition was not met; explicit rearm works.
+The parked setup display is corrected in source. No repeat car visit is
+requested for this UI fix. The [remaining parked checklist](milestone_7_remaining_parked_session.md)
+is now ready on 20.1 for normal end, background/lock, notifications and later
+accessory availability. It replaces the old broad checklist for the next visit;
+road and representative resource qualification stay on hold until review.
+The older release instructions below remain historical, not a request to retest.
+
+Status: IN PROGRESS — user authorized implementation November 18, 2026.
+Build **0.1.0 (20.1)** is delivered and its recovery block is accepted.
+[The original 14.1 parked packet](milestone_7_test_session.md) is historical.
+Parked evidence review still gates road use; physical acceptance remains open.
+M6 is complete/merged as `f793674`. See [implementation report](../docs/MILESTONE_7.md),
+[reliability matrix](../docs/MILESTONE_7_RELIABILITY.md) and
+[current remaining-tests checklist](milestone_7_remaining_parked_session.md).
+The original future-handoff language below is historical; physical acceptance
+remains gated on verified builds and actual evidence. M8 is not started.
+
 ## Assignment and prerequisites
 
 Implement **Milestone 7 — controlled road logging** in:

@@ -18,6 +18,7 @@ final class GoLiveSession {
         }
         core = value
     }
+    init(core: MobileLiveRecorder) { self.core = core }
     static func wall() -> Int64 { Int64(Date().timeIntervalSince1970 * 1000) }
     static func command(_ core: MobileLiveRecorder, nativeNS: Int64, wallMS: Int64) throws -> Data {
         // gomobile imports NSData+NSError as throwing nonoptional Data; a nil
@@ -54,6 +55,8 @@ final class GoLiveCapture: TransportCapture {
     func close(_ reason: String) throws { try session.core.disconnected(generation, nativeNS: TransportClock.nanoseconds(), reason: reason) }
 }
 struct LiveSnapshot: Decodable {
+    let session: SessionInfo?
+    let requiresReconnect: Bool?
     let state: String
     let workload: String?
     let protocolProfile: String?

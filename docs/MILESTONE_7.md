@@ -1,0 +1,404 @@
+# Milestone 7 — hands-off recording and controlled-road qualification
+
+Status: IN PROGRESS — **20.1 parked recovery review completed November 20, 2026**.
+Observed automatic start, display/marking, manual override, interruption-preserving
+relaunch, scanner recovery and diagnostic retrieval validate within the parked
+scope. [Recovery acceptance](MILESTONE_7_RECOVERY_ACCEPTANCE.md) explains the
+short zero-RPM interval and remaining limits. The parked setup display is corrected
+in source; the installed 20.1 binary is unchanged. CI iteration is documented in
+[the development workflow](CI_WORKFLOW.md).
+
+No repeat recovery car visit is requested. The [remaining parked checklist](../planning/milestone_7_remaining_parked_session.md)
+is ready on **20.1** for one 30–40 minute block, one ZIP and one results note.
+It covers automatic end, background/lock, actual confirmation taps, later scanner
+availability and completed-Stop persistence. Road/representative resource use stays
+on hold pending review. M6 stays accepted/merged as `f793674`; PR #6 stays draft
+and M8 has not started.
+
+## Workload and activity policy
+
+The initial configuration preserves M6's validated CAN29/500 standard commands:
+RPM every requested 2 s, coolant and adapter voltage 5 s, supported-PID block 00
+60 s; one request in flight, 500 ms subsequent admission, 2 s timeout and bounded
+backoff. Individual CAN IDs remain opaque. No enhanced requests, TCM identity,
+vehicle identification, GPS or new automatic fault thresholds are introduced.
+
+`rpm-activity-1` is a proposed test configuration, not a universal vehicle rule:
+validated aggregate RPM >=400, repeated distinct responses spanning >=4 s, age
+<=10 s; fresh all-zero response evidence for >=60 s ends a drive; unknown activity
+or disconnected coverage gets 180 s grace. A native owner execution gap longer
+than grace ends the previous logical drive. Missing modules do not suppress a
+start supported by another responder; any positive running responder wins over
+zeros in the same response. Low nonzero RPM below threshold is unknown.
+
+M6 observed idle RPM around 917–982 with roughly 2.74 s Combined cadence. These
+facts motivate the proposed margins but do not physically validate the policy.
+Stationary running can start a drive; motion is not required. A ready scanner,
+module replies, voltage or ignition-on/engine-off alone never starts one.
+
+Activity probing is a separate retained `Automation/Probes/live-*` capture using
+RPM-only requests. It is excluded from `Sessions` and from drive history. A
+successful debounce closes the probe and creates a new automatic drive at its
+own wall/continuous-clock anchor. An event references the separate pre-start
+context; no earlier samples are inserted into the drive. Fresh setup/support
+repeat on the recording connection. Initial setup delay is honest lost drive
+coverage, with retained probe context; it is not silently backfilled.
+
+Automatic drives are initially capped at **30 minutes**, probes at **5 minutes**
+per capture. Probes rotate without deleting their originals. These caps permit
+parked/short qualification; representative longer drives require a separately
+measured and reviewed duration/resource configuration before release.
+
+Manual Stop saves the drive and persists an override. Monitoring continues while
+armed, but running evidence cannot immediately restart a drive. Sustained zero
+RPM or explicit disable/re-enable rearms it. Disabling monitoring stops all
+activity acquisition. Deliberate M6 stationary controls remain available while
+monitoring is disabled. App-start callbacks, native events and manual actions
+share one transport executor and a locked Go owner; drive ID and connection
+generation are independent.
+
+## Durable facts, notifications and relaunch
+
+A successful automatic-start fact is emitted only after initialization and actual
+telemetry admission. An adapter connection, empty directory, manual start or
+startup failure cannot produce it. Coverage is explicitly limited standard OBD;
+vehicle display identity falls back to `Vehicle` rather than inventing a name.
+Go syncs evidence and durably claims a fact before handing it to native code.
+Native exclusively claims selection before any presentation/API side effect.
+
+Confirmation preference is persisted and optional. Permission is requested only
+from the parked setup button, once when not determined. Denied users get a route
+to system settings. Foreground uses an in-app banner; authorized background uses
+a quiet local notification, no sound or badge. A scene change during submission
+uses the delegate to suppress a duplicate system presentation. Per-session
+receipt identities survive relaunch; submission errors/uncertainty are not retried.
+A missed confirmation after a claim/crash is explicitly preferable to duplicates.
+Disabled, denied, stale or ended facts are consumed without a later backlog.
+Notification failure does not stop recording. Submitted does not mean seen.
+
+The notification delegate is retained by the application delegate and installed
+at launch. Taps carry the original ID and route to the active drive or saved
+summary; missing/corrupt evidence is visible. A tap is never a start command.
+The application owns transport independently of view refresh/navigation.
+
+On relaunch, the Go journal records the previously active drive as interrupted,
+leaves its original files untouched and requires fresh evidence for a distinct
+new drive. It never adopts interrupted files as continuous recording, silently
+trims rows or finalizes an interrupted session as healthy. Existing strict readers
+still reject corrupt/truncated final rows; well-formed incomplete evidence requires
+explicit incomplete inspection. Raw original retrieval remains available through
+Files when evidence cannot be normally exported.
+
+## Evidence and resources
+
+Schema 2 is extended with an explicit optional policy version and automatic/probe
+start origins in both metadata and capability configuration. Legacy manual/mock
+contracts remain readable. Older readers reject the new policy; use the updated
+reader. It verifies origin/version/workload/duration agreement, raw provenance
+and the existing full CAN11/CAN29 setup/schedule contract.
+
+Drive ZIPs preserve the existing six-file layout. Policy/lifecycle/confirmation
+facts are canonical events when a drive is active. The separate Automation journal
+retains pre-start transitions, resource samples and notification outcomes outside
+a drive. Resource observations include retained byte size and Go heap population;
+native execution samples battery level/charging state, thermal state and Low Power
+Mode. These are observations while the app executes, not proof of continuous
+measurement during suspension. Environmental temperature and start/end measurement
+context require a human test record where not available to iOS.
+
+Evidence retention is bounded at 512 MiB and 20,000 inspected entries, with no
+silent deletion. Journal cap is 16 MiB; report/log/ZIP caps remain unchanged.
+I/O/resource failures expose a failed state, stop acquisition and preserve original
+incomplete evidence. Battery/storage acceptance budgets remain unmeasured.
+
+## Platform references — checked November 18, 2026
+
+- [Apple External Accessory](https://developer.apple.com/documentation/externalaccessory/)
+- [Background execution modes](https://developer.apple.com/documentation/xcode/configuring-background-execution-modes)
+- [Background execution sequence](https://developer.apple.com/documentation/uikit/about-the-background-execution-sequence)
+- [Notification authorization](https://developer.apple.com/documentation/usernotifications/asking-permission-to-use-notifications)
+- [Notification delegate](https://developer.apple.com/documentation/usernotifications/unusernotificationcenterdelegate)
+
+Only the existing external-accessory mode is used. Declarations, timers,
+notification permission and simulated callbacks do not establish launch/wake or
+physical continuity. Foreground, locked, background, suspended, OS-terminated and
+force-quit remain distinct unqualified physical cases until measured.
+
+## Verification and remaining gates
+
+Go policy and owner integration tests pass locally, including zero RPM, repeated
+running activity, same-drive reconnect, manual override, exclusive ownership,
+notification claim deduplication, preserved relaunch identity and storage failure.
+Independent Python tests replay actual Go automatic/probe exports, reconstruct
+manual incidents, and reject policy/duration relabeling. These are scripted
+fixtures, not physical vehicle evidence.
+
+The original 14.1 portable/native regression and signed artifact preparation
+passed before the first parked release. The November 20 physical review found
+recovery/export failures; that packet is now paused pending targeted regression
+and a replacement beta. First road use remains gated on reviewed parked results
+and a permitted workload. Repeated/long drives, quality/reference
+comparison, lifecycle matrix and representative battery/storage budgets remain
+acceptance gates. No car visit is requested before the tested beta and complete
+packet are ready.
+
+**Milestone 8 not started.**
+
+## Logging inventory and state flow
+
+| Population | Retained content |
+| --- | --- |
+| Engine RPM | Standard mode 01 PID 0C, rpm, each responding CAN ID, decoder/transaction/generation, receipt timestamp/quality |
+| Coolant | Standard mode 01 PID 05, degC, same independent responder/raw provenance |
+| Adapter supply | STVR input volts, source adapter; not an ECU battery sensor or alternator diagnosis |
+| Availability | Block-00 supported-PID replies; advertised/observed/unsupported/unavailable/unknown, setup/profile/decoder versions |
+| Raw transport | Exact requested, stream-accepted, received/late/unsolicited bytes, ordered references and monotonic deadlines |
+| Policy | Config/version, candidate/start/end/grace/override decisions, evidence response identity, retained pre-start context |
+| Incidents | Manual mark, 60/120 s evidence window, full/partial state and actual gaps/reasons |
+| Lifecycle | Observed native phases, transport generations/recovery and unknown scheduling gaps; interruption/relaunch owner boundary |
+| Confirmation | Durable successful-start and claim facts; selected path, suppression/submission/failure; original-session tap routing |
+| Resources | Retained byte growth, Go heap population, native mailbox/outbound size, sampled battery/charging/Low Power/thermal context |
+| Quality | Requested versus achieved per-responder rates, actual latency/error populations, whole/outside-explicit-gap denominators, receipt-age stale/initial-absence time |
+
+Receipt-age freshness uses the existing UI's 15 s age budget; activity eligibility
+uses its separate 10 s window. The reader labels these conventions explicitly and
+does not infer ECU internal measurement time or sensor refresh. Per-hour battery
+output is unavailable for charging/unknown populations; observed execution-only
+samples do not qualify continuous background drain.
+
+```mermaid
+stateDiagram-v2
+    [*] --> Disabled
+    Disabled --> Monitoring: Explicit opt-in / persisted enabled restore
+    Monitoring --> Candidate: Fresh validated running RPM
+    Candidate --> Monitoring: Stale, zero or insufficient evidence
+    Candidate --> Initializing: Distinct replies span debounce
+    Initializing --> Recording: Setup and actual telemetry accepted
+    Recording --> EndGrace: Fresh zero RPM
+    EndGrace --> Recording: Running resumes
+    EndGrace --> Finalized: Sustained zero evidence
+    Recording --> Gap: Transport or activity unavailable
+    Gap --> Recording: Fresh generation / activity restored within grace
+    Gap --> Finalized: Unknown/execution grace expires
+    Recording --> Override: Manual Stop or duration cap
+    Override --> Monitoring: Sustained off or explicit rearm
+    Finalized --> Monitoring: Retain closed drive; new probe
+    Recording --> Interrupted: Observed on later relaunch
+    Interrupted --> Monitoring: Originals preserved; fresh evidence / new ID
+    Monitoring --> Failed: Storage/resource error
+    Recording --> Failed: Storage/resource error
+```
+
+## Automated evidence so far
+
+Initial source `d3b116add830e667ff111885c2d8a39426557f87` passed
+[native run 44394000438](https://github.com/KaleTEvans/VehicleFlightRecorder/actions/runs/44394000438):
+41 hosted tests, eight UI tests, both device compile profiles and independent
+validation of 22 actual native ZIPs with all available incidents reconstructed.
+This is a regression baseline, not acceptance of later changes or physical wake.
+
+The portable full suite after bundle/routing changes passed 178 Python tests,
+29 script tests, Go tests/vet. Broad race checks passed activity, mobile,
+acquisition, recorder and storage; focused owner/policy race checks passed after
+review fixes. Workflow lint and documentation links pass. Later reader changes
+add whole-bundle claim/resource and freshness validation and will be rechecked
+against final native artifacts. No private phone captures are public fixtures.
+
+The final source has additional manual-after-disabled-setup regression, whole
+native automation-bundle replay, bounded archive handling, canonical success-fact
+time and distinct interruption/context identities. Its final native run passed as
+recorded below. Superseded intermediate runs were cancelled
+rather than treating their results as evidence for the final source.
+
+**Milestone 8 not started.**
+
+
+## Final native evidence and signed beta preparation — November 18, 2026
+
+The preparation/approval notes in this section and the verification-only section
+below are historical, preceding the approved upload recorded in the final entry.
+
+Exact app source: `4d6e857b2cc6c8457c73892597d529e0e1becd9e`.
+[Native run 44397968453](https://github.com/KaleTEvans/VehicleFlightRecorder/actions/runs/44397968453)
+passed **43 hosted tests, eight UI tests, both SDK compile profiles, 22 native
+session ZIP validations and three whole diagnostic-bundle validations**.
+All available incidents reconstructed. The downloaded artifact was independently
+replayed with the final reader and its automatic-history screenshot reviewed.
+The reader-only follow-up preserves the exact `core`/`ios` tree, passes **182 Python
+tests**, and adds independently derived receipt-age/gap populations. Go tests/vet,
+broad and focused race checks passed. Workflow lint passes; **34 script tests**
+include retained-payload hash/provenance/application mismatch rejection.
+
+Native artifact `14471873288` SHA-256:
+`2e9c3a91c4efabfc533cc88dfa8a957f2d3022eff738fbb2bdeb0bfb55979db1`.
+Retained privately under `build/milestone-7/native-4d6e857/`; its origin is
+explicitly native-fixture, not physical telemetry.
+
+[Signing-only run 44400084011](https://github.com/KaleTEvans/VehicleFlightRecorder/actions/runs/44400084011)
+prepared **0.1.0 (14.1)** from that exact source. Archive/export, native signature
+verification and signing-input cleanup passed. **The Apple upload step was
+skipped. Build 14.1 is not yet in TestFlight.**
+
+Signed artifact: `14471274404`, archive SHA-256
+`071d19d9b3deecae60b4944465b31bdd6313941cd6e5c3b90187c1705b732fa8`.
+The retained IPA is `build/milestone-7/signed-14.1/ios-device/export/VehicleFlightRecorder.ipa`.
+Its independently verified SHA-256 is
+`4704885038f15058e8212da61838348a4f373546cad8d2fb3ccc1960b1df4fe7`;
+bundle `com.kaleevans.vehicleflightrecorder`, version `0.1.0`, build `14.1`, and
+provenance match. A local prepared-upload manifest records these exact identities.
+
+Automatic approval review rejected sending this new IPA to Apple because prior
+approval covered an earlier build, not this exact M7 payload/destination action.
+The upload remains blocked pending explicit approval. The existing signed workflow
+now supports verification/upload of the retained IPA without rebuilding; it checks
+its approved checksum, source, bundle/version and build before any upload. Its
+default is verification-only. The approved Apple API/authentication path is unchanged.
+No alternate upload has been attempted. No M7 car visit is requested until upload,
+processing and the released packet are confirmed.
+
+The [parked packet](../planning/milestone_7_test_session.md),
+[reliability matrix](MILESTONE_7_RELIABILITY.md), and
+[confirmation contract](RECORDING_CONFIRMATIONS.md) retain all actual physical,
+road, reference and representative resource gates. PR #6 remains draft/unmerged.
+
+**Milestone 8 not started.**
+
+## Retained-payload verification-only run
+
+[Run 44401118905](https://github.com/KaleTEvans/VehicleFlightRecorder/actions/runs/44401118905)
+passed on upload-workflow source `21794aa90df9310e6e89b1f23abd1f9a8f35e454`.
+It downloaded the signed artifact from run `44400084011`, independently verified
+IPA SHA-256 `4704885038f15058e8212da61838348a4f373546cad8d2fb3ccc1960b1df4fe7`,
+app source `4d6e857b2cc6c8457c73892597d529e0e1becd9e`, bundle/version and build
+**14.1**, then **skipped Apple upload**. Its workflow run number 15 does not create
+a build 15.1; it reuses the exact retained 14.1 payload. No rebuild is needed once
+that specific upload is approved. All 34 script tests, workflow lint and local
+link checks pass. The only remaining local worktree edit is the pre-existing
+unrelated `docs/OFFLINE_ACQUISITION.md` change, which was not committed.
+
+The app/core/native-validation tree remains identical to accepted native source
+`4d6e857`; later commits update analysis, upload verification and documentation.
+M7 stays partially complete pending upload consent, Apple processing and the
+actual parked/road/reliability/resource acceptance matrix. No merge or M8 work.
+
+**Milestone 8 not started.**
+
+
+## Approved TestFlight delivery and parked release — November 18, 2026
+
+The user approved sending the prepared 14.1 IPA and requested an updated testing
+list. [Upload run 44421246901](https://github.com/KaleTEvans/VehicleFlightRecorder/actions/runs/44421246901)
+verified the retained artifact from signing run `44400084011`, then sent those
+same bytes to Apple. It did not rebuild or create a build 16.1.
+
+- App source: `4d6e857b2cc6c8457c73892597d529e0e1becd9e`.
+- Build: **0.1.0 (14.1)**; bundle `com.kaleevans.vehicleflightrecorder`.
+- IPA SHA-256: `4704885038f15058e8212da61838348a4f373546cad8d2fb3ccc1960b1df4fe7`.
+- Affirmative receipt: **UPLOAD SUCCEEDED with 1 warning, 0 messages** at
+  **23:30:38 UTC / 5:30:38 p.m. CST November 18, 2026**; no upload errors.
+- Delivery UUID: `9a5d6d91-18ab-48ad-90bc-8522376bad83`.
+- Read-only Apple confirmation: upload COMPLETE, build VALID,
+  usesNonExemptEncryption=false, internal IN_BETA_TESTING; build uploadedDate
+  **23:31:59 UTC / 5:31:59 p.m. CST**.
+- Warning 90725 concerns the future April 2027 iOS 27 SDK upload requirement;
+  current processing/testing passed. Receipt retained privately in
+  `build/milestone-7/testflight-upload-14.1.log`.
+
+The previous approval block is resolved. The [updated test packet](../planning/milestone_7_test_session.md)
+now releases setup, one 35–45 minute parked visit and indoor history/export with
+one complete diagnostic bundle. It separates active versus ended notification
+routing across two drives, distinguishes fresh-zero end from missing-RPM grace,
+and makes manual override persistence/rearm and late adapter availability explicit.
+No per-case uploads or repeat M6 baseline/reference recordings are requested.
+
+M7 stays partially complete and PR #6 remains draft/unmerged. Parked results must
+be reviewed before any controlled road block; actual lifecycle/notification,
+repeated/representative long-drive, reference and battery/storage acceptance
+remain open. Source/core/iOS behavior and prior automated acceptance are unchanged
+by these delivery/checklist documentation updates.
+
+**Milestone 8 not started.**
+
+
+## November 20 recovery verification and retained 20.1
+
+The [first physical review](MILESTONE_7_PHYSICAL_REVIEW.md) records preserved
+originals, the failure sequence, startup/export/UX changes, all verification and
+exact IPA/artifact checksums. Final native run **44827283375** passed 46 hosted
+and nine UI tests plus both SDK profiles. All 23 native session ZIPs and four
+whole automation bundles replay independently after download; all available
+incidents reconstruct. The first-tap/repeated failed-owner share test passes.
+Portable Go/vet/race, 185 Python tests, 34 script tests and workflow lint pass.
+
+Signed **20.1**, signing-only run **44825527697**, is retained and verified.
+Its source is `19e83737ef623014c076dbc8f18d24a65efe0604`; final native revision
+`4666c1b66713070f69678e72015d0d397277f832` differs only in the UI test target's
+scroll/tap setup. All app/core/build inputs match exactly. The signing-only run
+skipped Apple upload. After exact-payload approval, retained-IPA upload run
+**44830599129** sent the same 20.1 bytes at **4:39:02 p.m. CST November 20**.
+Apple confirms upload COMPLETE, build VALID / internal IN_BETA_TESTING, with
+usesNonExemptEncryption=false. Workflow run 21 did not create a 21.1 app.
+Superseded signing candidates and failed/canceled native runs are not
+acceptance evidence; see the detailed review.
+
+The [15–20 minute recovery packet](../planning/milestone_7_recovery_test_session.md)
+is released for one parked follow-up. It reuses successful ordinary
+readings/full incident and M6 baseline. Road, physical recovery, lifecycle/wake,
+notification and representative resource acceptance remain open. PR #6 stays
+draft/unmerged; Milestone 8 has not started.
+
+
+## Approved 20.1 TestFlight delivery — November 20, 2026
+
+[Upload run 44830599129](https://github.com/KaleTEvans/VehicleFlightRecorder/actions/runs/44830599129)
+verified and sent the unchanged retained 20.1 IPA after the user's explicit
+approval. The device build job was skipped; no new app was built.
+
+- Receipt: **UPLOAD SUCCEEDED with 1 warning, 0 messages**, no upload errors,
+  **22:39:02 UTC / 4:39:02 p.m. CST November 20**.
+- Delivery UUID: `40494bf8-46dd-43ce-a792-bda9127e2fad`.
+- IPA SHA-256: `8cebea51d08bd7eda3957c7647b4b8ccc53c705099aac8bec673be78b8b64cf3`.
+- Read-only Apple confirmation: upload COMPLETE, build VALID,
+  usesNonExemptEncryption=false, internal IN_BETA_TESTING; build uploadedDate
+  **22:39:38 UTC / 4:39:38 p.m. CST**.
+- Receipt retained privately in `build/milestone-7/testflight-upload-20.1.log`.
+  Warning 90725 concerns the future April 2027 iOS 27 SDK requirement; current
+  upload and beta processing passed.
+
+The [targeted recovery packet](../planning/milestone_7_recovery_test_session.md)
+is now released for a single 15–20 minute parked block and one ZIP/note handoff.
+It reuses prior ordinary/full-incident and M6 baseline results. A persistent
+failure stops dependent cases and moves directly to diagnostic export or Files
+retrieval. The original broad packet/road block remains paused until recovery
+results are reviewed. PR #6 stays draft; M7 remains open and M8 has not started.
+
+
+## 20.1 recovery review and faster CI iteration — November 20, 2026
+
+[The recovery acceptance report](MILESTONE_7_RECOVERY_ACCEPTANCE.md) validates
+all 37 retained M7 captures, including five new drives / 563 observations and
+one preserved incomplete drive. Start/display/marking, manual suppression,
+fresh relaunch, same-drive reconnect and retrieved export pass within the
+observed scope. The engine-off probe provides only 15.636 s of zeros before
+NO DATA, so its 60 s automatic override-clearance condition is unqualified;
+explicit rearm passes and activity policy is unchanged.
+
+The restored parked display is corrected in source without persisting or
+inferring a current parked state. Button styling remains deferred. Local
+40-script/lint checks and targeted UI validation precede the one full native
+run **44840987248**, which passes 46 hosted / 10 UI tests, both SDK profiles,
+23 native ZIPs and four whole automation bundles, replayed locally after verified
+download. Frozen source is `0f51b2ae2df6b7eb48ed3a129f68cde22bc17330`.
+
+[The CI workflow](CI_WORKFLOW.md) now validates focused selectors and executed
+case evidence, retains failed screenshots, saves verified Go caches before UI
+checks, skips Markdown-only pushes, removes duplicate push/PR work and protects
+publication from automatic cancellation. Actual preview cache reuse, one
+portable code run and a real documentation-only skip were verified. Development
+conventions are durable in [AGENTS.md](../AGENTS.md).
+
+No new IPA was prepared/uploaded; installed 20.1 is unchanged. The completed
+recovery packet is retained as a record rather than requested again. Remaining
+M7 lifecycle/notification, normal-end, road and resource/battery qualification
+stay open for a separately consolidated packet; M7 is not closed and M8 has
+not started.

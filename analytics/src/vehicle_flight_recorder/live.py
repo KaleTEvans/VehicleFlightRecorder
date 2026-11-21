@@ -27,10 +27,15 @@ class LiveEvidence:
         require(config['session_id'] == metadata['session_id'] and self.report['anchor_unix_ms'] == metadata['start_time_unix_ms'], 'foreign report/session anchor')
         for key in ('origin', 'operating_state', 'workload', 'native_anchor_ns'):
             require(config[key] == live[key], 'session/report configuration mismatch')
+        if live['start_origin'] != 'manual':
+            require(config.get('start_origin') == live['start_origin'] and config.get('policy_version') == live.get('policy_version'), 'session/report automatic policy mismatch')
+        else:
+            require('start_origin' not in config and 'policy_version' not in config, 'manual session has automatic report')
         self.transactions = {x['id']: x for x in self.report['transactions']}
         self.observations = {(o['transaction_id'], o['generation'], o['ecu'], o['signal_id']): o for o in self.report['observations']}
         require(len(self.observations) == len(self.report['observations']), 'duplicate report observation')
         self.seen = set()
+        self.events = []
         self.tail = 0
         previous_ns = 0
         rows = 0
@@ -72,7 +77,11 @@ class LiveEvidence:
         require(isinstance(p['raw_refs'], list) and all(type(x) is int for x in p['raw_refs']), 'raw reference types')
         self.seen.add(identity)
 
+    def event(self, row):
+        self.events.append(row)
+
     def finish(self):
         if not self.incomplete: require(self.seen == set(self.observations), 'canonical export omitted report observations')
-        return dict(capability_report=self.summary, origin=self.metadata['live']['origin'], uncheckpointed_raw_rows=self.tail,
+        from .automatic import quality
+        return dict(runtime_quality=quality(self.metadata,self.report,self.events),capability_report=self.summary, origin=self.metadata['live']['origin'], uncheckpointed_raw_rows=self.tail,
                     uncommitted_report_observations=len(self.observations)-len(self.seen), interrupted_checkpoint_files=self.temporary)

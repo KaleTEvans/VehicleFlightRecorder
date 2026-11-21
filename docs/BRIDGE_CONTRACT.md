@@ -169,3 +169,16 @@ no work; nonempty Base64 decodes to the exact Go allowlist bytes. This avoids th
 nullable NSData/NSError import convention treating an idle nil-byte result as a
 failure. The direct Go byte method remains for Go transcript tests. No native
 command strings or null-as-measurement convention is introduced.
+
+
+## M7 process-owned automatic recorder
+
+Bridge 1 retains existing calls and adds `NewAutomaticRecorder`, a locked Go owner
+on the existing native transport executor. Tick consumes validated RPM evidence;
+Live exposes the current bounded probe/drive engine without admitting arbitrary
+commands. SetEnabled/SetProfile/Stop serialize explicit configuration and override.
+ClaimConfirmation durably consumes a successful actual-telemetry start fact before
+native side effects; native logs outcomes without retrying uncertainty. Snapshot
+separates drive ownership, preparation and accepted telemetry. UI refresh remains
+read-only. The app delegate restores a persisted owner independently of view
+creation; no private wake API or notification-derived execution claim is used.

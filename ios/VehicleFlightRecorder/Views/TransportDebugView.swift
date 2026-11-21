@@ -1,7 +1,8 @@
 import SwiftUI
 
 struct TransportDebugView: View {
-    @StateObject private var model = TransportDebugModel()
+    @ObservedObject var model: TransportDebugModel = .shared
+    @ObservedObject private var confirmations = RecordingConfirmation.shared
     @Environment(\.scenePhase) private var phase
     @State private var enableIdentity = false
     @State private var share: SessionShareRequest?
@@ -18,13 +19,62 @@ struct TransportDebugView: View {
                     Text("Vehicle Flight Recorder").font(.headline)
                     Text("Transport: \(model.state)")
                     Text(model.notice)
+                    if let notice = model.recoveryNotice { Text(notice).font(.caption).accessibilityIdentifier("adapter-recovering") }
                     if workload == "adapter_handoff" { Text("Adapter-only handoff capture · VFR leaves the vehicle protocol unchanged.").font(.caption) }
                     else if workload == "can29_diagnostic" { Text("Standard OBD stationary diagnostic · CAN 29-bit / 500 kbps. Enhanced Alfa / TCM signals are not enabled.").font(.caption) }
                     else { Text("Standard OBD stationary testing · \(isRegularWorkload ? StationaryProtocol.title(protocolProfile) : StationaryProtocol.can11.title). Enhanced Alfa / TCM signals are not enabled.").font(.caption) }
                     if let error = model.error { Text(error).foregroundStyle(.red).textSelection(.enabled) }
                     Button("Discover / Connect") { Task { await model.connect() } }.disabled(model.busy)
-                    Button("Disconnect") { Task { await model.disconnect() } }.disabled(model.busy)
+                    Button("Disconnect") { Task { await model.disconnect() } }.disabled(model.busy || model.automatic?.enabled == true)
                 }
+                Section("Hands-off recording — parked validation") {
+                    ParkedValidationSetupView(monitoringEnabled: model.automatic?.enabled == true, parked: $parked)
+                    Text("Enable while parked. VFR watches for repeated fresh engine RPM; connecting the scanner alone does not create a drive. Initial validation is limited to 30-minute recordings. Road and background behavior still require physical acceptance.")
+                        .font(.caption)
+                    Toggle("Hands-off monitoring", isOn: Binding(get: { model.automatic?.enabled == true }, set: { value in
+                        Task { await model.setAutomatic(value, profile: protocolProfile) }
+                    }))
+                    .disabled(model.busy || (model.automatic?.enabled != true && (!parked || model.live?.active == true)))
+                    .accessibilityIdentifier("automatic-monitoring-toggle")
+                    Text("Activity: \(model.automatic?.state.replacingOccurrences(of: "_", with: " ") ?? "Disabled")")
+                        .accessibilityIdentifier("automatic-state")
+                    if model.automatic?.recording == true, let live = model.live {
+                        Text(model.automatic?.acceptingTelemetry == true ? "Recording automatically · Limited standard OBD coverage" : "Preparing automatic recording · Waiting for fresh telemetry").font(.headline)
+                            .accessibilityIdentifier("automatic-recording-active")
+                        Text("Elapsed: \(live.elapsedMs / 1000) s · \(live.protocolTitle)")
+                        LiveIncidentControls(model: model, live: live)
+                        Button("Stop and save") { Task { await model.stopLive() } }
+                            .buttonStyle(.borderless).disabled(model.busy)
+                        Text("Stop saves this drive and prevents another automatic start until sustained engine-off evidence, or until you disable and re-enable monitoring. Monitoring continues while armed.").font(.caption)
+                        LiveReadingSummaryView(readings: live.readings)
+                    } else if model.automatic?.enabled == true {
+                        Text("No drive recording. Activity evidence is kept separately; waiting for validated engine-running activity.").font(.caption)
+                        if model.automatic?.manualStopOverride == true { Text("Manual Stop override is active. Automatic rearm needs 60 seconds of fresh readings at 0 RPM. Missing readings leave engine state unknown. While parked, turn monitoring off/on to rearm.").font(.caption) }
+                    }
+                    NavigationLink("Saved sessions, incidents and export") { PhysicalHistoryView() }
+                        .disabled(model.automatic?.recording == true)
+                    Button("Export M7 diagnostic bundle") {
+                        Task { if let url = await model.exportAutomationBundle() { share = SessionShareRequest(url: url) } }
+                    }.buttonStyle(.borderless)
+                        .disabled(model.busy || model.exportingDiagnostics || share != nil)
+                        .accessibilityIdentifier("export-m7-diagnostics")
+                    if model.exportingDiagnostics { ProgressView("Preparing diagnostic ZIP…") }
+                    if let error = model.error { Text(error).foregroundStyle(.red).textSelection(.enabled).accessibilityIdentifier("automatic-export-error") }
+                    Text("Export stops monitoring, saves an active healthy drive and preserves failed/interrupted originals. The bundle includes all activity probes, policy/resource logs and connection captures; no repair is performed.").font(.caption)
+                }
+                Section("Optional recording confirmation") {
+                    Text("A quiet confirmation can tell you when an automatic drive has started accepting telemetry. It does not enable recording or background execution. Configure permissions while parked.").font(.caption)
+                    Toggle("Recording confirmations", isOn: $confirmations.enabled)
+                    Button("Allow quiet notifications") { Task { await confirmations.enableWithPermission() } }
+                        .disabled(!parked || model.automatic?.recording == true)
+                    Text("Notification permission: \(confirmations.permission.replacingOccurrences(of: "_", with: " "))").font(.caption)
+                    if confirmations.permission == "denied" {
+                        Button("Open notification settings") {
+                            if let url = URL(string: UIApplication.openSettingsURLString) { UIApplication.shared.open(url) }
+                        }.disabled(!parked || model.automatic?.recording == true)
+                    }
+                }
+                if model.automatic?.enabled != true {
                 Section("Stationary recording") {
                     Toggle("Vehicle is parked", isOn: $parked).disabled(model.live?.active == true)
                     Picker("Operating state", selection: $operatingState) {
@@ -83,11 +133,12 @@ struct TransportDebugView: View {
                     NavigationLink("Saved sessions, incidents and export") { PhysicalHistoryView() }
                         .disabled(model.live?.active == true)
                 }
+                }
                 Section("Developer identity check") {
                     Toggle("Enable adapter firmware read", isOn: $enableIdentity)
                     Text("One firmware identity read per connection. Keep the vehicle parked. This does not verify vehicle communication.").font(.caption)
                     Button("Read adapter identity once") { Task { await model.identify() } }
-                        .disabled(!enableIdentity || model.state != "ready" || model.busy || model.live?.active == true)
+                        .disabled(!enableIdentity || model.state != "ready" || model.busy || model.live?.active == true || model.automatic?.enabled == true)
                 }
                 Section("Raw connection evidence") {
                     Button("Export closed connection capture") {
@@ -106,10 +157,13 @@ struct TransportDebugView: View {
                     if share?.id == request.id { share = nil }
                 }
             }
-            .task { await model.connect(); while !Task.isCancelled { await model.refresh(); try? await Task.sleep(for: .milliseconds(500)) } }
-            .onChange(of: phase) { _, value in
-                Task { await model.lifecycle(value == .active ? "foreground" : value == .background ? "background" : "inactive") }
+            .navigationDestination(item: $confirmations.route) { route in
+                NotificationSessionView(sessionID: route.sessionID, transport: model)
             }
+            .safeAreaInset(edge: .top) {
+                if let banner = confirmations.banner { Text(banner).font(.subheadline).padding().frame(maxWidth: .infinity).background(.thinMaterial).accessibilityIdentifier("automatic-recording-confirmation") }
+            }
+            .task { await model.restoreAutomatic(); await model.connect(); await confirmations.refreshPermission(); while !Task.isCancelled { await model.refresh(); try? await Task.sleep(for: .milliseconds(500)) } }
         }
     }
 }

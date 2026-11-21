@@ -407,3 +407,27 @@ extension TransportTests {
         }
     }
 }
+
+extension TransportTests {
+    func testManualControlsSurviveAutomaticSetupAndProbeCannotBeMarked() async {
+        let executor = TransportExecutor(), directory = DirectoryFixture()
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString).appendingPathComponent("ConnectionCaptures")
+        let transport = MXPlusExternalAccessoryTransport(root: root, executor: executor, directory: directory)
+        await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
+            executor.submit {
+                do {
+                    try transport.restoreAutomatic(profile: StationaryProtocol.can29.rawValue)
+                    try transport.startLive(operatingState: "ignition_on_engine_off", workload: "rpm_only", reference: "Native manual-after-setup regression")
+                    XCTAssertNoThrow(try transport.markLive())
+                    XCTAssertThrowsError(try transport.setAutomatic(true, profile: StationaryProtocol.can29.rawValue))
+                    try transport.stopLive()
+                    try transport.setAutomatic(true, profile: StationaryProtocol.can29.rawValue)
+                    XCTAssertThrowsError(try transport.markLive())
+                    try transport.setAutomatic(false, profile: StationaryProtocol.can29.rawValue)
+                    transport.disconnect()
+                } catch { XCTFail(error.localizedDescription) }
+                continuation.resume()
+            }
+        }
+    }
+}

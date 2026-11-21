@@ -1,10 +1,20 @@
 name: Core and analytics
-on: [push, pull_request]
+on:
+  push:
+    paths-ignore: ['**/*.md']
+  workflow_dispatch:
 permissions:
   contents: read
+concurrency:
+  group: core-${{ github.ref }}
+  cancel-in-progress: true
 jobs:
   test:
     runs-on: ubuntu-latest
+    env:
+      GOCACHE: ${{ github.workspace }}/.cache/go-build
+      GOMODCACHE: ${{ github.workspace }}/.cache/go-mod
+      PIP_CACHE_DIR: ${{ github.workspace }}/.cache/pip
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-go@v5
@@ -14,6 +24,16 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
+      - name: Restore dependency and compiler caches
+        uses: actions/cache@v4
+        with:
+          path: |
+            .cache/go-build
+            .cache/go-mod
+            .cache/pip
+          key: core-v1-${{ runner.os }}-${{ runner.arch }}-py311-${{ hashFiles('core/go.mod', 'core/go.sum', 'analytics/pyproject.toml') }}-${{ hashFiles('core/**/*.go') }}
+          restore-keys: |
+            core-v1-${{ runner.os }}-${{ runner.arch }}-py311-${{ hashFiles('core/go.mod', 'core/go.sum', 'analytics/pyproject.toml') }}-
       - run: ./scripts/bootstrap.sh
       - name: Check Go formatting
         run: test -z "$(gofmt -l core)"

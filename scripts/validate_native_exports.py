@@ -7,10 +7,11 @@ import zipfile
 
 from vehicle_flight_recorder.session import load_session
 from vehicle_flight_recorder.incidents import reconstruct
+from vehicle_flight_recorder.automatic import validate_automatic
 
 root = Path(sys.argv[1])
 archives = sorted((root / 'Exports').glob('*.zip'))
-if len(archives) < 19:
+if len(archives) < 22:
     raise SystemExit('Expected native baseline, zero-sample and diagnostic no-data/recovery ZIP exports')
 expected = {'session.json', 'observations.jsonl', 'events.jsonl', 'incidents.jsonl', 'raw/transport.jsonl'}
 scenarios = set()
@@ -22,6 +23,7 @@ handoff_cases = set()
 can29_cases = set()
 regular_workloads = set()
 regular_cases = set()
+automatic_cases = set()
 for archive in archives:
     destination = root / 'unpacked' / archive.stem
     with zipfile.ZipFile(archive) as source:
@@ -40,7 +42,20 @@ for archive in archives:
     summary = load_session(destination)
     if summary['state'] != 'complete':
         raise SystemExit('Native test export must be finalized')
-    if metadata['schema_version'] == 2 and metadata['live']['workload'] == 'adapter_handoff':
+    if metadata['schema_version'] == 2 and metadata['live'].get('policy_version') == 'rpm-activity-1':
+        report=json.loads((destination/'capability.json').read_text())
+        origin=metadata['live']['start_origin']
+        if origin=='activity_probe':
+            if summary['incident_count'] or set(summary['signal_coverage'])!={'powertrain.engine.rpm'} or any(o['value']!=0 for o in report['observations']):
+                raise SystemExit('Invalid native engine-off probe')
+            automatic_cases.add('engine_off')
+        elif origin=='automatic':
+            if summary['incident_count']!=1 or summary['incidents'][0]['status']!='captured' or summary['events_by_type'].get('automatic_recording_started')!=1:
+                raise SystemExit('Missing automatic full manual window/start fact')
+            reconstruct(destination,summary['incidents'][0]['incident_id'])
+            automatic_cases.add('reconnect' if report['generation']==2 else 'running')
+        else: raise SystemExit('Invalid native automatic origin')
+    elif metadata['schema_version'] == 2 and metadata['live']['workload'] == 'adapter_handoff':
         report=json.loads((destination/'capability.json').read_text())
         if summary['observation_count'] or summary['incident_count'] or report['protocol_profile']!='adapter-state-only' or report['configuration']['selected_protocol']!='unmodified-adapter-state':
             raise SystemExit('Handoff must not claim vehicle acquisition')
@@ -107,7 +122,31 @@ for archive in archives:
         reconstructed.mkdir(exist_ok=True)
         (reconstructed / f'{archive.stem}.json').write_text(json.dumps(reconstruction, indent=2) + '\n')
     results.append(summary)
-if live_count < 17 or regular_workloads != {'combined','rpm_only','coolant_only','voltage_only'} or regular_cases != {'full_reconnect','partial','no_data'} or can29_cases != {'no_data','recovery','timeout'} or handoff_cases != {'retained','unknown','timeout'} or diagnostic_cases != {'no_data','recovery'} or not {'rpm_only', 'coolant_only'} <= zero_workloads or not {'healthy_drive', 'voltage_tcm_dropout'} <= scenarios:
+if automatic_cases != {'running','engine_off','reconnect'} or live_count < 20 or regular_workloads != {'combined','rpm_only','coolant_only','voltage_only'} or regular_cases != {'full_reconnect','partial','no_data'} or can29_cases != {'no_data','recovery','timeout'} or handoff_cases != {'retained','unknown','timeout'} or diagnostic_cases != {'no_data','recovery'} or not {'rpm_only', 'coolant_only'} <= zero_workloads or not {'healthy_drive', 'voltage_tcm_dropout'} <= scenarios:
     raise SystemExit('Native test scenario coverage is incomplete')
 (root / 'python-validation.json').write_text(json.dumps(results, indent=2) + '\n')
 print(f'Validated {len(archives)} native ZIP exports, including ordinary CAN29 full/partial manual, reconnect, individual/no-data and diagnostic/handoff evidence; reconstructed all available incidents')
+
+# Whole diagnostic bundles are independent artifacts, not ordinary six-file ZIPs.
+bundles=sorted((root/'AutomationBundles').glob('*.zip'))
+if len(bundles)<3: raise SystemExit('Expected native running/reconnect/engine-off automation bundles')
+bundle_cases=set();bundle_results=[]
+for archive in bundles:
+    destination=root/'automation-unpacked'/archive.stem
+    with zipfile.ZipFile(archive) as source:
+        names=source.namelist()
+        if len(names)!=len(set(names)) or len(names)>20000 or any(n.startswith('/') or '..' in n.split('/') for n in names) or sum(i.file_size for i in source.infolist())>128*1024*1024 or source.testzip() is not None:
+            raise SystemExit('Invalid native automation archive')
+        source.extractall(destination)
+    result=validate_automatic(destination)
+    if any(d['live']['origin']!='native-fixture' for d in result['drives']+result['probes']): raise SystemExit('Public automation evidence must be explicitly native-fixture')
+    if result['drive_count']==0 and result['confirmation_claim_count']==0:bundle_cases.add('engine_off')
+    elif result['drive_count']==1 and result['confirmation_claim_count']==1:
+        drive=result['drives'][0]
+        reconstruct(destination/'Sessions'/drive['session_id'],drive['incidents'][0]['incident_id'])
+        bundle_cases.add('reconnect' if drive['live']['capability_report']['generation']==2 else 'running')
+    else:raise SystemExit('Unexpected automatic bundle ownership/claims')
+    bundle_results.append(result)
+if bundle_cases!={'engine_off','running','reconnect'}:raise SystemExit('Missing native whole-bundle acceptance cases')
+(root/'automation-validation.json').write_text(json.dumps(bundle_results,indent=2)+'\n')
+print(f'Validated {len(bundles)} complete native automation bundles with drive/probe/journal/claim provenance')

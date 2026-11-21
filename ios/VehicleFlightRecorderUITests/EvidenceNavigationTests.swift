@@ -276,4 +276,92 @@ final class EvidenceNavigationTests: XCTestCase {
         add(screenshot)
     }
 
+    func testAutomaticDriveHistoryKeepsOriginAndManualEvidence() {
+        continueAfterFailure = false
+        let app = XCUIApplication()
+        app.launchArguments = ["--ui-test-automatic"]
+        app.launch()
+        let count = app.staticTexts["automatic-fixture-claims"]
+        XCTAssertTrue(count.waitForExistence(timeout: 45), app.debugDescription)
+        XCTAssertEqual(count.label, "Successful start facts: 1")
+        XCTAssertFalse(app.staticTexts["automatic-fixture-error"].exists)
+        app.buttons["Open automatic drive history"].tap()
+        let row = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH %@", "session-row-")).firstMatch
+        XCTAssertTrue(row.waitForExistence(timeout: 15), app.debugDescription)
+        row.tap()
+        XCTAssertTrue(app.staticTexts["Start, Automatic activity policy"].exists, app.debugDescription)
+        XCTAssertTrue(app.staticTexts["Policy, rpm-activity-1"].exists)
+        let screenshot = XCTAttachment(screenshot: app.screenshot())
+        screenshot.name = "Automatic drive history (native scripted evidence)"
+        screenshot.lifetime = .keepAlways
+        add(screenshot)
+    }
+
+    func testM7DiagnosticShareAfterSynchronizationFailureOpensOnFirstTap() {
+        continueAfterFailure = false
+        let app = XCUIApplication()
+        app.launchArguments = ["--ui-test-automatic-recovery"]
+        app.launch()
+        let export = app.buttons["export-m7-diagnostics"]
+        let list = app.collectionViews.firstMatch
+        for _ in 0..<8 {
+            // XCTest can report a partly clipped bottom row as hittable even
+            // when its default center tap falls on the home indicator.
+            if export.exists && export.isHittable && export.frame.maxY < list.frame.maxY - 40 { break }
+            if list.waitForExistence(timeout: 10) { list.swipeUp() }
+        }
+        XCTAssertTrue(export.isHittable, app.debugDescription)
+        XCTAssertLessThan(export.frame.maxY, list.frame.maxY - 40, app.debugDescription)
+        XCTAssertTrue(export.isEnabled, app.debugDescription)
+        for _ in 0..<2 {
+            export.tap()
+            let sheet = app.otherElements["ActivityListView"]
+            XCTAssertTrue(sheet.waitForExistence(timeout: 15), app.debugDescription)
+            XCTAssertTrue(app.cells.matching(NSPredicate(format: "label == %@", "Save to Files")).firstMatch.waitForExistence(timeout: 15))
+            let shot = XCTAttachment(screenshot: app.screenshot())
+            shot.name = "M7 diagnostic share after real Go synchronization exhaustion (scripted)"
+            shot.lifetime = .keepAlways; add(shot)
+            app.buttons["header.closeButton"].firstMatch.tap()
+            expectation(for: NSPredicate { _, _ in !sheet.exists && export.isHittable && export.isEnabled }, evaluatedWith: app)
+            waitForExpectations(timeout: 10)
+        }
+        XCTAssertFalse(app.staticTexts["automatic-export-error"].exists)
+    }
+
+    func testRestoredParkedValidationSetupRequiresFreshConfirmationOnlyWhenRearming() {
+        continueAfterFailure = false
+        let app = XCUIApplication()
+        app.launchArguments = ["--ui-test-parked-setup"]
+        app.launch()
+        let mode = app.staticTexts["parked-validation-active"]
+        let parked = app.switches["parked-confirmation-toggle"]
+        let monitoring = app.switches["automatic-monitoring-toggle"]
+        XCTAssertTrue(mode.waitForExistence(timeout: 15), app.debugDescription)
+        XCTAssertFalse(parked.exists, "Restored mode must not show an unchecked, disabled parked declaration")
+        func setSwitch(_ row: XCUIElement, to value: String) {
+            // SwiftUI exposes a row-sized accessibility switch plus the real
+            // UISwitch child. A center tap can hit only the text label.
+            let control = row.switches.firstMatch
+            if control.exists { control.tap() }
+            else { row.coordinate(withNormalizedOffset: CGVector(dx: 0.9, dy: 0.5)).tap() }
+            expectation(for: NSPredicate { _, _ in row.value as? String == value }, evaluatedWith: row)
+            waitForExpectations(timeout: 5)
+        }
+        setSwitch(monitoring, to: "0")
+        XCTAssertTrue(parked.waitForExistence(timeout: 5), app.debugDescription)
+        XCTAssertTrue(parked.isEnabled)
+        XCTAssertEqual(parked.value as? String, "0")
+        XCTAssertFalse(monitoring.isEnabled)
+        setSwitch(parked, to: "1")
+        XCTAssertTrue(monitoring.isEnabled)
+        setSwitch(monitoring, to: "1")
+        XCTAssertTrue(mode.waitForExistence(timeout: 5))
+        app.terminate(); app.launch()
+        XCTAssertTrue(mode.waitForExistence(timeout: 15))
+        XCTAssertFalse(parked.exists)
+        let shot = XCTAttachment(screenshot: app.screenshot())
+        shot.name = "Restored parked validation mode with no false parked declaration (scripted)"
+        shot.lifetime = .keepAlways; add(shot)
+    }
+
 }

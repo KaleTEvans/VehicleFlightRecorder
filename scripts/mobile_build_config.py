@@ -55,6 +55,7 @@ def main():
     if args.github_output:
         with args.github_output.open('a') as file:
             file.write('go_version=' + config['MOBILE_GO_VERSION'][2:] + '\n')
+            file.write('xcode_version=' + config['MOBILE_XCODE_VERSION'] + '\n')
     if args.github_env:
         with args.github_env.open('a') as file:
             file.write('DEVELOPER_DIR=/Applications/Xcode_' + config['MOBILE_XCODE_VERSION'] + '.app/Contents/Developer\n')

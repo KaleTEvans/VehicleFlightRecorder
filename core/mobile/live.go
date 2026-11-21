@@ -30,6 +30,8 @@ type liveOptions struct {
 	Workload        string `json:"workload"`
 	ReferenceNote   string `json:"reference_note"`
 	ProtocolProfile string `json:"protocol_profile,omitempty"`
+	StartOrigin     string `json:"start_origin,omitempty"`
+	PolicyVersion   string `json:"policy_version,omitempty"`
 }
 
 // LiveRecorder serializes Go admission/storage. Its caller supplies native
@@ -61,6 +63,18 @@ func NewLiveRecorder(root, options string, wallMS, nativeNS int64) (result *Live
 	if len(config.ReferenceNote) > 512 {
 		return nil, fmt.Errorf("reference note exceeds 512 bytes")
 	}
+	if config.StartOrigin == "" {
+		config.StartOrigin = "manual"
+	}
+	if config.StartOrigin != "manual" && config.StartOrigin != "automatic" && config.StartOrigin != "activity_probe" {
+		return nil, fmt.Errorf("invalid live start origin")
+	}
+	if config.StartOrigin != "manual" && (config.PolicyVersion != "rpm-activity-1" || config.OperatingState != "unknown" || (config.StartOrigin == "automatic" && config.Workload != "combined") || (config.StartOrigin == "activity_probe" && config.Workload != "rpm_only")) {
+		return nil, fmt.Errorf("invalid automatic policy configuration")
+	}
+	if config.StartOrigin == "manual" && config.PolicyVersion != "" {
+		return nil, fmt.Errorf("manual session cannot declare automatic policy")
+	}
 	regular := config.Workload == "combined" || config.Workload == "rpm_only" || config.Workload == "coolant_only" || config.Workload == "voltage_only"
 	if config.ProtocolProfile != "" && (!regular || (config.ProtocolProfile != obd.Profile && config.ProtocolProfile != obd.CAN29Profile)) {
 		return nil, fmt.Errorf("explicit profile requires a regular workload and a supported fixed profile")
@@ -84,11 +98,17 @@ func NewLiveRecorder(root, options string, wallMS, nativeNS int64) (result *Live
 		profile, catalog, protocol, selectedProtocol = "generic-obd-can29-500", obd.CAN29Catalog, obd.CAN29Profile, "ISO15765-4-CAN29-500"
 	}
 	limit := liveLimitNS
+	if config.StartOrigin == "automatic" {
+		limit = 1800 * acquisition.Second
+	}
+	if config.StartOrigin == "activity_probe" {
+		limit = 300 * acquisition.Second
+	}
 	if config.Workload == obd.HandoffWorkload {
 		profile, catalog, protocol, selectedProtocol = obd.HandoffProfile, obd.HandoffCatalog, obd.HandoffProfile, "unmodified-adapter-state"
 		limit = handoffLimitNS
 	}
-	metadata := telemetry.Session{SchemaVersion: 2, SessionID: id, Source: "obd-live", ProfileID: profile, VehiclePackVersion: "none", StartTimeUnixMS: wallMS, State: "recording", Live: &telemetry.LiveMetadata{Origin: config.Origin, OperatingState: config.OperatingState, Workload: config.Workload, NativeAnchorNS: nativeNS, Catalog: catalog, Protocol: protocol, ReportFile: "capability.json", StartOrigin: "manual"}}
+	metadata := telemetry.Session{SchemaVersion: 2, SessionID: id, Source: "obd-live", ProfileID: profile, VehiclePackVersion: "none", StartTimeUnixMS: wallMS, State: "recording", Live: &telemetry.LiveMetadata{Origin: config.Origin, OperatingState: config.OperatingState, Workload: config.Workload, NativeAnchorNS: nativeNS, Catalog: catalog, Protocol: protocol, ReportFile: "capability.json", StartOrigin: config.StartOrigin, PolicyVersion: config.PolicyVersion}}
 	if err = metadata.Validate(); err != nil {
 		return nil, err
 	}
@@ -121,7 +141,17 @@ func NewLiveRecorder(root, options string, wallMS, nativeNS int64) (result *Live
 		specs = nil
 		initialization = obd.HandoffInitializationVersion
 	}
-	engine, err := acquisition.NewLive(wallMS, specs, acquisition.LiveConfiguration{SessionID: id, Origin: config.Origin, OperatingState: config.OperatingState, Workload: config.Workload, NativeAnchorNS: nativeNS, Initialization: initialization, Protocol: selectedProtocol, AppVersion: "0.1.0", BridgeVersion: BridgeVersion(), ReferenceNote: config.ReferenceNote, SensorRefresh: "unknown", EnhancedPack: "none", MaximumDurationNS: limit, MinimumAdmissionNS: acquisition.Second / 2, Connections: []acquisition.Connection{}})
+	engine, err := acquisition.NewLive(wallMS, specs, acquisition.LiveConfiguration{SessionID: id, Origin: config.Origin, OperatingState: config.OperatingState, Workload: config.Workload, NativeAnchorNS: nativeNS, Initialization: initialization, Protocol: selectedProtocol, AppVersion: "0.1.0", BridgeVersion: BridgeVersion(), ReferenceNote: config.ReferenceNote, SensorRefresh: "unknown", EnhancedPack: "none", MaximumDurationNS: limit, MinimumAdmissionNS: acquisition.Second / 2, StartupSyncVersion: func() string {
+		if config.StartOrigin != "manual" {
+			return acquisition.StartupSyncVersion
+		}
+		return ""
+	}(), StartOrigin: func() string {
+		if config.StartOrigin == "manual" {
+			return ""
+		}
+		return config.StartOrigin
+	}(), PolicyVersion: config.PolicyVersion, Connections: []acquisition.Connection{}})
 	if err != nil {
 		return nil, err
 	}
@@ -339,6 +369,12 @@ func (l *LiveRecorder) NextCommand(nativeNS, wallMS int64) (data []byte, err err
 		if l.options.Workload == obd.HandoffWorkload {
 			reason = "handoff_duration_limit"
 		}
+		if l.options.StartOrigin == "automatic" {
+			reason = "controlled_recording_duration_limit"
+		}
+		if l.options.StartOrigin == "activity_probe" {
+			reason = "activity_probe_duration_limit"
+		}
 		if err = l.stop(reason); err != nil {
 			return nil, err
 		}
@@ -364,8 +400,11 @@ func (l *LiveRecorder) NextCommand(nativeNS, wallMS int64) (data []byte, err err
 		if l.options.Workload == obd.HandoffWorkload && !resource {
 			return nil, l.stop("handoff_readback_unavailable")
 		}
-		if resource || l.resyncs > 3 {
-			return nil, l.fail(fmt.Errorf("live acquisition stopped: evidence or resynchronization budget exhausted"))
+		if resource {
+			return nil, l.fail(fmt.Errorf("acquisition evidence budget exhausted; originals preserved"))
+		}
+		if l.resyncs > 3 {
+			return nil, l.fail(fmt.Errorf("adapter synchronization retries exhausted; originals preserved"))
 		}
 		l.reconnectNeeded = true
 		l.failure = "Fresh connection required after acquisition synchronization failure"
@@ -475,6 +514,9 @@ func (l *LiveRecorder) NativeEvent(generation, nativeNS int64, kind, detail stri
 			return nil
 		}
 		l.ready = true
+		if err = l.scheduler.BeginStartup(l.elapsed); err != nil {
+			return l.fail(err)
+		}
 		return l.event("transport_connected", "info", map[string]any{"generation": generation, "scope": "adapter_streams_only", "initialization": "pending"})
 	case "error":
 		return l.event("native_transport_error", "warning", map[string]any{"generation": generation, "detail": detail})
@@ -523,7 +565,14 @@ func (l *LiveRecorder) stop(reason string) error {
 	if err := l.checkpoint(); err != nil {
 		return l.fail(err)
 	}
-	if err := l.event("stationary_acquisition_ended", "info", map[string]any{"reason": reason}); err != nil {
+	kind := "stationary_acquisition_ended"
+	if l.options.StartOrigin == "automatic" {
+		kind = "automatic_acquisition_ended"
+	}
+	if l.options.StartOrigin == "activity_probe" {
+		kind = "activity_probe_ended"
+	}
+	if err := l.event(kind, "info", map[string]any{"reason": reason}); err != nil {
 		return l.fail(err)
 	}
 	if err := l.core.Stop(l.anchorMS + l.elapsed/1_000_000); err != nil {
@@ -593,6 +642,6 @@ func (l *LiveRecorder) Snapshot() (result string) {
 	}
 	capabilities := l.scheduler.CapabilityRows()
 	session := l.core.Session()
-	b, _ := json.Marshal(map[string]any{"protocol_profile": session.Live.Protocol, "state": state, "workload": l.options.Workload, "session": session, "elapsed_ms": l.elapsed / 1_000_000, "maximum_duration_ms": l.limitNS / 1_000_000, "generation": l.scheduler.Generation(), "readings": readings, "capabilities": capabilities, "initialized": l.scheduler.Initialized(), "discovery": l.scheduler.DiscoverySummary(l.elapsed), "adapter_state": l.scheduler.AdapterStateReadback(), "incidents": l.core.Incidents(), "error": l.failure, "requires_reconnect": l.reconnectNeeded, "start_origin": "manual", "source": "obd-live"})
+	b, _ := json.Marshal(map[string]any{"protocol_profile": session.Live.Protocol, "state": state, "workload": l.options.Workload, "session": session, "elapsed_ms": l.elapsed / 1_000_000, "maximum_duration_ms": l.limitNS / 1_000_000, "generation": l.scheduler.Generation(), "readings": readings, "capabilities": capabilities, "initialized": l.scheduler.Initialized(), "discovery": l.scheduler.DiscoverySummary(l.elapsed), "adapter_state": l.scheduler.AdapterStateReadback(), "incidents": l.core.Incidents(), "error": l.failure, "requires_reconnect": l.reconnectNeeded, "start_origin": l.options.StartOrigin, "source": "obd-live"})
 	return string(b)
 }

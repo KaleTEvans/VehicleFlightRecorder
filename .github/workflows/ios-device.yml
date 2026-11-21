@@ -11,6 +11,22 @@ on:
         description: Upload signed build to App Store Connect for TestFlight processing
         type: boolean
         default: false
+      prepared_run_id:
+        description: Existing signed-build run to verify/upload without rebuilding (blank builds source)
+        type: string
+        default: ''
+      expected_ipa_sha256:
+        description: Approved retained IPA SHA-256, required with prepared_run_id
+        type: string
+        default: ''
+      expected_source_commit:
+        description: Approved exact app source commit, required with prepared_run_id
+        type: string
+        default: ''
+      expected_build:
+        description: Approved retained build number, required with prepared_run_id
+        type: string
+        default: ''
 permissions:
   contents: read
 concurrency:
@@ -18,6 +34,7 @@ concurrency:
   cancel-in-progress: false
 jobs:
   device:
+    if: inputs.prepared_run_id == ''
     runs-on: macos-15
     env:
       MOBILE_BUILD_PROFILE: device
@@ -61,11 +78,31 @@ jobs:
         with:
           go-version: ${{ steps.toolchain.outputs.go_version }}
           cache: false
+      - name: Restore pinned native Go build and module cache
+        id: go_cache
+        uses: actions/cache/restore@v4
+        with:
+          path: |
+            .cache/go-build
+            .cache/go-mod
+          key: native-go-v1-${{ runner.os }}-${{ runner.arch }}-${{ steps.toolchain.outputs.go_version }}-xcode-${{ steps.toolchain.outputs.xcode_version }}-${{ hashFiles('core/go.sum', 'scripts/*toolchain.env', 'scripts/build_go_ios.sh') }}-${{ hashFiles('core/**/*.go', 'core/go.mod') }}
+          restore-keys: |
+            native-go-v1-${{ runner.os }}-${{ runner.arch }}-${{ steps.toolchain.outputs.go_version }}-xcode-${{ steps.toolchain.outputs.xcode_version }}-${{ hashFiles('core/go.sum', 'scripts/*toolchain.env', 'scripts/build_go_ios.sh') }}-
+
       - name: Build pinned framework and project
         run: |
           ./scripts/build_go_ios.sh
           if ! command -v xcodegen >/dev/null; then brew install xcodegen; fi
           ./scripts/generate_xcode_project.sh
+      - name: Save verified Go compiler cache before tests
+        if: steps.go_cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: |
+            .cache/go-build
+            .cache/go-mod
+          key: ${{ steps.go_cache.outputs.cache-primary-key }}
+
       - name: Import signing material into temporary keychain
         env:
           CERT: ${{ secrets.IOS_DISTRIBUTION_P12_BASE64 }}
@@ -132,3 +169,53 @@ jobs:
           if [[ -n "${PROFILE_UUID:-}" ]]; then rm -f "$HOME/Library/MobileDevice/Provisioning Profiles/$PROFILE_UUID.mobileprovision"; fi
           rm -f "$RUNNER_TEMP/distribution.p12" "$RUNNER_TEMP/profile.mobileprovision" "$RUNNER_TEMP/profile.plist" "$RUNNER_TEMP/ExportOptions.plist"
           rm -rf "$RUNNER_TEMP/private_keys"
+
+  prepared-upload:
+    if: inputs.prepared_run_id != ''
+    runs-on: macos-15
+    environment: ios-device
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      actions: read
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - name: Download retained signed payload from this repository
+        uses: actions/download-artifact@v4
+        with:
+          name: VehicleFlightRecorder-signed-iphone
+          path: build/prepared-iphone
+          github-token: ${{ github.token }}
+          repository: ${{ github.repository }}
+          run-id: ${{ inputs.prepared_run_id }}
+      - name: Verify exact approved payload and source
+        id: prepared
+        env:
+          EXPECTED_SHA: ${{ inputs.expected_ipa_sha256 }}
+          EXPECTED_COMMIT: ${{ inputs.expected_source_commit }}
+          EXPECTED_BUILD: ${{ inputs.expected_build }}
+        run: |
+          python3 scripts/verify_prepared_ipa.py build/prepared-iphone \
+            --sha256 "$EXPECTED_SHA" --commit "$EXPECTED_COMMIT" --build "$EXPECTED_BUILD" \
+            --github-output "$GITHUB_OUTPUT"
+      - name: Upload retained IPA to TestFlight after explicit approval
+        if: inputs.upload_testflight
+        env:
+          API_KEY: ${{ secrets.ASC_PRIVATE_KEY_BASE64 }}
+          API_ID: ${{ secrets.ASC_KEY_ID }}
+          API_ISSUER: ${{ secrets.ASC_ISSUER_ID }}
+          PREPARED_IPA: ${{ steps.prepared.outputs.ipa_path }}
+        run: |
+          test -n "$API_KEY" && test -n "$API_ID" && test -n "$API_ISSUER" || { echo 'App Store Connect credentials missing'; exit 1; }
+          umask 077
+          mkdir -p "$RUNNER_TEMP/private_keys"
+          printf '%s' "$API_KEY" | base64 --decode > "$RUNNER_TEMP/private_keys/AuthKey_$API_ID.p8"
+          API_PRIVATE_KEYS_DIR="$RUNNER_TEMP/private_keys" ./scripts/upload_testflight.sh "$PREPARED_IPA"
+      - name: Clean temporary API material
+        if: always()
+        run: rm -rf "$RUNNER_TEMP/private_keys"

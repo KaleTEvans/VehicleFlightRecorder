@@ -280,3 +280,17 @@ func (w *Writer) AppendTransport(row acquisition.Raw) error {
 	w.rawBytes += int64(len(b)) + 1
 	return nil
 }
+
+func (w *Writer) Sync() error {
+	if w.closed || w.failed {
+		return fmt.Errorf("cannot sync closed/failed writer")
+	}
+	var err error
+	for _, f := range w.files {
+		err = errors.Join(err, f.Sync())
+	}
+	if err != nil {
+		w.failed = true
+	}
+	return err
+}

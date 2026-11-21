@@ -11,7 +11,7 @@ vehicle packs. The diagnostic MVP takes priority over the later Driver Companion
 
 ## Current status
 
-**November 10, 2026:** Milestones 0–4 are complete and merged into `master`.
+**November 18, 2026:** Milestones 0–4 are complete and merged into `master`.
 [Milestone 5 is accepted and merged](https://github.com/KaleTEvans/VehicleFlightRecorder/pull/3):
 real MX+ firmware exchange/raw export, flicker correction, lock/unlock and automatic
 replug recovery (about 1–2 seconds after Bluetooth reconnects) passed on the phone.
@@ -25,7 +25,26 @@ IDs plus adapter voltage. Both real incidents reconstruct with raw provenance.
 The [stationary quality report](docs/MILESTONE_6_STATIONARY_ACCEPTANCE.md) records
 measured rates/latencies, the intentional-unplug timeout, recovery/setup delays,
 coverage gaps and Stop-state behavior. Prior diagnostic/reference acceptance is
-retained. No additional M6 car test is requested; M7 has not started.
+retained. No additional M6 car test is requested; M7 implementation is now in progress.
+
+**Milestone 7 is in progress** on `codex/milestone-7-hands-off-recording` / [draft PR #6](https://github.com/KaleTEvans/VehicleFlightRecorder/pull/6).
+The **20.1 parked recovery results** validate automatic start, primary/all-responder
+display, incident feedback, manual Stop suppression, preserved interrupted
+relaunch, same-drive scanner recovery and retrieved diagnostic export. The
+engine-off probe provided only 15.6 s of zero-RPM replies before NO DATA; the
+60 s override-clearance condition was not met, so activity policy is unchanged.
+See the [recovery review](docs/MILESTONE_7_RECOVERY_ACCEPTANCE.md).
+
+Build **0.1.0 (20.1)** remains the delivered TestFlight build. The restored parked
+setup display is corrected in source for the next grouped beta. CI now supports
+validated targeted native selection, protected full acceptance, compiler/download
+caches, one code run per push and Markdown-only skips. Read the
+[development workflow](docs/CI_WORKFLOW.md) and [M7 report](docs/MILESTONE_7.md).
+Reuse the completed recovery block and M6 baseline; no repeat car visit is
+requested for the UI correction. The [remaining parked checklist](planning/milestone_7_remaining_parked_session.md)
+is ready for **20.1**: one 30–40 minute block covering normal end, background/lock,
+notification routing and later scanner availability, with one ZIP/note handoff.
+Road and representative resource acceptance remain on hold. M8 has not started.
 
 Regular Combined, RPM-only, Coolant-only and Adapter-voltage-only now have an
 explicit CAN11/CAN29 protocol choice. The native test-car UI defaults to CAN29
@@ -34,7 +53,7 @@ Actual profile labels appear in status/history. CAN29 regular modes use the test
 addressing/readbacks with ordinary schedules and manual incident windows. This
 is an explicit selection, not automatic vehicle identification or protocol search.
 
-Exact native source `0044c1e5f0ec181e86da8d1deb3de221f33145b5` passed **33 hosted
+M6 baseline native source `0044c1e5f0ec181e86da8d1deb3de221f33145b5` passed **33 hosted
 tests, seven UI tests, both device compile profiles and 19 native ZIP validations**.
 Go/vet/race and 29 script tests passed; the current reader passes **157 Python
 tests**, checks session/report profile consistency, and independently revalidates
@@ -53,7 +72,7 @@ authorized November 10; Appetize remains mock.
 | 4 | Bridge, lifecycle and device/simulator build hardening | Complete and merged; [report](docs/MILESTONE_4.md) |
 | 5 | MX+ byte transport, connection evidence and offline preparation | Complete, accepted and merged; [report](docs/MILESTONE_5.md) |
 | 6 | Adapter initialization, standard OBD and live acquisition | Complete, accepted and merged; [report](docs/MILESTONE_6.md) |
-| 7 | Hands-off road logging, start confirmations and reliability | Planned; [handoff](planning/milestone_7.md) |
+| 7 | Hands-off road logging, start confirmations and reliability | In progress; [report](docs/MILESTONE_7.md) |
 | 8 | Verified Giulia drivetrain signals and incident correlation | Planned; [handoff](planning/milestone_8.md) |
 
 ## What works today

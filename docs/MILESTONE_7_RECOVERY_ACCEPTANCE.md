@@ -78,11 +78,53 @@ already installed 20.1 binary and can travel with the next grouped beta.
 compiler/dependency caching, push-only code CI with Markdown-only exclusion,
 protected publication and cancellation of superseded verification. Local script
 checks and workflow lint precede targeted native validation; final full native
-acceptance follows on the frozen app source. Native results are recorded below
-when complete. No new IPA upload or another car visit is requested here.
+acceptance follows on the frozen app source. Native results are recorded below. No new IPA upload or another car visit is requested here.
 
 Retain these physical passes and the M6 baseline. Remaining M7 work includes
 normal sustained-end qualification where available, deliberately labeled
 background/lock/wake/notification cases, and representative road/resource/battery
 qualification after the applicable release gates. One parked recovery visit
 does not close M7 or start M8.
+
+
+## Verified implementation and CI behavior
+
+Frozen code source: `0f51b2ae2df6b7eb48ed3a129f68cde22bc17330`.
+The application view implementation remains unchanged from `28d3fc5`; the
+follow-up corrects only the switch test interaction and CI evidence/cache handling.
+
+- Local verification: **40 script tests**, workflow lint and Markdown link checks.
+  No Go/activity-policy code changed. Portable CI passes Go tests/vet, **185 Python
+  tests** and the 40 script tests, once for the code push.
+- Focused run [44839886220](https://github.com/KaleTEvans/VehicleFlightRecorder/actions/runs/44839886220)
+  passes the restored parked setup/rearm/relaunch UI case. Its machine-readable
+  record declares `scope=targeted`, exactly the requested case, and
+  `full_acceptance=false`. The five existing model tests also passed in the earlier
+  focused attempt; a row-label tap in its new UI test was corrected to target the
+  actual switch control and verify each changed value.
+- Targeted artifact `14681350205`, SHA-256
+  `c03348c31e0ad195b9ed1193c47592c1c1a21ea3ab4190b6f9c2231d2ae73035`,
+  was downloaded with CRC/digest verification; its restored-mode screenshot was
+  reviewed. Targeted runs skipped device acceptance and preview publication.
+- One final full run [44840987248](https://github.com/KaleTEvans/VehicleFlightRecorder/actions/runs/44840987248)
+  passes **46 hosted tests, 10 UI tests, both SDK profiles, 23 native ZIPs and
+  four automation bundles**. Its record declares full scope and 56 successful
+  cases. Independent local replay of the downloaded exports reconstructs all
+  available incidents.
+- Full artifact `14681118107`, SHA-256
+  `b24e386d398a6e0ce00d506045c4c47dad2677625f6f0c8ea159cf947fd415db`,
+  passed download CRC/digest checks. Evidence is retained under ignored
+  `build/milestone-7/ci-full-0f51b2a/`.
+- Full preview restored the exact pinned Go compiler/module cache saved before
+  the focused UI run. The separate upload-compatible SDK build passed too.
+- Repository run history confirms one portable code run for the frozen code
+  commit, with no duplicate PR test run. Documentation-only follow-up `6ec850d`
+  triggered no code workflow, while the full run continued on its original
+  frozen source. Failed-test screenshots are collected independently of test
+  success for future focused diagnosis.
+
+These workflow changes are available on the M7 branch and recorded in
+[AGENTS.md](../AGENTS.md) for future work. No new signed candidate or Apple upload
+was needed for this source-only correction. The installed TestFlight build
+remains 20.1; include the display fix in the next grouped beta. Physical
+recovery passes are retained; the remaining M7 gates are unchanged.

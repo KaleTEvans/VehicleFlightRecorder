@@ -369,3 +369,34 @@ It reuses prior ordinary/full-incident and M6 baseline results. A persistent
 failure stops dependent cases and moves directly to diagnostic export or Files
 retrieval. The original broad packet/road block remains paused until recovery
 results are reviewed. PR #6 stays draft; M7 remains open and M8 has not started.
+
+
+## 20.1 recovery review and faster CI iteration — November 20, 2026
+
+[The recovery acceptance report](MILESTONE_7_RECOVERY_ACCEPTANCE.md) validates
+all 37 retained M7 captures, including five new drives / 563 observations and
+one preserved incomplete drive. Start/display/marking, manual suppression,
+fresh relaunch, same-drive reconnect and retrieved export pass within the
+observed scope. The engine-off probe provides only 15.636 s of zeros before
+NO DATA, so its 60 s automatic override-clearance condition is unqualified;
+explicit rearm passes and activity policy is unchanged.
+
+The restored parked display is corrected in source without persisting or
+inferring a current parked state. Button styling remains deferred. Local
+40-script/lint checks and targeted UI validation precede the one full native
+run **44840987248**, which passes 46 hosted / 10 UI tests, both SDK profiles,
+23 native ZIPs and four whole automation bundles, replayed locally after verified
+download. Frozen source is `0f51b2ae2df6b7eb48ed3a129f68cde22bc17330`.
+
+[The CI workflow](CI_WORKFLOW.md) now validates focused selectors and executed
+case evidence, retains failed screenshots, saves verified Go caches before UI
+checks, skips Markdown-only pushes, removes duplicate push/PR work and protects
+publication from automatic cancellation. Actual preview cache reuse, one
+portable code run and a real documentation-only skip were verified. Development
+conventions are durable in [AGENTS.md](../AGENTS.md).
+
+No new IPA was prepared/uploaded; installed 20.1 is unchanged. The completed
+recovery packet is retained as a record rather than requested again. Remaining
+M7 lifecycle/notification, normal-end, road and resource/battery qualification
+stay open for a separately consolidated packet; M7 is not closed and M8 has
+not started.

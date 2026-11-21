@@ -11,7 +11,7 @@ For a reported failure:
    full acceptance; see `docs/CI_WORKFLOW.md` for selectors and provenance.
 4. Freeze app changes, then run full native acceptance once. Repeat only for
    new failures, relevant changes or unresolved concerns.
-5. Prepare one final signed candidate after validation. Upload the exact retained
+5. When beta delivery is needed, prepare one final signed candidate after validation. Upload the exact retained
    user-approved IPA; do not rebuild approved bytes for upload.
 
 CI changes, test corrections and app fixes should be locally checked before

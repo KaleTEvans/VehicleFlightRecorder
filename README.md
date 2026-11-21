@@ -28,20 +28,21 @@ coverage gaps and Stop-state behavior. Prior diagnostic/reference acceptance is
 retained. No additional M6 car test is requested; M7 implementation is now in progress.
 
 **Milestone 7 is in progress** on `codex/milestone-7-hands-off-recording` / [draft PR #6](https://github.com/KaleTEvans/VehicleFlightRecorder/pull/6).
-The first 14.1 parked archive validates four automatic drives and a full manual
-incident, but startup/reconnect and diagnostic export failures block acceptance.
-Targeted recovery fixes add bounded startup synchronization, failed-owner export
-and rearm, incident feedback, compact primary readings and better diagnostics.
-**0.1.0 (20.1)** is delivered and confirmed VALID / internal IN_BETA_TESTING
-following the approved unchanged-IPA upload November 20 at **4:39 p.m. CST**.
-Native verification passed: 46 hosted tests, nine UI tests, 23 session ZIPs and
-four automation bundles, also replayed locally.
-See the [physical review](docs/MILESTONE_7_PHYSICAL_REVIEW.md),
-[M7 report](docs/MILESTONE_7.md), [reliability matrix](docs/MILESTONE_7_RELIABILITY.md)
-and [released recovery checklist](planning/milestone_7_recovery_test_session.md).
-One 15–20 minute parked recovery block and one evidence handoff are released.
-Reuse successful M6/M7 baseline results. Road use remains on hold;
-M8 has not started.
+The **20.1 parked recovery results** validate automatic start, primary/all-responder
+display, incident feedback, manual Stop suppression, preserved interrupted
+relaunch, same-drive scanner recovery and retrieved diagnostic export. The
+engine-off probe provided only 15.6 s of zero-RPM replies before NO DATA; the
+60 s override-clearance condition was not met, so activity policy is unchanged.
+See the [recovery review](docs/MILESTONE_7_RECOVERY_ACCEPTANCE.md).
+
+Build **0.1.0 (20.1)** remains the delivered TestFlight build. The restored parked
+setup display is corrected in source for the next grouped beta. CI now supports
+validated targeted native selection, protected full acceptance, compiler/download
+caches, one code run per push and Markdown-only skips. Read the
+[development workflow](docs/CI_WORKFLOW.md) and [M7 report](docs/MILESTONE_7.md).
+Reuse the completed recovery block and M6 baseline; no repeat car visit is
+requested for the UI correction. Broader lifecycle/notification, road and
+resource acceptance remain open. M8 has not started.
 
 Regular Combined, RPM-only, Coolant-only and Adapter-voltage-only now have an
 explicit CAN11/CAN29 protocol choice. The native test-car UI defaults to CAN29

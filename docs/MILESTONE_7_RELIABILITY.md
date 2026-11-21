@@ -1,22 +1,23 @@
 # Milestone 7 reliability and acceptance matrix
 
-November 20, 2026 — first 14.1 parked evidence reviewed. Ordinary automatic
-acquisition and a full manual window validate; startup/reconnect and export
-failures keep M7 open and road use on hold. See the
-[physical review](MILESTONE_7_PHYSICAL_REVIEW.md). Recovery **20.1** passes native
-verification and is delivered VALID / internal IN_BETA_TESTING. One consolidated
-parked recovery follow-up is released; M6 acceptance is retained.
+November 20, 2026 — [20.1 parked recovery results](MILESTONE_7_RECOVERY_ACCEPTANCE.md)
+validate the observed recovery block and retrieved diagnostic ZIP. The 75 s
+engine-off case contained only 15.636 s of zero-RPM replies before NO DATA;
+zero-based clearance is unqualified and current policy is unchanged. The parked
+setup display is corrected in source, with native verification recorded in the
+review. Reuse completed cases and M6 acceptance; broader lifecycle/road/resource
+qualification remains open.
 
 | Case | Implemented behavior / evidence | Physical status |
 | --- | --- | --- |
 | Ready scanner, ignition on / engine off | Separate RPM probe; no drive or success confirmation; Go and independent replay fixtures | User observed pass on 14.1; no scanner-only drive |
-| Stationary engine running | Repeated fresh RPM starts one drive; actual admitted telemetry produces one durable fact | User observed 5–10 s start on 14.1; four drives/claims validate; recovery retest open |
+| Stationary engine running | Repeated fresh RPM starts one drive; actual admitted telemetry produces one durable fact | 20.1 automatic start and validated readings pass; fresh setup delay remains explicit |
 | One responder / missing TCM | Any validated running responder can qualify; no mandatory TCM/dual-ECM assumption; coverage limited | Deterministic policy scope; no physical distinct-module qualification |
 | Brief stop/start | Fresh zero requires 60 s span; brief zero/dropout cannot end drive | User observed recovery after about 15 s stop |
 | Sustained end | One finalization; pending incident becomes partial if post coverage ends | Pending |
-| Brief adapter loss | Retain logical drive within 180 s unknown grace; new generation, setup/support and fresh values | Brief reconnect observed; later startup/reconnect failures remain open |
+| Brief adapter loss | Retain logical drive within 180 s unknown grace; new generation, setup/support and fresh values | 20.1 same-drive generation-two recovery passes; explicit gap 38.715 s |
 | Stale / missing RPM | Unknown rather than zero; bounded grace; recorded gap | Fixtures only |
-| Manual Stop | Save once; persisted override until sustained off or explicit rearm; monitoring continues while armed | Pending |
+| Manual Stop | Save once; persisted override until sustained off or explicit rearm; monitoring continues while armed | 20.1 running suppression/explicit rearm pass; zero-clearance duration not met |
 | Foreground | Process-owned transport and independent owner timer | Pending |
 | Other app foreground, VFR background | Existing external-accessory mode; record observed scene/coverage | Pending; no continuity claim from declarations |
 | Screen lock / unlock | Continuous-clock deadlines; explicit observed scheduling gap | Pending; locked is not automatically suspended |
@@ -25,7 +26,7 @@ parked recovery follow-up is released; M6 acceptance is retained.
 | User force-quit | No promised wake/restart; deliberate relaunch preserves interrupted original and starts distinct drive only when eligible | Pending; unavoidable reopen limitation must remain explicit |
 | Cold launch, adapter already attached | Process-owned restore arms persisted policy; no UI task required | Pending |
 | Adapter becomes available later | Existing accessory observer/backoff plus owner policy | Pending |
-| Relaunch during active recording | Never append/repair/adopt prior live files; journal identifies interrupted ID and boundary | Go fixtures; physical relaunch led to startup failure, recovery open |
+| Relaunch during active recording | Never append/repair/adopt prior live files; journal identifies interrupted ID and boundary | 20.1 preserves one incomplete drive and starts a distinct fresh drive on reopening |
 | Notification authorized / denied / not determined / disabled | Quiet adapter behind fake seam, explicit permission-only setup, no recording gate | Native fake tests in CI; physical notification presentation pending |
 | Notification reconnect / relaunch / failure / uncertain submission | Go durable claim plus native exclusive receipts; no retry after uncertainty | Native/Go tests; physical pending |
 | Tap active / ended / missing session | Original ID only; re-resolve current state; active dashboard or exact saved summary/error | Native route resolver and saved-history UI passed; actual notification taps pending |

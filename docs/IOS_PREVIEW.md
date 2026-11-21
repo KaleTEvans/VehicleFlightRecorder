@@ -1,5 +1,9 @@
 # Current native preview
 
+For focused debugging, use [targeted native selection](CI_WORKFLOW.md). Full
+acceptance is the default; it forbids filters and retains both SDK profiles and
+all export checks. Appetize publication is explicit and full-only.
+
 Milestone 3's Go-backed dashboard and evidence navigation are accepted. Milestone 4
 hardens bridge compatibility/errors/lifecycle, paged history and archive bounds.
 The workflow now creates a device+simulator ARM64 XCFramework from the centralized
@@ -128,7 +132,8 @@ gh run list --workflow ios-preview.yml --repo KaleTEvans/VehicleFlightRecorder
 
 1. Open the repository in GitHub, choose **Actions → iOS Simulator Preview**.
 2. Choose **Run workflow**, select the pushed branch, and choose whether to upload
-   to Appetize. Upload defaults to enabled but is skipped if the token is absent.
+   to Appetize. Upload defaults to disabled; explicitly enable it for a full run
+   when a browser preview is needed. Targeted runs never publish a preview.
 3. Open the run. The log reports `xcode-select -p`, Xcode version, installed SDKs,
    runner architecture, and XcodeGen version. The runner supplies Xcode; Homebrew
    installs XcodeGen only if it is missing. We do not select an unverified Xcode path.

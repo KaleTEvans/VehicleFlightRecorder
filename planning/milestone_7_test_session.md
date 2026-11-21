@@ -1,12 +1,13 @@
 # Milestone 7 — consolidated physical acceptance
 
-**November 20 recovery release: 20.1 is VALID / internal IN_BETA_TESTING.**
-The original 14.1 packet remains paused after startup/reconnect and export
-failures. Use the [released targeted recovery checklist](milestone_7_recovery_test_session.md)
-for one 15–20 minute parked block and one ZIP/note handoff. Reuse passed
-observations; the broader packet and road use remain on hold pending recovery
-review. See the [physical review](../docs/MILESTONE_7_PHYSICAL_REVIEW.md).
-The earlier 14.1 release instructions below are historical.
+**November 20 update: 20.1 parked recovery review is complete.**
+See the [recovery acceptance report](../docs/MILESTONE_7_RECOVERY_ACCEPTANCE.md).
+Reuse passed start/mark/override/relaunch/reconnect/export cases and the M6
+baseline. The zero-RPM duration condition was not met; explicit rearm works.
+The parked setup display is corrected in source. No repeat car visit is
+requested for this UI fix. Broader lifecycle/notification, normal end, road and
+resource qualification stay open and require one consolidated future packet.
+The older release instructions below remain historical, not a request to retest.
 
 Original release: November 18, 2026 — superseded by the November 20 hold above.
 Install **Vehicle Flight Recorder 0.1.0 (14.1)** from internal TestFlight.

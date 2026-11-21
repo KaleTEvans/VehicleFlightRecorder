@@ -1,14 +1,17 @@
 # Milestone 7 — hands-off recording and controlled-road qualification
 
-Status: IN PROGRESS — **14.1 parked results reviewed November 20, 2026**.
-Ordinary automatic acquisition and a full manual incident window validate, but
-startup/reconnect and diagnostic export failures block physical acceptance.
-Targeted recovery fixes/native verification passed; **20.1** is delivered and
-VALID / internal IN_BETA_TESTING following explicit approval. See the
-[first physical review](MILESTONE_7_PHYSICAL_REVIEW.md). The 14.1 test packet is
-paused; the separate 20.1 recovery checklist releases one 15–20 minute parked
-block. Road use and broader physical acceptance remain on hold. M6 remains accepted/merged as
-`f793674`. Milestone 8 has not started.
+Status: IN PROGRESS — **20.1 parked recovery review completed November 20, 2026**.
+Observed automatic start, display/marking, manual override, interruption-preserving
+relaunch, scanner recovery and diagnostic retrieval validate within the parked
+scope. [Recovery acceptance](MILESTONE_7_RECOVERY_ACCEPTANCE.md) explains the
+short zero-RPM interval and remaining limits. The parked setup display is corrected
+in source; the installed 20.1 binary is unchanged. CI iteration is documented in
+[the development workflow](CI_WORKFLOW.md).
+
+No repeat recovery car visit is requested. Broader lifecycle/notification, normal
+end and representative road/resource acceptance remain open; road use remains
+on hold. M6 stays accepted/merged as `f793674`; PR #6 stays draft and M8 has not
+started.
 
 ## Workload and activity policy
 

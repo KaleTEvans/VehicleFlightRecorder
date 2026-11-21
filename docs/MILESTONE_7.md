@@ -8,10 +8,12 @@ short zero-RPM interval and remaining limits. The parked setup display is correc
 in source; the installed 20.1 binary is unchanged. CI iteration is documented in
 [the development workflow](CI_WORKFLOW.md).
 
-No repeat recovery car visit is requested. Broader lifecycle/notification, normal
-end and representative road/resource acceptance remain open; road use remains
-on hold. M6 stays accepted/merged as `f793674`; PR #6 stays draft and M8 has not
-started.
+No repeat recovery car visit is requested. The [remaining parked checklist](../planning/milestone_7_remaining_parked_session.md)
+is ready on **20.1** for one 30–40 minute block, one ZIP and one results note.
+It covers automatic end, background/lock, actual confirmation taps, later scanner
+availability and completed-Stop persistence. Road/representative resource use stays
+on hold pending review. M6 stays accepted/merged as `f793674`; PR #6 stays draft
+and M8 has not started.
 
 ## Workload and activity policy
 

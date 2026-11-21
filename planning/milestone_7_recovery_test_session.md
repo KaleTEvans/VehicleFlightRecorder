@@ -6,7 +6,8 @@ records validated originals and passed observed cases. R6 did not supply 60 s
 of fresh zeros; preserving its override matches policy, and explicit rearm passed.
 The parked setup display issue is fixed in source and needs no separate car visit.
 The following actions are retained as the completed test record. Remaining M7
-qualification will use a separately consolidated packet; road use stays on hold.
+qualification now uses the [remaining parked checklist](milestone_7_remaining_parked_session.md)
+on **20.1**. This completed recovery record must not be rerun; road use stays on hold.
 
 Delivered build **0.1.0 (20.1)** remains VALID / internal IN_BETA_TESTING.
 [Upload run 44830599129](https://github.com/KaleTEvans/VehicleFlightRecorder/actions/runs/44830599129)

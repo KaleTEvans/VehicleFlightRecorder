@@ -8,6 +8,11 @@ setup display is corrected in source, with native verification recorded in the
 review. Reuse completed cases and M6 acceptance; broader lifecycle/road/resource
 qualification remains open.
 
+Next runnable block: [remaining parked tests on 20.1](../planning/milestone_7_remaining_parked_session.md),
+30–40 minutes with one ZIP/results handoff. The original full packet is historical;
+do not repeat accepted recovery cases. These newly scheduled cases remain pending
+until their physical evidence is reviewed.
+
 | Case | Implemented behavior / evidence | Physical status |
 | --- | --- | --- |
 | Ready scanner, ignition on / engine off | Separate RPM probe; no drive or success confirmation; Go and independent replay fixtures | User observed pass on 14.1; no scanner-only drive |
@@ -50,7 +55,7 @@ normal logs and actual retrieved bytes are required before M7 can close.
 
 ## Result collection
 
-Use the [consolidated packet](../planning/milestone_7_test_session.md). Record actual
+Use the [remaining parked checklist](../planning/milestone_7_remaining_parked_session.md). Record actual
 build, device/OS, adapter firmware, configuration, planned/actual durations,
 foreground/locked time, charging/battery/temperature context, visible warnings,
 notification observations, required recovery and original bundle checksum.

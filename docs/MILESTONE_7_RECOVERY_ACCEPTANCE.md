@@ -128,3 +128,13 @@ These workflow changes are available on the M7 branch and recorded in
 was needed for this source-only correction. The installed TestFlight build
 remains 20.1; include the display fix in the next grouped beta. Physical
 recovery passes are retained; the remaining M7 gates are unchanged.
+
+## Next parked checklist prepared — November 20, 2026
+
+At the owner's request, the [remaining parked checklist](../planning/milestone_7_remaining_parked_session.md)
+is ready for the existing **20.1** build. It groups automatic ending, background
+and locked starts/coverage, active/ended notification taps, later scanner
+availability, disabled confirmations and completed-Stop persistence into one
+30–40 minute visit and one ZIP/note handoff. No new IPA, repeat recovery block or
+separate UI car test is needed. New observations remain pending; road use and
+representative resource qualification stay on hold until parked review.

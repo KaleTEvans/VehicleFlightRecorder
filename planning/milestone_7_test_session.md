@@ -5,8 +5,9 @@ See the [recovery acceptance report](../docs/MILESTONE_7_RECOVERY_ACCEPTANCE.md)
 Reuse passed start/mark/override/relaunch/reconnect/export cases and the M6
 baseline. The zero-RPM duration condition was not met; explicit rearm works.
 The parked setup display is corrected in source. No repeat car visit is
-requested for this UI fix. Broader lifecycle/notification, normal end, road and
-resource qualification stay open and require one consolidated future packet.
+requested for this UI fix. Use the [remaining parked checklist](milestone_7_remaining_parked_session.md)
+on **20.1** for the next visit. It reuses completed cases and covers remaining
+normal end, lifecycle and notification observations; road use stays on hold.
 The older release instructions below remain historical, not a request to retest.
 
 Original release: November 18, 2026 — superseded by the November 20 hold above.

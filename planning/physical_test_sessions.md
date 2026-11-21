@@ -75,7 +75,7 @@ OS termination and force-quit; an unreproduced condition remains untested.
 | --- | --- | --- |
 | 5 | Already accepted; reuse its identity/transport evidence | No new M5 car visit to adopt this workflow; M6 rechecks recovery with actual polling |
 | 6 | Complete and accepted November 10; grouped individual, Combined, manual incident and reconnect checks passed on build 13.1 | [Passed final packet](milestone_6_final_session.md) and [quality report](../docs/MILESTONE_6_STATIONARY_ACCEPTANCE.md); no additional M6 visit |
-| 7 | One consolidated parked policy/notification/lifecycle block; after analysis, a controlled-road block; representative repeated/long drives grouped into normal use where suitable | M6 accepted first; stationary results qualify the road workload. Durations/budgets must be set before release from actual evidence |
+| 7 | Recovery accepted on 20.1; [remaining parked block](milestone_7_remaining_parked_session.md) ready on the same build, 30–40 minutes and one ZIP/note; controlled road follows reviewed results | Reuse M6/recovery passes. Remaining lifecycle/end/notification results and measured budgets gate road release; repeated/long drives follow separately |
 | 8 | One parked block for the complete agreed, verified enhanced scope and references; after analysis, one planned combined-road block plus necessary targeted follow-up | M7 accepted first; new enhanced reads require stationary qualification before road use |
 
 M7/M8 entries are planning structure, not runnable test instructions or permission

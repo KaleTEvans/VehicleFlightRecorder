@@ -41,8 +41,10 @@ validated targeted native selection, protected full acceptance, compiler/downloa
 caches, one code run per push and Markdown-only skips. Read the
 [development workflow](docs/CI_WORKFLOW.md) and [M7 report](docs/MILESTONE_7.md).
 Reuse the completed recovery block and M6 baseline; no repeat car visit is
-requested for the UI correction. Broader lifecycle/notification, road and
-resource acceptance remain open. M8 has not started.
+requested for the UI correction. The [remaining parked checklist](planning/milestone_7_remaining_parked_session.md)
+is ready for **20.1**: one 30–40 minute block covering normal end, background/lock,
+notification routing and later scanner availability, with one ZIP/note handoff.
+Road and representative resource acceptance remain on hold. M8 has not started.
 
 Regular Combined, RPM-only, Coolant-only and Adapter-voltage-only now have an
 explicit CAN11/CAN29 protocol choice. The native test-car UI defaults to CAN29

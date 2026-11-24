@@ -38,12 +38,12 @@ func TestActivityPolicyBoundaries(t *testing.T) {
 	if d := step(40, sample("rpm-new", 40, 950, 2), true); d.Action != "" || !p.Recording {
 		t.Fatal("reconnect duplicated drive", d)
 	}
-	for s := int64(45); s <= 105; s += 5 {
+	for s := int64(45); s <= 55; s += 5 {
 		d := step(s, sample(string(rune(s)), s, 0, 2), true)
-		if s < 105 && d.Action != "" {
+		if s < 55 && d.Action != "" {
 			t.Fatal(d)
 		}
-		if s == 105 && d.Action != "end" {
+		if s == 55 && d.Action != "end" {
 			t.Fatal(d)
 		}
 	}
@@ -56,7 +56,7 @@ func TestStaleZeroUnknownAndManualOverride(t *testing.T) {
 	if d.Action != "" || d.State != "degraded_gap" {
 		t.Fatal("stale zero treated as end", d)
 	}
-	d, _ = p.Step(240*Second, nil, false)
+	d, _ = p.Step(120*Second, nil, false)
 	if d.Action != "end" {
 		t.Fatal(d)
 	}
@@ -67,11 +67,11 @@ func TestStaleZeroUnknownAndManualOverride(t *testing.T) {
 			t.Fatal(d)
 		}
 	}
-	for s := int64(251); s <= 311; s += 5 {
-		_, _ = p.Step(s*Second, sample("z", s, 0, 2), true)
+	for s := int64(251); s <= 261; s += 5 {
+		_, _ = p.Step(s*Second, sample(string(rune(s)), s, 0, 2), true)
 	}
 	if p.Suppressed {
-		t.Fatal("sustained off must rearm")
+		t.Fatal("three distinct zero replies must clear the legacy override")
 	}
 	if _, err := p.Step(0, nil, true); err == nil {
 		t.Fatal("clock regression accepted")

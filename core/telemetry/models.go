@@ -20,6 +20,7 @@ type LiveMetadata struct {
 	Protocol       string `json:"protocol_profile"`
 	ReportFile     string `json:"report_file"`
 	StartOrigin    string `json:"start_origin"`
+	ResumedFrom    string `json:"resumed_from_session_id,omitempty"`
 	PolicyVersion  string `json:"policy_version,omitempty"`
 }
 type Provenance struct {
@@ -276,6 +277,12 @@ func (s Session) Validate() error {
 		if s.Live == nil || s.Mock != nil || s.Source != "obd-live" || s.VehiclePackVersion != "none" || s.Live.ReportFile != "capability.json" || s.Live.NativeAnchorNS < 0 {
 			return fmt.Errorf("invalid live session contract")
 		}
+		if parent := s.Live.ResumedFrom; parent != "" {
+			if s.Live.StartOrigin != "automatic" || parent == s.SessionID || len(parent) != 37 || !strings.HasPrefix(parent, "live-") || strings.Trim(parent[5:], "0123456789abcdef") != "" {
+				return fmt.Errorf("invalid resumed drive identity")
+			}
+		}
+
 		if s.Live.StartOrigin != "manual" && s.Live.StartOrigin != "automatic" && s.Live.StartOrigin != "activity_probe" {
 			return fmt.Errorf("invalid live start origin")
 		}

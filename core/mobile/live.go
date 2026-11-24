@@ -31,6 +31,7 @@ type liveOptions struct {
 	ReferenceNote   string `json:"reference_note"`
 	ProtocolProfile string `json:"protocol_profile,omitempty"`
 	StartOrigin     string `json:"start_origin,omitempty"`
+	ResumedFrom     string `json:"resumed_from_session_id,omitempty"`
 	PolicyVersion   string `json:"policy_version,omitempty"`
 }
 
@@ -45,6 +46,7 @@ type LiveRecorder struct {
 	path                                                     string
 	limitNS, baseNS, anchorMS, elapsed, lastOffset, lastTick int64
 	pending                                                  []byte
+	rpmRecovery                                              bool
 	observationCursor, marks, resyncs                        int
 	connected, ready, connectedOnce, reconnectNeeded, failed bool
 	failure                                                  string
@@ -108,7 +110,7 @@ func NewLiveRecorder(root, options string, wallMS, nativeNS int64) (result *Live
 		profile, catalog, protocol, selectedProtocol = obd.HandoffProfile, obd.HandoffCatalog, obd.HandoffProfile, "unmodified-adapter-state"
 		limit = handoffLimitNS
 	}
-	metadata := telemetry.Session{SchemaVersion: 2, SessionID: id, Source: "obd-live", ProfileID: profile, VehiclePackVersion: "none", StartTimeUnixMS: wallMS, State: "recording", Live: &telemetry.LiveMetadata{Origin: config.Origin, OperatingState: config.OperatingState, Workload: config.Workload, NativeAnchorNS: nativeNS, Catalog: catalog, Protocol: protocol, ReportFile: "capability.json", StartOrigin: config.StartOrigin, PolicyVersion: config.PolicyVersion}}
+	metadata := telemetry.Session{SchemaVersion: 2, SessionID: id, Source: "obd-live", ProfileID: profile, VehiclePackVersion: "none", StartTimeUnixMS: wallMS, State: "recording", Live: &telemetry.LiveMetadata{Origin: config.Origin, OperatingState: config.OperatingState, Workload: config.Workload, NativeAnchorNS: nativeNS, Catalog: catalog, Protocol: protocol, ReportFile: "capability.json", StartOrigin: config.StartOrigin, PolicyVersion: config.PolicyVersion, ResumedFrom: config.ResumedFrom}}
 	if err = metadata.Validate(); err != nil {
 		return nil, err
 	}
@@ -383,7 +385,11 @@ func (l *LiveRecorder) NextCommand(nativeNS, wallMS int64) (data []byte, err err
 	if !l.connected || !l.ready {
 		return nil, nil
 	}
-	work, pollErr := l.scheduler.Poll(now)
+	poll := l.scheduler.Poll
+	if l.rpmRecovery {
+		poll = l.scheduler.PollRPMRecovery
+	}
+	work, pollErr := poll(now)
 	if l.scheduler.State() == "blocked" {
 		l.pending = nil
 		l.resyncs++
@@ -580,7 +586,10 @@ func (l *LiveRecorder) stop(reason string) error {
 	}
 	return nil
 }
-func (l *LiveRecorder) Stop(nativeNS int64) (err error) {
+func (l *LiveRecorder) Stop(nativeNS int64) error {
+	return l.stopAt(nativeNS, "manual")
+}
+func (l *LiveRecorder) stopAt(nativeNS int64, reason string) (err error) {
 	l.mu.Lock()
 	defer l.mu.Unlock()
 	defer wrapFailure("LiveStop", &err)
@@ -593,7 +602,7 @@ func (l *LiveRecorder) Stop(nativeNS int64) (err error) {
 	if _, err = l.clock(nativeNS); err != nil {
 		return err
 	}
-	return l.stop("manual")
+	return l.stop(reason)
 }
 func (l *LiveRecorder) Path() string { return l.path }
 func (l *LiveRecorder) RequiresReconnect() bool {

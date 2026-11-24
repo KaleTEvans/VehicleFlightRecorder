@@ -52,6 +52,9 @@ func run() error {
 			return e
 		}
 		l := a.Live()
+		if l == nil {
+			continue
+		}
 		if l != old {
 			generation, e = l.Connected(metadata, base+now)
 			if e != nil {

@@ -8,6 +8,7 @@ import Darwin
     func authorization() async -> String
     func requestAuthorization() async throws -> Bool
     func submit(_ fact: AutomaticStartFact) async throws
+    func submitCompletion(_ fact: AutomaticEndFact) async throws
 }
 @MainActor final class SystemRecordingNotifications: RecordingNotificationAdapter {
     func authorization() async -> String {
@@ -29,6 +30,14 @@ import Darwin
         let request = UNNotificationRequest(identifier: "vfr.start.\(fact.sessionId)", content: content, trigger: nil)
         try await UNUserNotificationCenter.current().add(request)
     }
+    func submitCompletion(_ fact: AutomaticEndFact) async throws {
+        let content = UNMutableNotificationContent()
+        content.title = "Drive saved"
+        content.body = "\(fact.reason.title) · Open to review or resume recording"
+        content.userInfo = ["session_id": fact.sessionId]
+        let request = UNNotificationRequest(identifier: "vfr.end.\(fact.sessionId)", content: content, trigger: nil)
+        try await UNUserNotificationCenter.current().add(request)
+    }
 }
 protocol ConfirmationReceipts {
     // True means exclusively/durably claimed. A partial/crashed claim is consumed.
@@ -38,7 +47,7 @@ final class FileConfirmationReceipts: ConfirmationReceipts {
     let directory: URL
     init(directory: URL) { self.directory = directory }
     func claim(_ session: String, stage: String) throws -> Bool {
-        guard Self.validID(session), ["selected", "foreground"].contains(stage) else { throw VehicleTransportError.failed("Invalid confirmation receipt identity") }
+        guard Self.validID(session), ["selected", "foreground", "completed", "completion-foreground"].contains(stage) else { throw VehicleTransportError.failed("Invalid confirmation receipt identity") }
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
         let url = directory.appendingPathComponent("\(session).\(stage)")
         let descriptor = open(url.path, O_CREAT | O_EXCL | O_WRONLY, S_IRUSR | S_IWUSR)
@@ -60,7 +69,9 @@ struct RecordingRoute: Identifiable, Hashable { let id = UUID(); let sessionID: 
 // claims selection before any API call; uncertainty means no retry, never a stop.
 @MainActor final class RecordingConfirmation: NSObject, ObservableObject, UNUserNotificationCenterDelegate {
     static let shared = RecordingConfirmation()
-    @Published var banner: String?
+    @Published private(set) var banner: String?
+    @Published private(set) var bannerSessionID: String?
+    private var bannerTimer: Task<Void, Never>?
     @Published var route: RecordingRoute?
     @Published var permission = "not_determined"
     @Published var enabled: Bool { didSet { preferences.set(enabled, forKey: "recordingConfirmationsEnabled") } }
@@ -104,14 +115,41 @@ struct RecordingRoute: Identifiable, Hashable { let id = UUID(); let sessionID: 
             } else { onEvent("suppressed_\(permission): \(fact.sessionId)") }
         } catch { onEvent("receipt_failed_no_retry: \(fact.sessionId): \(error.localizedDescription)") }
     }
+    func consumeCompletion(_ fact: AutomaticEndFact) async {
+        guard FileConfirmationReceipts.validID(fact.sessionId) else { return }
+        do {
+            guard try receipts.claim(fact.sessionId, stage: "completed") else { return }
+            if isForeground() {
+                try presentCompletion(fact.sessionId, message: "Drive saved · \(fact.reason.title)")
+            } else {
+                permission = await adapter.authorization()
+                if permission == "authorized" {
+                    try await adapter.submitCompletion(fact)
+                    onEvent("completion_submitted: \(fact.sessionId)")
+                } else { onEvent("completion_suppressed_\(permission): \(fact.sessionId)") }
+            }
+        } catch { onEvent("completion_failed_no_retry: \(fact.sessionId): \(error.localizedDescription)") }
+    }
+    private func presentCompletion(_ session: String, message: String) throws {
+        guard try receipts.claim(session, stage: "completion-foreground") else { return }
+        showBanner(message, session: session)
+        onEvent("completion_in_app_requested: \(session)")
+    }
+    private func showBanner(_ message: String, session: String? = nil) {
+        bannerTimer?.cancel()
+        bannerSessionID = session
+        banner = message
+        bannerTimer = Task { [weak self] in
+            do { try await Task.sleep(for: .seconds(5)) } catch { return }
+            self?.banner = nil
+            self?.bannerSessionID = nil
+        }
+    }
     private func presentInApp(session: String, name: String) throws {
         guard enabled, try receipts.claim(session, stage: "foreground") else { return }
         let message = "Drive recording started · \(name) · Limited standard OBD coverage"
-        banner = message; onEvent("in_app_requested: \(session)")
-        Task { [weak self] in
-            try? await Task.sleep(for: .seconds(5))
-            if self?.banner == message { self?.banner = nil }
-        }
+        showBanner(message)
+        onEvent("in_app_requested: \(session)")
     }
     nonisolated func userNotificationCenter(_ center: UNUserNotificationCenter, willPresent notification: UNNotification, withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void) {
         // If a background request reaches a now-visible app, use just the in-app
@@ -119,7 +157,14 @@ struct RecordingRoute: Identifiable, Hashable { let id = UUID(); let sessionID: 
         let id = notification.request.content.userInfo["session_id"] as? String
         let name = notification.request.content.userInfo["vehicle_name"] as? String ?? "Vehicle"
         let own = notification.request.identifier.hasPrefix("vfr.start.")
+        let body = notification.request.content.body
         completionHandler([])
+        if let id, FileConfirmationReceipts.validID(id), notification.request.identifier == "vfr.end.\(id)" {
+            Task { @MainActor [weak self] in
+                do { try self?.presentCompletion(id, message: "Drive saved · \(body)") }
+                catch { self?.onEvent("completion_foreground_failed_no_retry: \(id)") }
+            }
+        }
         if own, let id, FileConfirmationReceipts.validID(id), notification.request.identifier == "vfr.start.\(id)" {
             Task { @MainActor [weak self] in
                 guard let self, await self.isSessionActive(id) else { return }
@@ -130,13 +175,39 @@ struct RecordingRoute: Identifiable, Hashable { let id = UUID(); let sessionID: 
     }
     nonisolated func userNotificationCenter(_ center: UNUserNotificationCenter, didReceive response: UNNotificationResponse, withCompletionHandler completionHandler: @escaping () -> Void) {
         let id = response.notification.request.content.userInfo["session_id"] as? String
-        let own = response.notification.request.identifier.hasPrefix("vfr.start.")
+        let identifier = response.notification.request.identifier
         Task { @MainActor [weak self] in
-            if own, let id, FileConfirmationReceipts.validID(id), response.notification.request.identifier == "vfr.start.\(id)" {
+            if let id, FileConfirmationReceipts.validID(id), ["vfr.start.\(id)", "vfr.end.\(id)"].contains(identifier) {
                 self?.route = RecordingRoute(sessionID: id)
                 self?.onEvent("tap_route_requested: \(id)")
             }
             completionHandler()
+        }
+    }
+}
+
+// Attach outside the navigation stack so pushed screens share the same banner.
+struct RecordingBannerOverlay: ViewModifier {
+    @ObservedObject var confirmations: RecordingConfirmation
+    func body(content: Content) -> some View {
+        content.overlay(alignment: .top) {
+            if let banner = confirmations.banner {
+                Group {
+                    if let session = confirmations.bannerSessionID {
+                        Button {
+                            confirmations.route = RecordingRoute(sessionID: session)
+                        } label: {
+                            Text(banner).frame(maxWidth: .infinity)
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityHint("Opens the saved drive")
+                    } else {
+                        Text(banner).frame(maxWidth: .infinity)
+                    }
+                }
+                .font(.subheadline).padding().background(.regularMaterial)
+                .accessibilityIdentifier("automatic-recording-confirmation")
+            }
         }
     }
 }

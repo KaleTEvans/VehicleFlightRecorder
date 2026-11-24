@@ -12,12 +12,12 @@ type Configuration struct {
 	RunningRPM      float64 `json:"running_rpm"`
 	FreshNS         int64   `json:"fresh_ns"`
 	StartDebounceNS int64   `json:"start_debounce_ns"`
-	EndGraceNS      int64   `json:"end_grace_ns"`
+	ZeroReplies     int     `json:"zero_replies"`
 	UnknownGraceNS  int64   `json:"unknown_grace_ns"`
 }
 
 func Default() Configuration {
-	return Configuration{Version, 400, 10 * Second, 4 * Second, 60 * Second, 180 * Second}
+	return Configuration{Version, 400, 10 * Second, 4 * Second, 3, 60 * Second}
 }
 
 type Evidence struct {
@@ -29,22 +29,23 @@ type Evidence struct {
 }
 type Decision struct{ State, Action, Reason string }
 type Policy struct {
-	previousReceive                   int64
-	Config                            Configuration
-	Recording, Suppressed             bool
-	state, transaction                string
-	candidate, zero, unknown, lastNow int64
-	generation, positives             int
+	previousReceive              int64
+	Config                       Configuration
+	Recording, Suppressed        bool
+	state, transaction           string
+	candidate, unknown, lastNow  int64
+	generation, positives, zeros int
+	gapReason                    string
 }
 
 func New(suppressed bool) *Policy {
-	return &Policy{Config: Default(), Suppressed: suppressed, candidate: -1, zero: -1, unknown: -1, lastNow: -1, previousReceive: -1}
+	return &Policy{Config: Default(), Suppressed: suppressed, candidate: -1, unknown: -1, lastNow: -1, previousReceive: -1}
 }
 func (p *Policy) ManualStop() {
 	p.Recording = false
 	p.Suppressed = true
 	p.candidate = -1
-	p.zero = -1
+	p.zeros = 0
 	p.unknown = -1
 	p.positives = 0
 }
@@ -57,7 +58,11 @@ func (p *Policy) Step(now int64, e *Evidence, connected bool) (Decision, error) 
 	if previousTick >= 0 && now-previousTick > p.Config.FreshNS {
 		p.candidate = -1
 		p.positives = 0
-		p.zero = -1
+		p.zeros = 0
+	}
+	if p.Recording && p.unknown >= 0 && now-p.unknown >= p.Config.UnknownGraceNS {
+		p.Recording = false
+		return Decision{"finalized", "end", p.gapReason}, nil
 	}
 	if p.Recording && previousTick >= 0 && now-previousTick > p.Config.UnknownGraceNS {
 		p.Recording = false
@@ -69,14 +74,14 @@ func (p *Policy) Step(now int64, e *Evidence, connected bool) (Decision, error) 
 		p.transaction = ""
 		p.candidate = -1
 		p.positives = 0
-		p.zero = -1
+		p.zeros = 0
 	}
 	distinct := fresh && e.Transaction != p.transaction
 	if distinct {
 		if p.previousReceive >= 0 && e.ReceiveNS-p.previousReceive > p.Config.FreshNS {
 			p.candidate = -1
 			p.positives = 0
-			p.zero = -1
+			p.zeros = 0
 		}
 		p.previousReceive = e.ReceiveNS
 		p.transaction = e.Transaction
@@ -85,24 +90,23 @@ func (p *Policy) Step(now int64, e *Evidence, connected bool) (Decision, error) 
 	if !fresh {
 		p.candidate = -1
 		p.positives = 0
-		p.zero = -1
+		p.zeros = 0
 		if p.Recording {
 			if p.unknown < 0 {
 				p.unknown = now
+				p.gapReason = "rpm_unavailable"
+				if !connected {
+					p.gapReason = "scanner_disconnected"
+				}
 			}
-			d.State = "degraded_gap"
-			d.Reason = "activity_missing_or_stale"
-			if now-p.unknown >= p.Config.UnknownGraceNS {
-				p.Recording = false
-				d = Decision{"finalized", "end", "activity_unknown_grace_expired"}
-			}
+			d = Decision{"degraded_gap", "", p.gapReason}
 		}
-	} else if e.MaximumRPM >= p.Config.RunningRPM {
+	} else if e.MaximumRPM > 0 {
 		p.unknown = -1
-		p.zero = -1
+		p.zeros = 0
 		if p.Recording {
 			d = Decision{"recording", "", "validated_running"}
-		} else if !p.Suppressed {
+		} else if !p.Suppressed && e.MaximumRPM >= p.Config.RunningRPM {
 			if distinct {
 				if p.candidate < 0 {
 					p.candidate = e.ReceiveNS
@@ -116,39 +120,27 @@ func (p *Policy) Step(now int64, e *Evidence, connected bool) (Decision, error) 
 				d = Decision{"starting", "start", "fresh_repeated_rpm"}
 			}
 		}
-	} else if e.MaximumRPM == 0 {
+		if e.MaximumRPM < p.Config.RunningRPM {
+			p.candidate = -1
+			p.positives = 0
+		}
+	} else {
 		p.unknown = -1
 		p.candidate = -1
 		p.positives = 0
-		if p.zero < 0 {
-			p.zero = e.ReceiveNS
+		if distinct {
+			p.zeros++
 		}
 		d = Decision{"waiting_for_activity", "", "validated_engine_off"}
 		if p.Recording {
 			d.State = "end_grace"
 		}
-		// A fresh response must actually span the grace: a timer cannot turn an old
-		// last zero into a sustained validated engine-off condition.
-		if e.ReceiveNS-p.zero >= p.Config.EndGraceNS {
+		if p.zeros >= p.Config.ZeroReplies {
 			if p.Recording {
 				p.Recording = false
-				d = Decision{"finalized", "end", "sustained_zero_rpm"}
+				d = Decision{"finalized", "end", "three_zero_rpm_replies"}
 			}
 			p.Suppressed = false
-		}
-	} else {
-		p.candidate = -1
-		p.positives = 0
-		p.zero = -1
-		if p.Recording {
-			if p.unknown < 0 {
-				p.unknown = now
-			}
-			d = Decision{"degraded_gap", "", "rpm_below_running_threshold"}
-			if now-p.unknown >= p.Config.UnknownGraceNS {
-				p.Recording = false
-				d = Decision{"finalized", "end", "activity_unknown_grace_expired"}
-			}
 		}
 	}
 	if p.Suppressed && !p.Recording {

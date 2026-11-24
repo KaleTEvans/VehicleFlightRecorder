@@ -22,7 +22,7 @@ struct NotificationSessionView: View {
                     Button("Stop and save") { Task { await transport.stopLive() } }.disabled(transport.busy)
                 }.navigationTitle("Active drive")
             } else if let row = history.sessions.first(where: { $0.id == sessionID }) {
-                SessionDetailView(row: row, model: history)
+                SessionDetailView(row: row, model: history, resumeTransport: transport)
             } else if lookupComplete {
                 ContentUnavailableView("Session unavailable", systemImage: "exclamationmark.triangle", description: Text(history.error ?? "The original recording could not be found. No new drive was created."))
             } else { ProgressView("Opening recording…") }

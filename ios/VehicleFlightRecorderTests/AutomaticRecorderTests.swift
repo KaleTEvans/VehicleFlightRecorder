@@ -25,6 +25,19 @@ final class AutomaticRecorderTests: XCTestCase {
             try await history.close()
         }
     }
+    func testNativeDriveCompletionReasons() throws {
+        let scenarios: [(String, AutomaticEndReason)] = [
+            ("engine_stopped", .engineStopped),
+            ("rpm_unavailable", .rpmUnavailable),
+            ("scanner_disconnected", .disconnected)
+        ]
+        for (kind, reason) in scenarios {
+            let result = try AutomaticFixture.make(kind: kind)
+            defer { try? FileManager.default.removeItem(at: result.root) }
+            XCTAssertEqual(result.completion?.sessionId, result.sessionID)
+            XCTAssertEqual(result.completion?.reason, reason)
+        }
+    }
     @MainActor func testFailedAcquisitionExportsOnFirstRequestAndPreservesOriginals() async throws {
         let value = try FailedAutomaticFixture.make()
         defer { try? value.owner.close(); try? FileManager.default.removeItem(at: value.root) }

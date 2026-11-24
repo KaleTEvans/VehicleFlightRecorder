@@ -14,6 +14,12 @@ import Foundation
                     catch { await TransportDebugModel.shared.recordAutomaticEvent("confirmation_result", detail: "fact_decode_failed_no_retry") }
                 }
             }
+            transport.onAutomaticCompletion = { json in
+                Task { @MainActor in
+                    do { await RecordingConfirmation.shared.consumeCompletion(try decodeCore(AutomaticEndFact.self, json)) }
+                    catch { await TransportDebugModel.shared.recordAutomaticEvent("confirmation_result", detail: "completion_decode_failed_no_retry") }
+                }
+            }
             try transport.restoreAutomatic(profile: profile)
             try transport.connect()
         }
@@ -22,6 +28,9 @@ import Foundation
         if !enabled { await recordAutomaticEvent("battery_sample", detail: NativeResourceSample.json()) }
         await run { try $0.setAutomatic(enabled, profile: profile) }
         if enabled { await recordAutomaticEvent("battery_sample", detail: NativeResourceSample.json()) }
+    }
+    func resumeAutomatic(_ sessionID: String) async {
+        await run { try $0.resumeAutomatic(sessionID) }
     }
     func recordAutomaticEvent(_ kind: String, detail: String) async {
         let transport = self.transport

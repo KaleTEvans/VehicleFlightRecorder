@@ -24,7 +24,7 @@ struct TransportDebugView: View {
                     else if workload == "can29_diagnostic" { Text("Standard OBD stationary diagnostic · CAN 29-bit / 500 kbps. Enhanced Alfa / TCM signals are not enabled.").font(.caption) }
                     else { Text("Standard OBD stationary testing · \(isRegularWorkload ? StationaryProtocol.title(protocolProfile) : StationaryProtocol.can11.title). Enhanced Alfa / TCM signals are not enabled.").font(.caption) }
                     if let error = model.error { Text(error).foregroundStyle(.red).textSelection(.enabled) }
-                    Button("Discover / Connect") { Task { await model.connect() } }.disabled(model.busy)
+                    Button("Discover / Connect") { Task { await model.connect() } }.disabled(model.busy || (model.automatic?.enabled == true && model.automatic?.quiet == true))
                     Button("Disconnect") { Task { await model.disconnect() } }.disabled(model.busy || model.automatic?.enabled == true)
                 }
                 Section("Hands-off recording — parked validation") {
@@ -45,11 +45,16 @@ struct TransportDebugView: View {
                         LiveIncidentControls(model: model, live: live)
                         Button("Stop and save") { Task { await model.stopLive() } }
                             .buttonStyle(.borderless).disabled(model.busy)
-                        Text("Stop saves this drive and prevents another automatic start until sustained engine-off evidence, or until you disable and re-enable monitoring. Monitoring continues while armed.").font(.caption)
+                        Text("Stop saves this drive and pauses scanner requests until you rearm monitoring.").font(.caption)
                         LiveReadingSummaryView(readings: live.readings)
+                    } else if model.automatic?.enabled == true, model.automatic?.quiet == true {
+                        Text("Scanner requests are paused. Open the saved drive to resume, or turn monitoring off and on while parked to rearm.").font(.caption)
+                        if let id = model.automatic?.resumeSessionId, !id.isEmpty {
+                            NavigationLink("Open saved drive") { NotificationSessionView(sessionID: id, transport: model) }
+                        }
                     } else if model.automatic?.enabled == true {
                         Text("No drive recording. Activity evidence is kept separately; waiting for validated engine-running activity.").font(.caption)
-                        if model.automatic?.manualStopOverride == true { Text("Manual Stop override is active. Automatic rearm needs 60 seconds of fresh readings at 0 RPM. Missing readings leave engine state unknown. While parked, turn monitoring off/on to rearm.").font(.caption) }
+                        if model.automatic?.manualStopOverride == true { Text("Manual Stop override is active. While parked, turn monitoring off and on to rearm.").font(.caption) }
                     }
                     NavigationLink("Saved sessions, incidents and export") { PhysicalHistoryView() }
                         .disabled(model.automatic?.recording == true)
@@ -62,8 +67,8 @@ struct TransportDebugView: View {
                     if let error = model.error { Text(error).foregroundStyle(.red).textSelection(.enabled).accessibilityIdentifier("automatic-export-error") }
                     Text("Export stops monitoring, saves an active healthy drive and preserves failed/interrupted originals. The bundle includes all activity probes, policy/resource logs and connection captures; no repair is performed.").font(.caption)
                 }
-                Section("Optional recording confirmation") {
-                    Text("A quiet confirmation can tell you when an automatic drive has started accepting telemetry. It does not enable recording or background execution. Configure permissions while parked.").font(.caption)
+                Section("Recording notifications") {
+                    Text("Optional start confirmations tell you when an automatic drive starts accepting telemetry. Drive-saved notifications use the system permission below. Configure permissions while parked.").font(.caption)
                     Toggle("Recording confirmations", isOn: $confirmations.enabled)
                     Button("Allow quiet notifications") { Task { await confirmations.enableWithPermission() } }
                         .disabled(!parked || model.automatic?.recording == true)
@@ -160,11 +165,9 @@ struct TransportDebugView: View {
             .navigationDestination(item: $confirmations.route) { route in
                 NotificationSessionView(sessionID: route.sessionID, transport: model)
             }
-            .safeAreaInset(edge: .top) {
-                if let banner = confirmations.banner { Text(banner).font(.subheadline).padding().frame(maxWidth: .infinity).background(.thinMaterial).accessibilityIdentifier("automatic-recording-confirmation") }
-            }
             .task { await model.restoreAutomatic(); await model.connect(); await confirmations.refreshPermission(); while !Task.isCancelled { await model.refresh(); try? await Task.sleep(for: .milliseconds(500)) } }
         }
+        .modifier(RecordingBannerOverlay(confirmations: confirmations))
     }
 }
 

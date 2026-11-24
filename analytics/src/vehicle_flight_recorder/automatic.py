@@ -95,10 +95,18 @@ def validate_automatic(directory, allow_incomplete=False):
     require(state_path.is_file() and not state_path.is_symlink() and state_path.stat().st_size<=8192,'missing/nonlocal/oversized automatic state')
     state=_decode(state_path.read_bytes(),'automatic state')
     required={'version','enabled','manual_stop_override','confirmation_claimed','protocol_profile'}
-    require(isinstance(state,dict) and required<=set(state)<=required|{'active_drive','last_failure'} and state['version']==POLICY,'unsupported automatic state')
+    require(isinstance(state,dict) and required<=set(state)<=required|{'active_drive','last_failure','quiet_after_stop','resume_session_id','resume_reason','pending_completion'} and state['version']==POLICY,'unsupported automatic state')
     require(all(type(state[k]) is bool for k in ('enabled','manual_stop_override','confirmation_claimed')) and state['protocol_profile'] in {'can11-single-frame-headers-pci','can29-normal-fixed-single-frame-headers-pci'},'state policy/profile types')
     if 'last_failure' in state:require(isinstance(state['last_failure'],str) and len(state['last_failure'].encode())<=512,'invalid persisted failure')
     if 'active_drive' in state:require(isinstance(state['active_drive'],str) and ID.fullmatch(state['active_drive']),'state drive identity')
+    reasons={'rpm_unavailable','scanner_disconnected','three_zero_rpm_replies','owner_execution_gap_exceeded_grace','controlled_recording_duration_limit'}
+    if 'quiet_after_stop' in state:
+        require(type(state['quiet_after_stop']) is bool,'invalid quiet state')
+    if 'resume_session_id' in state or 'resume_reason' in state:
+        require(state.get('quiet_after_stop') is True and isinstance(state.get('resume_session_id'),str) and ID.fullmatch(state['resume_session_id']) and isinstance(state.get('resume_reason'),str) and state['resume_reason'] in reasons,'invalid drive resume state')
+    if 'pending_completion' in state:
+        completion=state['pending_completion']
+        require(isinstance(completion,dict) and set(completion)=={'session_id','reason'} and isinstance(completion['session_id'],str) and ID.fullmatch(completion['session_id']) and isinstance(completion['reason'],str) and completion['reason'] in reasons,'invalid completion receipt')
     journal=root/'Automation'/'journal.jsonl' 
     require(journal.is_file() and not journal.is_symlink() and journal.stat().st_size<=16*1024*1024+8193,'missing/nonlocal/oversized automation journal')
     counts=Counter(); owners={}; claims={}; resources={}; batteries={}

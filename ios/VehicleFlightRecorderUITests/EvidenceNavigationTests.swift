@@ -297,6 +297,20 @@ final class EvidenceNavigationTests: XCTestCase {
         add(screenshot)
     }
 
+    func testForegroundRecordingBannerIsVisibleOnPushedScreen() {
+        let app = XCUIApplication()
+        app.launchArguments = ["--ui-test-automatic"]
+        app.launch()
+        let fixture = app.buttons["Open foreground banner fixture"]
+        XCTAssertTrue(fixture.waitForExistence(timeout: 45))
+        fixture.tap()
+        app.buttons["Present recording confirmation"].tap()
+        let banner = app.staticTexts["automatic-recording-confirmation"]
+        XCTAssertTrue(banner.waitForExistence(timeout: 4), app.debugDescription)
+        XCTAssertTrue(banner.isHittable)
+        XCTAssertTrue(banner.label.contains("Drive recording started"))
+    }
+
     func testM7DiagnosticShareAfterSynchronizationFailureOpensOnFirstTap() {
         continueAfterFailure = false
         let app = XCUIApplication()

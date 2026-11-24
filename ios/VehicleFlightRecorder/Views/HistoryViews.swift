@@ -39,9 +39,23 @@ struct SessionsView: View {
 struct SessionDetailView: View {
     let row: StoredSession
     @ObservedObject var model: RecorderModel
+    var resumeTransport: TransportDebugModel? = nil
     @State private var share: SessionShareRequest?
     var body: some View {
         List {
+            if let transport = resumeTransport,
+               transport.automatic?.enabled == true,
+               transport.automatic?.resumeSessionId == row.id {
+                Section {
+                    if let reason = transport.automatic?.resumeReason {
+                        Text("Drive saved · \(reason.title)")
+                    }
+                    Button("Resume recording") { Task { await transport.resumeAutomatic(row.id) } }
+                        .disabled(transport.busy)
+                        .accessibilityIdentifier("resume-saved-drive")
+                    if let error = transport.error { Text(error).foregroundStyle(.red) }
+                }
+            }
             if let live = row.session.live {
                 Section("Recording setup") {
                     LabeledContent("Workload") {
@@ -52,6 +66,7 @@ struct SessionDetailView: View {
                     LabeledContent("Operating state", value: live.operatingStateTitle)
                     LabeledContent("Origin", value: live.originTitle)
                     LabeledContent("Start", value: live.startOrigin == "automatic" ? "Automatic activity policy" : "Manual")
+                    if let parent = live.resumedFromSessionId { LabeledContent("Continues drive", value: parent) }
                     if let policy = live.policyVersion { LabeledContent("Policy", value: policy) }
                     Text("Workload and operating state are the selections made at Start; they do not confirm that measurements were received.")
                         .font(.caption).foregroundStyle(.secondary)

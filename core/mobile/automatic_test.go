@@ -157,7 +157,7 @@ func TestAutomaticDurationLimitDoesNotCreateChunks(t *testing.T) {
 	if e = a.Tick(fixtureNative+1800*acquisition.Second, 1700001800000); e != nil {
 		t.Fatal(e)
 	}
-	if !a.policy.Suppressed || a.disk.ActiveDrive != "" || a.live.options.StartOrigin != "activity_probe" {
+	if !a.disk.Quiet || a.disk.ActiveDrive != "" || a.live != nil {
 		t.Fatal("duration end restarted a drive")
 	}
 }
@@ -304,5 +304,167 @@ func TestAutomaticFourStartupTimeoutsCanDisarmAndRearm(t *testing.T) {
 	}
 	if a.Live().Path() == original {
 		t.Fatal("reused failed capture")
+	}
+}
+
+func TestAutomaticEndAndExplicitResume(t *testing.T) {
+	const second = acquisition.Second
+	const wall = int64(1700000000000)
+	for _, scenario := range []string{"scanner_disconnected", "rpm_unavailable", "three_zero_rpm_replies", "disconnect_recovers", "rpm_recovers"} {
+		t.Run(scenario, func(t *testing.T) {
+			root := t.TempDir()
+			owner, err := NewAutomaticRecorder(root, "scripted-fixture", obd.CAN29Profile)
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer func() { owner.Close() }()
+			if err := owner.SetEnabled(true, wall, fixtureNative); err != nil {
+				t.Fatal(err)
+			}
+			var current *LiveRecorder
+			var generation, gap, end int64
+			var savedID string
+			var zeros, recoveryRequests, runningReplies int
+			recovered, reconnectStarted := false, false
+			recoveryCase := strings.HasSuffix(scenario, "_recovers")
+			for elapsed := int64(0); elapsed < 160*second; elapsed += second / 10 {
+				now := fixtureNative + elapsed
+				wallNow := wall + elapsed/1_000_000
+				if err := owner.Tick(now, wallNow); err != nil {
+					t.Fatal(err)
+				}
+				live := owner.Live()
+				if live == nil {
+					end = elapsed
+					break
+				}
+				if live != current {
+					current = live
+					generation = connectLive(t, live, elapsed)
+				}
+				if live.options.StartOrigin == "automatic" {
+					savedID = filepath.Base(live.path)
+				}
+				if savedID != "" && runningReplies >= 2 &&
+					(scenario == "scanner_disconnected" || scenario == "disconnect_recovers") && gap == 0 {
+					if err := live.Disconnected(generation, now, "fixture Bluetooth loss"); err != nil {
+						t.Fatal(err)
+					}
+					gap = elapsed + second/10
+				}
+				if gap != 0 && scenario == "disconnect_recovers" && !reconnectStarted && elapsed >= gap+45*second {
+					generation = connectLive(t, live, elapsed)
+					reconnectStarted = true
+				}
+				if recovered && owner.state == "recording" && elapsed > gap+60*second {
+					break
+				}
+				bytes, err := live.NextCommand(now, wallNow)
+				if err != nil {
+					t.Fatal(err)
+				}
+				if len(bytes) == 0 {
+					continue
+				}
+				request := string(bytes)
+				if gap != 0 && !recovered && elapsed >= gap {
+					recoveryRequests++
+					if scenario == "scanner_disconnected" || (scenario == "rpm_unavailable" && request != "010C\r") {
+						t.Fatalf("unexpected grace-period request %q", request)
+					}
+				}
+				reply := can29Reply(request)
+				if request == "010C\r" && savedID != "" {
+					switch {
+					case runningReplies < 2:
+						runningReplies++
+					case scenario == "three_zero_rpm_replies":
+						zeros++
+						reply = "18DAF110 04 41 0C 00 00\r18DAF117 04 41 0C 00 00\r>"
+					case scenario == "rpm_unavailable" || scenario == "rpm_recovers":
+						if gap == 0 {
+							gap = elapsed + second/10
+						}
+						if scenario == "rpm_recovers" && elapsed >= gap+45*second {
+							recovered = true
+						} else {
+							reply = "NO DATA\r>"
+						}
+					case scenario == "disconnect_recovers" && reconnectStarted:
+						recovered = true
+					}
+				}
+				if err := live.Accepted(generation, now+1000, bytes); err != nil {
+					t.Fatal(err)
+				}
+				if err := live.Receive(generation, now+2000, []byte(reply)); err != nil {
+					t.Fatal(err)
+				}
+			}
+			if recoveryCase {
+				if !recovered || end != 0 || owner.disk.ActiveDrive != savedID || owner.state != "recording" {
+					t.Fatalf("did not recover same drive: %+v", owner.disk)
+				}
+				if claim, err := owner.ClaimCompletion(); err != nil || claim != "" {
+					t.Fatalf("recovery emitted a completion %q: %v", claim, err)
+				}
+				return
+			}
+			if savedID == "" || end == 0 || !owner.disk.Quiet || owner.disk.ResumeSession != savedID {
+				t.Fatalf("drive did not enter quiet state: %+v", owner.disk)
+			}
+			if scenario == "three_zero_rpm_replies" {
+				if zeros != 3 {
+					t.Fatalf("ended after %d zero replies", zeros)
+				}
+			} else if end != gap+60*second {
+				t.Fatalf("ended after %v ns of grace", end-gap)
+			}
+			if scenario == "rpm_unavailable" && (recoveryRequests == 0 || recoveryRequests > 6) {
+				t.Fatalf("unexpected RPM recovery budget: %d requests", recoveryRequests)
+			}
+			savedPath := filepath.Join(current.path, "session.json")
+			original, err := os.ReadFile(savedPath)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if err := owner.Close(); err != nil {
+				t.Fatal(err)
+			}
+			owner, err = NewAutomaticRecorder(root, "scripted-fixture", obd.CAN29Profile)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if err := owner.Tick(fixtureNative, wall); err != nil || owner.Live() != nil {
+				t.Fatalf("relaunched quiet owner created a probe: %v", err)
+			}
+			if data, err := current.NextCommand(fixtureNative+end+second, wall); err != nil || len(data) != 0 {
+				t.Fatalf("finalized recorder admitted %q: %v", data, err)
+			}
+			claim, err := owner.ClaimCompletion()
+			if err != nil || !strings.Contains(claim, savedID) || !strings.Contains(claim, scenario) {
+				t.Fatalf("invalid persisted completion %q: %v", claim, err)
+			}
+			if claim, err := owner.ClaimCompletion(); err != nil || claim != "" {
+				t.Fatalf("duplicate completion %q: %v", claim, err)
+			}
+			if err := owner.Resume("live-11111111111111111111111111111111", wall, fixtureNative); err == nil {
+				t.Fatal("unrelated saved drive resumed")
+			}
+			if err := owner.Resume(savedID, wall, fixtureNative); err != nil {
+				t.Fatal(err)
+			}
+			if err := owner.Resume(savedID, wall, fixtureNative); err == nil {
+				t.Fatal("repeated resume created another segment")
+			}
+			segment := owner.Live().core.Session()
+			if segment.SessionID == savedID || segment.Live.ResumedFrom != savedID {
+				t.Fatalf("resumed segment lacks original link: %+v", segment)
+			}
+			after, err := os.ReadFile(savedPath)
+			if err != nil || string(after) != string(original) {
+				t.Fatalf("saved session changed during resume: %v", err)
+			}
+		})
 	}
 }

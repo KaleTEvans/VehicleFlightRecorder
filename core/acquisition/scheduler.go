@@ -232,6 +232,15 @@ func (s *Scheduler) eligible(key string) bool {
 // Poll selects one due request; oldest due wins, then priority, then catalog key.
 // Each entry has one deadline, not a backlog of missed polling intervals.
 func (s *Scheduler) Poll(now int64) (*Work, error) {
+	return s.poll(now, false)
+}
+
+// PollRPMRecovery allows setup and the discovery needed for a fresh RPM reply.
+func (s *Scheduler) PollRPMRecovery(now int64) (*Work, error) {
+	return s.poll(now, true)
+}
+
+func (s *Scheduler) poll(now int64, rpmRecovery bool) (*Work, error) {
 	if err := s.Tick(now); err != nil {
 		return nil, err
 	}
@@ -240,6 +249,9 @@ func (s *Scheduler) Poll(now int64) (*Work, error) {
 	}
 	selected := -1
 	for i, e := range s.entries {
+		if rpmRecovery && e.spec.Key != "rpm" && (e.spec.Key != "support" || s.hasRecoveryDiscovery()) && !obd.IsInitialization(e.spec.Key) {
+			continue
+		}
 		if e.due > now || !s.eligible(e.spec.Key) {
 			continue
 		}
@@ -273,6 +285,32 @@ func (s *Scheduler) Poll(now int64) (*Work, error) {
 		return nil, err
 	}
 	return &Work{tx.ID, tx.Generation, tx.Key, []byte(d.Command)}, nil
+}
+
+func (s *Scheduler) hasRecoveryDiscovery() bool {
+	for i := len(s.report.Transactions) - 1; i >= 0; i-- {
+		tx := s.report.Transactions[i]
+		if tx.Generation != s.Generation() {
+			break
+		}
+		if tx.Key == "support" && (tx.Outcome == "ok" || tx.Outcome == "partial") {
+			return true
+		}
+	}
+	return false
+}
+
+func (s *Scheduler) LatestRPMResult() (string, bool) {
+	for i := len(s.report.Transactions) - 1; i >= 0; i-- {
+		tx := s.report.Transactions[i]
+		if tx.Generation != s.Generation() {
+			break
+		}
+		if tx.Key == "rpm" && tx.EndNS != nil {
+			return tx.ID, tx.Outcome == "ok"
+		}
+	}
+	return "", false
 }
 
 // Accepted represents actual stream acceptance of the next Go-owned prefix.

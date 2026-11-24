@@ -32,6 +32,7 @@ struct SessionInfo: Codable, Identifiable {
 struct LiveSessionInfo: Codable {
     let startOrigin: String?
     let policyVersion: String?
+    let resumedFromSessionId: String?
     let origin: String
     let operatingState: String
     let workload: String

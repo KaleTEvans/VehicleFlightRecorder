@@ -19,13 +19,21 @@ import (
 )
 
 type automaticDisk struct {
-	LastFailure         string `json:"last_failure,omitempty"`
-	ProtocolProfile     string `json:"protocol_profile,omitempty"`
-	Version             string `json:"version"`
-	Enabled             bool   `json:"enabled"`
-	Suppressed          bool   `json:"manual_stop_override"`
-	ActiveDrive         string `json:"active_drive,omitempty"`
-	ConfirmationClaimed bool   `json:"confirmation_claimed"`
+	Quiet               bool     `json:"quiet_after_stop,omitempty"`
+	ResumeSession       string   `json:"resume_session_id,omitempty"`
+	ResumeReason        string   `json:"resume_reason,omitempty"`
+	Completion          *endFact `json:"pending_completion,omitempty"`
+	LastFailure         string   `json:"last_failure,omitempty"`
+	ProtocolProfile     string   `json:"protocol_profile,omitempty"`
+	Version             string   `json:"version"`
+	Enabled             bool     `json:"enabled"`
+	Suppressed          bool     `json:"manual_stop_override"`
+	ActiveDrive         string   `json:"active_drive,omitempty"`
+	ConfirmationClaimed bool     `json:"confirmation_claimed"`
+}
+type endFact struct {
+	SessionID string `json:"session_id"`
+	Reason    string `json:"reason"`
 }
 type startFact struct {
 	SessionID   string `json:"session_id"`
@@ -103,12 +111,20 @@ func NewAutomaticRecorder(root, origin, profile string) (*AutomaticRecorder, err
 		}
 		a.profile = a.disk.ProtocolProfile
 	}
-	if a.disk.ActiveDrive != "" && !ValidAutomaticSessionID(a.disk.ActiveDrive) {
+	if (a.disk.ActiveDrive != "" && !ValidAutomaticSessionID(a.disk.ActiveDrive)) ||
+		(a.disk.ResumeSession != "" && !ValidAutomaticSessionID(a.disk.ResumeSession)) ||
+		(a.disk.Completion != nil && !ValidAutomaticSessionID(a.disk.Completion.SessionID)) {
 		a.Close()
 		return nil, fmt.Errorf("invalid persisted drive identity")
 	}
 	a.disk.ProtocolProfile = a.profile
 	a.policy = activity.New(a.disk.Suppressed)
+	if a.disk.Enabled && a.disk.Quiet {
+		a.state = "awaiting_resume"
+		if a.disk.Suppressed {
+			a.state = "manual_stop_override"
+		}
+	}
 	if a.disk.LastFailure != "" {
 		a.failure = a.disk.LastFailure
 		a.state = "failed"
@@ -214,13 +230,17 @@ func (a *AutomaticRecorder) fail(err error) error {
 	return err
 }
 func (a *AutomaticRecorder) create(purpose string, wall, now int64) error {
+	return a.createSegment(purpose, wall, now, "")
+}
+
+func (a *AutomaticRecorder) createSegment(purpose string, wall, now int64, parent string) error {
 	directory := filepath.Join(a.root, "Sessions")
 	workload := "combined"
 	if purpose == "activity_probe" {
 		directory = filepath.Join(a.directory, "Probes")
 		workload = "rpm_only"
 	}
-	options, _ := json.Marshal(liveOptions{Origin: a.origin, OperatingState: "unknown", Workload: workload, ProtocolProfile: a.profile, StartOrigin: purpose, PolicyVersion: activity.Version})
+	options, _ := json.Marshal(liveOptions{Origin: a.origin, OperatingState: "unknown", Workload: workload, ProtocolProfile: a.profile, StartOrigin: purpose, PolicyVersion: activity.Version, ResumedFrom: parent})
 	l, err := NewLiveRecorder(directory, string(options), wall, now)
 	if err != nil {
 		return err
@@ -247,7 +267,7 @@ func (a *AutomaticRecorder) SetEnabled(enabled bool, wallMS, nativeNS int64) err
 		return fmt.Errorf("automatic clock regression")
 	}
 	a.lastNS = nativeNS
-	if enabled && a.disk.Enabled && a.failure == "" && a.live != nil {
+	if enabled && a.disk.Enabled && a.failure == "" && (a.live != nil || a.disk.Quiet) {
 		return nil
 	}
 	previousFailure := a.failure
@@ -283,6 +303,9 @@ func (a *AutomaticRecorder) SetEnabled(enabled bool, wallMS, nativeNS int64) err
 	a.policy = activity.New(false)
 	a.state = "disabled"
 	if enabled {
+		a.disk.Quiet = false
+		a.disk.ResumeSession = ""
+		a.disk.ResumeReason = ""
 		a.state = "waiting_for_activity"
 		if err := a.create("activity_probe", wallMS, nativeNS); err != nil {
 			return a.fail(err)
@@ -306,7 +329,7 @@ func (a *AutomaticRecorder) Tick(nativeNS, wallMS int64) error {
 		return a.fail(fmt.Errorf("automatic clock regression"))
 	}
 	a.lastNS = nativeNS
-	if !a.disk.Enabled || a.failure != "" {
+	if !a.disk.Enabled || a.disk.Quiet || a.failure != "" {
 		return nil
 	}
 	if a.live == nil {
@@ -321,29 +344,17 @@ func (a *AutomaticRecorder) Tick(nativeNS, wallMS int64) error {
 	failureReason := l.failure
 	connected := l.connected && l.ready
 	var evidence *activity.Evidence
-	for _, o := range l.cached {
-		if o.Signal != "powertrain.engine.rpm" {
-			continue
-		}
-		if evidence == nil || o.ReceiveNS+l.baseNS > evidence.ReceiveNS {
-			evidence = &activity.Evidence{Transaction: o.Transaction, Generation: o.Generation, ReceiveNS: o.ReceiveNS + l.baseNS, MaximumRPM: o.Value}
-		}
-		if o.Transaction == evidence.Transaction {
+	if transaction, clean := l.scheduler.LatestRPMResult(); clean {
+		for _, o := range l.cached {
+			if o.Signal != "powertrain.engine.rpm" || o.Transaction != transaction {
+				continue
+			}
+			if evidence == nil {
+				evidence = &activity.Evidence{Transaction: o.Transaction, Generation: o.Generation, ReceiveNS: o.ReceiveNS + l.baseNS}
+			}
 			evidence.Responders++
 			if o.Value > evidence.MaximumRPM {
 				evidence.MaximumRPM = o.Value
-			}
-		}
-	}
-	// Count current response rows independently of map iteration order.
-	if evidence != nil {
-		evidence.Responders = 0
-		for _, o := range l.cached {
-			if o.Signal == "powertrain.engine.rpm" && o.Transaction == evidence.Transaction {
-				evidence.Responders++
-				if o.Value > evidence.MaximumRPM {
-					evidence.MaximumRPM = o.Value
-				}
 			}
 		}
 	}
@@ -356,18 +367,12 @@ func (a *AutomaticRecorder) Tick(nativeNS, wallMS int64) error {
 	}
 	if complete {
 		if purpose == "automatic" {
-			a.policy.ManualStop()
-			a.state = "duration_limit_override"
+			return a.finishDrive(l, nativeNS, "controlled_recording_duration_limit")
 		}
 		a.previous = filepath.Base(l.path)
 		a.disk.ActiveDrive = ""
 		a.fact = nil
-		if err := a.journal("bounded_session_ended", map[string]any{"session_id": a.previous, "purpose": purpose, "maximum_seconds": func() int {
-			if purpose == "automatic" {
-				return 1800
-			}
-			return 300
-		}()}); err != nil {
+		if err := a.journal("bounded_session_ended", map[string]any{"session_id": a.previous, "purpose": purpose, "maximum_seconds": 300}); err != nil {
 			return a.fail(err)
 		}
 		if err := a.create("activity_probe", wallMS, nativeNS); err != nil {
@@ -383,6 +388,9 @@ func (a *AutomaticRecorder) Tick(nativeNS, wallMS int64) error {
 	if err != nil {
 		return a.fail(err)
 	}
+	l.mu.Lock()
+	l.rpmRecovery = purpose == "automatic" && (decision.State == "degraded_gap" || decision.State == "end_grace")
+	l.mu.Unlock()
 	if decision.State != a.state {
 		a.state = decision.State
 		if err = a.journal("activity_transition", map[string]any{"state": a.state, "reason": decision.Reason, "evidence": evidence}); err != nil {
@@ -407,23 +415,11 @@ func (a *AutomaticRecorder) Tick(nativeNS, wallMS int64) error {
 		if err = a.create("automatic", wallMS, nativeNS); err != nil {
 			return a.fail(err)
 		}
+		a.policy = activity.New(false)
+		a.policy.Recording = true
 		a.state = "starting"
 	} else if decision.Action == "end" {
-		if err = l.runtimeEvent(nativeNS, "automatic_session_end", map[string]any{"reason": decision.Reason}); err != nil {
-			return a.fail(err)
-		}
-		if err = l.Stop(nativeNS); err != nil {
-			return a.fail(err)
-		}
-		a.previous = filepath.Base(l.path)
-		a.disk.ActiveDrive = ""
-		a.fact = nil
-		if err = a.create("activity_probe", wallMS, nativeNS); err != nil {
-			return a.fail(err)
-		}
-		if err = a.persist(); err != nil {
-			return a.fail(err)
-		}
+		return a.finishDrive(l, nativeNS, decision.Reason)
 	} else if purpose == "automatic" && observations > 0 && initialized && a.fact == nil && !a.disk.ConfirmationClaimed {
 		coverage := "limited_standard_obd" // no verified TCM / full vehicle coverage claim
 		a.fact = &startFact{filepath.Base(l.path), "automatic", l.anchorMS + (nativeNS-l.baseNS)/1_000_000, "Vehicle", coverage}
@@ -472,6 +468,75 @@ func (a *AutomaticRecorder) Tick(nativeNS, wallMS int64) error {
 	}
 	return nil
 }
+
+// Freeze transport rearm durably before finalizing the original.
+func (a *AutomaticRecorder) finishDrive(l *LiveRecorder, now int64, reason string) error {
+	a.disk.Quiet = true
+	if err := a.persist(); err != nil {
+		return a.fail(err)
+	}
+	l.mu.Lock()
+	recording := l.core.State() == "recording"
+	l.mu.Unlock()
+	if recording {
+		if err := l.runtimeEvent(now, "automatic_session_end", map[string]any{"reason": reason}); err != nil {
+			return a.fail(err)
+		}
+		if err := l.stopAt(now, reason); err != nil {
+			return a.fail(err)
+		}
+	}
+	id := filepath.Base(l.path)
+	a.live, a.fact = nil, nil
+	a.previous = id
+	a.state = "awaiting_resume"
+	a.disk.ActiveDrive = ""
+	a.disk.ResumeSession, a.disk.ResumeReason = id, reason
+	a.disk.Completion = &endFact{id, reason}
+	if err := a.persist(); err != nil {
+		return a.fail(err)
+	}
+	return nil
+}
+
+// Resume only the currently eligible saved drive, in a separate capture.
+func (a *AutomaticRecorder) Resume(sessionID string, wallMS, nativeNS int64) error {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	if a.lock == nil || nativeNS < a.lastNS || a.failure != "" || !a.disk.Enabled ||
+		!a.disk.Quiet || !ValidAutomaticSessionID(sessionID) || a.disk.ResumeSession != sessionID {
+		return fmt.Errorf("saved drive is no longer available to resume")
+	}
+	a.lastNS = nativeNS
+	a.policy = activity.New(false)
+	a.policy.Recording = true
+	a.disk.Quiet = false
+	a.disk.ResumeSession, a.disk.ResumeReason = "", ""
+	a.state = "starting"
+	if err := a.createSegment("automatic", wallMS, nativeNS, sessionID); err != nil {
+		return a.fail(err)
+	}
+	return nil
+}
+
+// Consume the persisted completion before native feedback can be submitted.
+func (a *AutomaticRecorder) ClaimCompletion() (string, error) {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	if a.lock == nil || a.disk.Completion == nil {
+		return "", nil
+	}
+	payload, err := json.Marshal(a.disk.Completion)
+	if err != nil {
+		return "", err
+	}
+	a.disk.Completion = nil
+	if err := a.persist(); err != nil {
+		return "", a.fail(err)
+	}
+	return string(payload), nil
+}
+
 func (l *LiveRecorder) runtimeEvent(nativeNS int64, kind string, attributes any) error {
 	l.mu.Lock()
 	defer l.mu.Unlock()
@@ -506,14 +571,11 @@ func (a *AutomaticRecorder) Stop(nativeNS, wallMS int64) error {
 	a.disk.ActiveDrive = ""
 	a.fact = nil
 	a.state = "manual_stop_override"
-	if err := a.journal("manual_stop_override", map[string]any{"until": "sustained_engine_off_or_explicit_rearm"}); err != nil {
+	if err := a.journal("manual_stop_override", map[string]any{"until": "explicit_rearm"}); err != nil {
 		return a.fail(err)
 	}
-	if a.disk.Enabled {
-		if err := a.create("activity_probe", wallMS, nativeNS); err != nil {
-			return a.fail(err)
-		}
-	}
+	a.live = nil
+	a.disk.Quiet = true
 	if err := a.persist(); err != nil {
 		return a.fail(err)
 	}
@@ -588,7 +650,12 @@ func (a *AutomaticRecorder) NativeEvent(kind, detail string, nativeNS int64) err
 func (a *AutomaticRecorder) Snapshot() string {
 	a.mu.Lock()
 	defer a.mu.Unlock()
-	b, _ := json.Marshal(map[string]any{"policy": a.policy.Config, "enabled": a.disk.Enabled, "state": a.state, "error": a.failure, "session_id": a.disk.ActiveDrive, "accepting_telemetry": a.fact != nil && a.disk.ActiveDrive != "", "manual_stop_override": a.policy.Suppressed, "previous_interrupted_session": a.interruptedID, "previous_context_capture": a.previous, "phase": a.phase, "maximum_drive_seconds": 1800})
+	snapshot := map[string]any{"policy": a.policy.Config, "enabled": a.disk.Enabled, "state": a.state, "error": a.failure, "session_id": a.disk.ActiveDrive, "accepting_telemetry": a.fact != nil && a.disk.ActiveDrive != "", "manual_stop_override": a.policy.Suppressed, "previous_interrupted_session": a.interruptedID, "previous_context_capture": a.previous, "phase": a.phase, "maximum_drive_seconds": 1800, "quiet": a.disk.Quiet}
+	if a.disk.ResumeSession != "" {
+		snapshot["resume_session_id"] = a.disk.ResumeSession
+		snapshot["resume_reason"] = a.disk.ResumeReason
+	}
+	b, _ := json.Marshal(snapshot)
 	return string(b)
 }
 func (a *AutomaticRecorder) Close() error {

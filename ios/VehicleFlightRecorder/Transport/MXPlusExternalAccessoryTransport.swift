@@ -58,6 +58,7 @@ final class MXPlusExternalAccessoryTransport: NSObject, VehicleTransport, Stream
     private var automatic: MobileAutomaticRecorder?
     var automaticSnapshot: String? { automatic?.snapshot() }
     var onAutomaticConfirmation: ((String) -> Void)?
+    var onAutomaticCompletion: ((String) -> Void)?
     private var automaticLivePath: String?
     private var automaticPhase = "unknown"
     private var handoverUntil: TimeInterval = 0
@@ -84,7 +85,8 @@ final class MXPlusExternalAccessoryTransport: NSObject, VehicleTransport, Stream
         automatic = owner
         if automaticPhase != "unknown" { automaticNativeEvent(automaticPhase, detail: "Initial native lifecycle restored after owner creation") }
         let snapshot = try decodeCore(AutomaticSnapshot.self, owner.snapshot())
-        if snapshot.enabled { try synchronizeAutomatic(); try connect() }
+        try synchronizeAutomatic()
+        if snapshot.enabled, snapshot.quiet != true { try connect() }
     }
     func setAutomatic(_ enabled: Bool, profile: String) throws {
         if automatic == nil { try restoreAutomatic(profile: profile) }
@@ -104,11 +106,22 @@ final class MXPlusExternalAccessoryTransport: NSObject, VehicleTransport, Stream
     }
     private func synchronizeAutomatic() throws {
         guard let automatic else { return }
-        let before = try decodeCore(AutomaticSnapshot.self, automatic.snapshot())
-        guard before.enabled else { return }
         try automatic.tick(TransportClock.nanoseconds(), wallMS: GoLiveSession.wall())
-        let after = try decodeCore(AutomaticSnapshot.self, automatic.snapshot())
-        guard after.error.isEmpty else { throw VehicleTransportError.failed(after.error) }
+        let snapshot = try decodeCore(AutomaticSnapshot.self, automatic.snapshot())
+        if snapshot.enabled, !snapshot.error.isEmpty { throw VehicleTransportError.failed(snapshot.error) }
+        var error: NSError?
+        let completion = automatic.claimCompletion(&error)
+        if let error { throw error }
+        if snapshot.enabled, snapshot.quiet == true {
+            disconnect()
+            liveAcquisitionEnabled = false
+            automaticLivePath = nil
+            live = nil
+            if !completion.isEmpty { onAutomaticCompletion?(completion) }
+            return
+        }
+        if !completion.isEmpty { onAutomaticCompletion?(completion) }
+        guard snapshot.enabled else { return }
         if let core = automatic.live(), core.path() != automaticLivePath {
             pump.disconnect(); releaseSession()
             handoverUntil = pump.now() + 1
@@ -116,10 +129,15 @@ final class MXPlusExternalAccessoryTransport: NSObject, VehicleTransport, Stream
             liveAcquisitionEnabled = true; automaticLivePath = core.path()
             attemptsRemaining = 3; nextDiscovery = 0
         }
-        var error: NSError?
         let fact = automatic.claimConfirmation(TransportClock.nanoseconds(), error: &error)
         if let error { throw error }
         if !fact.isEmpty { onAutomaticConfirmation?(fact) }
+    }
+    func resumeAutomatic(_ sessionID: String) throws {
+        guard let automatic else { throw VehicleTransportError.failed("Hands-off monitoring is unavailable") }
+        try automatic.resume(sessionID, wallMS: GoLiveSession.wall(), nativeNS: TransportClock.nanoseconds())
+        try synchronizeAutomatic()
+        try connect()
     }
     func automaticNativeEvent(_ kind: String, detail: String) {
         guard let automatic else { return }
@@ -155,6 +173,10 @@ final class MXPlusExternalAccessoryTransport: NSObject, VehicleTransport, Stream
         super.init()
     }
     func connect() throws {
+        if let automatic {
+            let snapshot = try decodeCore(AutomaticSnapshot.self, automatic.snapshot())
+            if snapshot.enabled, snapshot.quiet == true { return }
+        }
         guard let directory else { throw VehicleTransportError.unavailableInBootstrap }
         // An explicit user action rearms exhausted retries, but honors backoff.
         attemptsRemaining = 3
@@ -183,9 +205,10 @@ final class MXPlusExternalAccessoryTransport: NSObject, VehicleTransport, Stream
             directory?.stopObserving(); timer?.invalidate(); timer = nil
             releaseSession(); return
         }
-        pump.tick()
         do { try synchronizeAutomatic() }
         catch { pump.fail(error.localizedDescription); disconnect(); notice = error.localizedDescription; return }
+        guard armed else { return }
+        pump.tick()
         if liveAcquisitionEnabled, let live {
             do {
                 // Advance Go deadlines even while disconnected; UI reads do not poll.

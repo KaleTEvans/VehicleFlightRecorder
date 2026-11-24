@@ -5,6 +5,7 @@ import XCTest
     var status = "authorized"
     var requests = 0
     var submissions: [String] = []
+    var completions: [String] = []
     var fail = false
     var onSettings: (() -> Void)?
     func authorization() async -> String { onSettings?(); return status }
@@ -13,6 +14,11 @@ import XCTest
         submissions.append(fact.sessionId)
         if fail { throw VehicleTransportError.failed("Injected notification error") }
     }
+    func submitCompletion(_ fact: AutomaticEndFact) async throws {
+        completions.append(fact.sessionId)
+        if fail { throw VehicleTransportError.failed("Injected notification error") }
+    }
+
 }
 private final class MemoryConfirmationReceipts: ConfirmationReceipts {
     var keys = Set<String>()
@@ -26,6 +32,29 @@ private final class MemoryConfirmationReceipts: ConfirmationReceipts {
         value.enabled = true; value.isSessionActive = { _ in true }
         return value
     }
+    func testCompletionIsClaimedOnceIndependentlyOfStart() async {
+        let adapter = FakeRecordingNotifications()
+        let controller = make(adapter)
+        controller.isForeground = { false }
+        await controller.consume(fact)
+        let end = AutomaticEndFact(sessionId: fact.sessionId, reason: .disconnected)
+        await controller.consumeCompletion(end)
+        await controller.consumeCompletion(end)
+        XCTAssertEqual(adapter.submissions, [fact.sessionId])
+        XCTAssertEqual(adapter.completions, [fact.sessionId])
+    }
+
+    func testForegroundCompletionOffersSavedDrive() async {
+        let adapter = FakeRecordingNotifications()
+        let controller = make(adapter)
+        controller.isForeground = { true }
+        await controller.consumeCompletion(AutomaticEndFact(sessionId: fact.sessionId, reason: .engineStopped))
+        XCTAssertEqual(controller.banner, "Drive saved · Engine stopped")
+        XCTAssertEqual(controller.bannerSessionID, fact.sessionId)
+        XCTAssertTrue(adapter.completions.isEmpty)
+        XCTAssertNil(controller.route)
+    }
+
     func testForegroundAndDuplicateHaveOneInAppPath() async {
         let adapter = FakeRecordingNotifications()
         let controller = make(adapter)

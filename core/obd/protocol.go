@@ -32,6 +32,38 @@ var catalog = []Definition{
 	{"adapter_voltage", "STVR\r", "electrical.adapter_voltage", "V", STNReference + "#page=32", 0, 0},
 }
 
+const ExpandedWorkload = "standard_expanded"
+const J1979Reference = "https://www.obdlink.com/obd-apps/obdwiz-app/"
+
+var expandedCatalog = []Definition{
+	{"support20", "0120\r", "", "", J1979Reference, 0x20, 4},
+	{"support40", "0140\r", "", "", J1979Reference, 0x40, 4},
+	{"speed", "010D\r", "powertrain.vehicle.speed", "km/h", J1979Reference, 0x0d, 1},
+	{"short_trim_bank1", "0106\r", "powertrain.fuel.trim.short.bank1", "%", J1979Reference, 0x06, 1},
+	{"long_trim_bank1", "0107\r", "powertrain.fuel.trim.long.bank1", "%", J1979Reference, 0x07, 1},
+	{"short_trim_bank2", "0108\r", "powertrain.fuel.trim.short.bank2", "%", J1979Reference, 0x08, 1},
+	{"long_trim_bank2", "0109\r", "powertrain.fuel.trim.long.bank2", "%", J1979Reference, 0x09, 1},
+	{"oil_temperature", "015C\r", "powertrain.oil.temperature", "degC", J1979Reference, 0x5c, 1},
+	{"fuel_rate", "015E\r", "powertrain.fuel.rate", "L/h", J1979Reference, 0x5e, 2},
+}
+
+var liveMeasurementCatalog = append(Catalog(), expandedCatalog...)
+
+func ExpandedRequest(key string) bool {
+	for _, d := range expandedCatalog {
+		if d.Key == key {
+			return true
+		}
+	}
+	return false
+}
+
+func IsSupportRequest(key string) bool {
+	return key == "support" || key == "support20" || key == "support40"
+}
+
+func isFuelTrim(pid byte) bool { return pid >= 0x06 && pid <= 0x09 }
+
 func Catalog() []Definition { return append([]Definition(nil), catalog...) }
 func Lookup(key string) (Definition, error) {
 	for _, d := range catalog {
@@ -114,7 +146,7 @@ func ParseProfile(profile, key string, frame []byte) (Reply, error) {
 	if profile != Profile && profile != CAN29Profile {
 		return Reply{}, fmt.Errorf("unsupported decoder profile")
 	}
-	d, err := Lookup(key)
+	d, err := lookupMeasurement(key)
 	if err != nil {
 		return Reply{}, err
 	}
@@ -255,13 +287,22 @@ func decodeLine(profile string, d Definition, line string) (Response, error) {
 		response.State = "negative_response"
 		return response, nil
 	}
-	if len(payload) != d.Bytes+2 || payload[0] != 0x41 || payload[1] != d.PID {
+	validLength := len(payload) == d.Bytes+2 || (isFuelTrim(d.PID) && len(payload) == 4)
+	if !validLength || payload[0] != 0x41 || payload[1] != d.PID {
 		return Response{}, fmt.Errorf("foreign service/PID or invalid payload length")
 	}
-	if d.Key != "support" {
-		value := float64(payload[2]) - 40
-		if d.Key == "rpm" {
+	if !IsSupportRequest(d.Key) {
+		value := float64(payload[2])
+		switch {
+		case d.Key == "coolant" || d.Key == "oil_temperature":
+			value -= 40
+		case d.Key == "rpm":
 			value = float64(binary.BigEndian.Uint16(payload[2:])) / 4
+		case d.Key == "fuel_rate":
+			value = float64(binary.BigEndian.Uint16(payload[2:])) / 20
+		case isFuelTrim(d.PID):
+			// An optional second byte describes bank 3 or 4, outside this workload.
+			value = (value - 128) * 100 / 128
 		}
 		response.State = "observed"
 		response.Value = &value
@@ -288,15 +329,32 @@ func NewCapabilities(scope string) *Capabilities {
 	return &Capabilities{scope, map[string]Capability{}}
 }
 func (c *Capabilities) ApplySupport(response Response, tx string) error {
-	if response.State != "advertised" || len(response.Payload) != 6 || response.Payload[0] != 0x41 || response.Payload[1] != 0 {
-		return fmt.Errorf("valid block 00 response required")
+	return c.applySupport(response, tx, false)
+}
+
+func (c *Capabilities) ApplyExpandedSupport(response Response, tx string) error {
+	return c.applySupport(response, tx, true)
+}
+
+func (c *Capabilities) applySupport(response Response, tx string, expanded bool) error {
+	if response.State != "advertised" || len(response.Payload) != 6 || response.Payload[0] != 0x41 {
+		return fmt.Errorf("valid support block response required")
+	}
+	block := int(response.Payload[1])
+	definitions := catalog
+	if expanded {
+		definitions = liveMeasurementCatalog
+	}
+	if block != 0 && (!expanded || (block != 0x20 && block != 0x40)) {
+		return fmt.Errorf("unsupported capability block")
 	}
 	bits := binary.BigEndian.Uint32(response.Payload[2:])
-	for _, d := range catalog {
-		if d.Key == "support" || d.Key == "adapter_voltage" {
+	for _, d := range definitions {
+		offset := int(d.PID) - block
+		if offset <= 0 || offset > 32 {
 			continue
 		}
-		yes := bits&(uint32(1)<<uint(32-d.PID)) != 0
+		yes := bits&(uint32(1)<<uint(32-offset)) != 0
 		row := c.Get(response.ECU, d.Key)
 		row.Advertised = &yes
 		row.Evidence = tx
@@ -349,7 +407,7 @@ func (c *Capabilities) Rows() []Capability {
 	}
 	sort.Strings(ordered)
 	for _, ecu := range ordered {
-		for _, d := range catalog {
+		for _, d := range liveMeasurementCatalog {
 			if row, ok := c.rows[ecu+"/"+d.Key]; ok {
 				out = append(out, c.Get(row.ECU, row.Key))
 			}

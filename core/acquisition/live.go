@@ -53,7 +53,7 @@ func NewLive(anchorMS int64, specs []Schedule, config LiveConfiguration) (*Sched
 			return nil, fmt.Errorf("CAN29 diagnostic requires CAN29")
 		}
 		expected = obd.CAN29InitializationVersion
-	case "combined", "rpm_only", "coolant_only", "voltage_only":
+	case "combined", "rpm_only", "coolant_only", "voltage_only", obd.ExpandedWorkload:
 		if can29 {
 			expected = obd.CAN29RuntimeInitializationVersion
 		}
@@ -64,7 +64,7 @@ func NewLive(anchorMS int64, specs []Schedule, config LiveConfiguration) (*Sched
 		return nil, fmt.Errorf("diagnostic workload/version mismatch")
 	}
 	for _, spec := range specs {
-		if obd.IsInitialization(spec.Key) || (spec.Key == "can_status" && !diagnostic) {
+		if obd.IsInitialization(spec.Key) || (spec.Key == "can_status" && !diagnostic) || (obd.ExpandedRequest(spec.Key) && config.Workload != obd.ExpandedWorkload) {
 			return nil, fmt.Errorf("unrequested diagnostic command")
 		}
 	}

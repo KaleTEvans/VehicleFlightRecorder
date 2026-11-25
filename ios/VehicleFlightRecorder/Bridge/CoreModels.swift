@@ -41,6 +41,7 @@ struct LiveSessionInfo: Codable {
     var workloadTitle: String {
         switch workload {
         case "rpm_only": return "RPM only"
+        case "standard_expanded": return "Expanded standard OBD"
         case "coolant_only": return "Coolant only"
         case "voltage_only": return "Adapter voltage only"
         case "combined": return "Combined"
@@ -53,6 +54,7 @@ struct LiveSessionInfo: Codable {
     var requestedReadings: String {
         switch workload {
         case "rpm_only": return "Engine RPM"
+        case "standard_expanded": return "Baseline readings, vehicle speed, fuel trims, oil temperature and fuel rate when supported"
         case "coolant_only": return "Coolant temperature"
         case "voltage_only": return "Adapter input voltage"
         case "combined": return "Engine RPM, coolant temperature, adapter input voltage"

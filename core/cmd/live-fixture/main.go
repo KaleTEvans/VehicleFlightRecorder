@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 	"strings"
 	"vehicleflightrecorder.local/core/mobile"
+	"vehicleflightrecorder.local/core/obd"
 )
 
 func main() {
@@ -21,7 +22,7 @@ func main() {
 func run() error {
 	output := flag.String("output", "", "new session parent directory")
 	scenario := flag.String("scenario", "healthy", "healthy, reconnect, malformed, unsupported, timeout, no_data, recovery")
-	workload := flag.String("workload", "combined", "combined, rpm_only, coolant_only, voltage_only, discovery_diagnostic, can29_diagnostic, adapter_handoff")
+	workload := flag.String("workload", "combined", "combined, standard_expanded, rpm_only, coolant_only, voltage_only, discovery_diagnostic, can29_diagnostic, adapter_handoff")
 	profile := flag.String("profile", "", "optional regular-workload protocol: can11 or can29")
 	flag.Parse()
 	if *output == "" {
@@ -83,6 +84,21 @@ func run() error {
 		replies["STPR\r"] = "34\r>"
 	}
 
+	if *workload == obd.ExpandedWorkload {
+		replies["0100\r"] = "7E8 06 41 00 0F 98 00 01\r>"
+		replies["0120\r"] = "7E8 06 41 20 00 00 00 01\r>"
+		replies["0140\r"] = "7E8 06 41 40 00 00 00 14\r>"
+		replies["010D\r"] = "7E8 03 41 0D 32\r>"
+		replies["0106\r"] = "7E8 04 41 06 90 FF\r>"
+		replies["0107\r"] = "7E8 03 41 07 70\r>"
+		replies["0108\r"] = "7E8 03 41 08 80\r>"
+		replies["0109\r"] = "7E8 03 41 09 82\r>"
+		replies["015C\r"] = "7E8 03 41 5C 8C\r>"
+		replies["015E\r"] = "7E8 04 41 5E 00 F0\r>"
+		if *scenario == "no_data" {
+			replies["015E\r"] = "NO DATA\r>"
+		}
+	}
 	supportAttempts := 0
 	if *scenario == "unsupported" {
 		replies["0100\r"] = "7E8 06 41 00 00 00 00 00\r>"
@@ -132,7 +148,7 @@ func run() error {
 		response, ok := replies[string(command)]
 		if string(command) == "0100\r" {
 			supportAttempts++
-			if *scenario == "no_data" || (*scenario == "recovery" && supportAttempts == 1) {
+			if (*scenario == "no_data" && *workload != obd.ExpandedWorkload) || (*scenario == "recovery" && supportAttempts == 1) {
 				response = "NO DATA\r>"
 			}
 		}

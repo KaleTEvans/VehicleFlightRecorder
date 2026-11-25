@@ -103,6 +103,15 @@ func LookupLive(key string) (Definition, error) {
 	if key == "can_status" {
 		return Definition{Key: key, Command: "ATCS\r", Reference: STNReference + "#page=14"}, nil
 	}
+	return lookupMeasurement(key)
+}
+
+func lookupMeasurement(key string) (Definition, error) {
+	for _, d := range expandedCatalog {
+		if d.Key == key {
+			return d, nil
+		}
+	}
 	return Lookup(key)
 }
 

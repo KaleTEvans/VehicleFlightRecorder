@@ -67,11 +67,11 @@ def _metadata(metadata):
         if set(metadata) != expected or metadata['source'] != 'obd-live' or metadata['vehicle_pack_version'] != 'none': _fail('unknown/incompatible schema_version 2 live metadata')
         live = metadata['live']
         if not isinstance(live, dict) or set(live)-{'policy_version','resumed_from_session_id'} != {'origin','operating_state','workload','native_anchor_ns','catalog_version','protocol_profile','report_file','start_origin'}: _fail('invalid live configuration')
-        if live['origin'] not in ('physical','native-fixture','scripted-fixture') or live['operating_state'] not in ('unknown','ignition_on_engine_off','stationary_running') or live['workload'] not in ('combined','rpm_only','coolant_only','voltage_only','discovery_diagnostic','can29_diagnostic','adapter_handoff'): _fail('unknown live source/configuration')
+        if live['origin'] not in ('physical','native-fixture','scripted-fixture') or live['operating_state'] not in ('unknown','ignition_on_engine_off','stationary_running') or live['workload'] not in ('combined','rpm_only','coolant_only','voltage_only','standard_expanded','discovery_diagnostic','can29_diagnostic','adapter_handoff'): _fail('unknown live source/configuration')
         _integer(live['native_anchor_ns'], 'native anchor')
         handoff=live['workload']=='adapter_handoff'
         can29=live['protocol_profile']=='can29-normal-fixed-single-frame-headers-pci'
-        regular=live['workload'] in ('combined','rpm_only','coolant_only','voltage_only')
+        regular=live['workload'] in ('combined','rpm_only','coolant_only','voltage_only','standard_expanded')
         if not regular and can29 != (live['workload']=='can29_diagnostic'): _fail('live workload/protocol mismatch')
         if handoff and (metadata['observation_count'] != 0 or metadata['incident_count'] != 0): _fail('adapter handoff cannot contain measurements/incidents')
         if metadata['profile_id'] != ('generic-obd-can29-500' if can29 else 'adapter-state-only' if handoff else 'generic-obd-can11-500'): _fail('live workload/profile mismatch')

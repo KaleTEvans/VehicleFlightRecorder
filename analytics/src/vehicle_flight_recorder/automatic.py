@@ -4,7 +4,7 @@ from collections import Counter
 from pathlib import Path
 import re
 from .session import ValidationError, _decode, _integer, _records, load_session
-from .acquisition import fields, require
+from .acquisition import SIGNALS, fields, require
 
 POLICY='rpm-activity-1'
 ID=re.compile(r'live-[0-9a-f]{32}\Z')
@@ -56,7 +56,7 @@ def quality(metadata, report, events):
     # refresh or measurement-time claim. Initial absent time is included.
     populations={}
     schedules={x['key']:x for x in report['schedule']}
-    signal_keys={'powertrain.engine.rpm':'rpm','powertrain.coolant.temperature':'coolant','electrical.adapter_voltage':'adapter_voltage'}
+    signal_keys = {signal: key for key, (signal, _) in SIGNALS.items()}
     for observation in report['observations']:
         populations.setdefault((observation['signal_id'],observation['ecu']),[]).append(observation['mapped_unix_ms'])
     freshness=[]

@@ -298,3 +298,32 @@ def test_regular_can29_contract_rejects_crossed_configuration(regular_can29_expo
         p.write_text(json.dumps(metadata))
     report_path.write_text(json.dumps(report))
     with pytest.raises(ValidationError):load_session(path)
+
+
+@pytest.mark.parametrize('profile,scenario', [('can11', 'healthy'), ('can29', 'reconnect'),
+                                               ('can29', 'unsupported'), ('can29', 'no_data')])
+def test_expanded_standard_workload_replays_raw_evidence(live_exports, tmp_path, profile, scenario):
+    binary = live_exports['healthy'].parent.parent/'live-fixture'
+    run = subprocess.run([str(binary), '--output', str(tmp_path/'expanded'),
+                          '--workload', 'standard_expanded', '--profile', profile,
+                          '--scenario', scenario], check=True, capture_output=True, text=True)
+    path = Path(run.stdout.strip())
+    load_session(path)
+    report = json.loads((path/'capability.json').read_text())
+    expected = {'powertrain.vehicle.speed': 50, 'powertrain.oil.temperature': 100,
+                'powertrain.fuel.rate': 12, 'powertrain.fuel.trim.short.bank1': 12.5,
+                'powertrain.fuel.trim.long.bank1': -12.5, 'powertrain.fuel.trim.short.bank2': 0,
+                'powertrain.fuel.trim.long.bank2': 1.5625}
+    if scenario == 'no_data':
+        expected.pop('powertrain.fuel.rate')
+        assert any(t['key'] == 'fuel_rate' and t['outcome'] == 'no_data' for t in report['transactions'])
+        assert all(o['signal_id'] != 'powertrain.fuel.rate' for o in report['observations'])
+    if scenario == 'unsupported':
+        assert not any(t['key'] in {'support20', 'support40', 'speed', 'fuel_rate'}
+                       for t in report['transactions'])
+        return
+    for signal, value in expected.items():
+        assert {o['value'] for o in report['observations'] if o['signal_id'] == signal} == {value}
+    if scenario == 'reconnect':
+        assert {o['generation'] for o in report['observations']
+                if o['signal_id'] == 'powertrain.fuel.rate'} == {1, 2}

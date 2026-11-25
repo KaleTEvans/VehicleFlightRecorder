@@ -11,7 +11,7 @@ struct TransportDebugView: View {
     @State private var workload = "combined"
     @State private var reference = ""
     @AppStorage("stationaryProtocolProfile") private var protocolProfile = StationaryProtocol.can29.rawValue
-    private var isRegularWorkload: Bool { ["combined", "rpm_only", "coolant_only", "voltage_only"].contains(workload) }
+    private var isRegularWorkload: Bool { ["combined", "rpm_only", "coolant_only", "voltage_only", "standard_expanded"].contains(workload) }
     var body: some View {
         NavigationStack {
             List {
@@ -88,6 +88,7 @@ struct TransportDebugView: View {
                     }.disabled(model.live?.active == true)
                     Picker("Workload", selection: $workload) {
                         Text("Combined").tag("combined")
+                        Text("Expanded standard OBD").tag("standard_expanded")
                         Text("Discovery diagnostic").tag("discovery_diagnostic")
                         Text("CAN 29-bit diagnostic").tag("can29_diagnostic")
                         Text("Adapter handoff capture").tag("adapter_handoff")
@@ -127,7 +128,7 @@ struct TransportDebugView: View {
                         if !live.isDiagnostic && !live.isHandoff { Text("\(live.incidents.count) manual incident(s). Allow 60 seconds before marking and 120 seconds afterward for a full window.").font(.caption) }
                         ForEach(live.readings) { row in
                             VStack(alignment: .leading) {
-                                Text(row.signalId).font(.caption)
+                                Text(LiveReadingSelection.title(row.signalId)).font(.caption)
                                 Text("\(row.ecu): \(row.value, specifier: "%.2f") \(row.unit) · \(row.quality) · \(row.ageMs / 1000) s old")
                             }
                         }

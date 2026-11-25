@@ -3,7 +3,10 @@ import SwiftUI
 // Display one real responder per signal. No averages, role inference or changes
 // to recorded evidence; all sources remain visible in the disclosure and export.
 enum LiveReadingSelection {
-    static let order = ["powertrain.engine.rpm", "powertrain.coolant.temperature", "electrical.adapter_voltage"]
+    static let order = ["powertrain.engine.rpm", "powertrain.coolant.temperature", "electrical.adapter_voltage",
+                        "powertrain.vehicle.speed", "powertrain.oil.temperature", "powertrain.fuel.rate",
+                        "powertrain.fuel.trim.short.bank1", "powertrain.fuel.trim.long.bank1",
+                        "powertrain.fuel.trim.short.bank2", "powertrain.fuel.trim.long.bank2"]
     static func primary(_ readings: [LiveReading]) -> [LiveReading] {
         let groups = Dictionary(grouping: readings, by: \.signalId)
         return order.compactMap { signal in
@@ -20,6 +23,13 @@ enum LiveReadingSelection {
         case "powertrain.engine.rpm": return "Engine speed"
         case "powertrain.coolant.temperature": return "Coolant temperature"
         case "electrical.adapter_voltage": return "Adapter voltage"
+        case "powertrain.vehicle.speed": return "Vehicle speed"
+        case "powertrain.oil.temperature": return "Engine oil temperature"
+        case "powertrain.fuel.rate": return "Engine fuel rate"
+        case "powertrain.fuel.trim.short.bank1": return "Short-term fuel trim (bank 1)"
+        case "powertrain.fuel.trim.long.bank1": return "Long-term fuel trim (bank 1)"
+        case "powertrain.fuel.trim.short.bank2": return "Short-term fuel trim (bank 2)"
+        case "powertrain.fuel.trim.long.bank2": return "Long-term fuel trim (bank 2)"
         default: return signal
         }
     }

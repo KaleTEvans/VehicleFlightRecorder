@@ -558,7 +558,7 @@ func (s *Scheduler) Receive(generation int, now int64, data []byte) error {
 	tx.AdapterStatus = append([]string{}, reply.Statuses...)
 	for _, failure := range reply.Failures {
 		tx.AdapterStatus = append(tx.AdapterStatus, "decode_error:"+failure.ECU+":"+failure.Detail)
-		if failure.ECU != "unknown" && tx.Key != "support" {
+		if failure.ECU != "unknown" && !obd.IsSupportRequest(tx.Key) {
 			s.capabilities.Unavailable(failure.ECU, tx.Key, tx.ID)
 		}
 	}
@@ -575,12 +575,16 @@ func (s *Scheduler) Receive(generation int, now int64, data []byte) error {
 	}
 	for _, response := range reply.Responses {
 		if response.State == "advertised" {
-			_ = s.capabilities.ApplySupport(response, tx.ID)
+			applySupport := s.capabilities.ApplySupport
+			if s.live && s.report.Configuration.Workload == obd.ExpandedWorkload {
+				applySupport = s.capabilities.ApplyExpandedSupport
+			}
+			_ = applySupport(response, tx.ID)
 			outcome = "ok"
 		}
 		if response.State == "negative_response" {
 			hasFailedResponder = true
-			if tx.Key != "support" {
+			if !obd.IsSupportRequest(tx.Key) {
 				s.capabilities.Unavailable(response.ECU, tx.Key, tx.ID)
 			}
 			if outcome != "ok" {
@@ -589,7 +593,7 @@ func (s *Scheduler) Receive(generation int, now int64, data []byte) error {
 		}
 		if response.State == "unavailable" {
 			hasFailedResponder = true
-			if tx.Key != "support" {
+			if !obd.IsSupportRequest(tx.Key) {
 				s.capabilities.Unavailable(response.ECU, tx.Key, tx.ID)
 			}
 			if outcome != "ok" {

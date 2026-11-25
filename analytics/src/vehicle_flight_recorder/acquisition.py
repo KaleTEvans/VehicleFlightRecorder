@@ -8,6 +8,29 @@ from .session import ValidationError, _decode, _integer
 
 COMMANDS = {"support": b"0100\r", "rpm": b"010C\r", "coolant": b"0105\r", "adapter_voltage": b"STVR\r"}
 SIGNALS = {"rpm": ("powertrain.engine.rpm", "rpm"), "coolant": ("powertrain.coolant.temperature", "degC"), "adapter_voltage": ("electrical.adapter_voltage", "V")}
+SUPPORT_BLOCKS = {"support": 0, "support20": 0x20, "support40": 0x40}
+MEASUREMENT_PIDS = {"rpm": (0x0C, 2), "coolant": (0x05, 1), "speed": (0x0D, 1),
+                    "short_trim_bank1": (0x06, 1), "long_trim_bank1": (0x07, 1),
+                    "short_trim_bank2": (0x08, 1), "long_trim_bank2": (0x09, 1),
+                    "oil_temperature": (0x5C, 1), "fuel_rate": (0x5E, 2)}
+FUEL_TRIMS = {key for key in MEASUREMENT_PIDS if "trim_bank" in key}
+SIGNALS.update({"speed": ("powertrain.vehicle.speed", "km/h"),
+                "oil_temperature": ("powertrain.oil.temperature", "degC"),
+                "fuel_rate": ("powertrain.fuel.rate", "L/h")})
+for bank in (1, 2):
+    for term in ("long", "short"):
+        SIGNALS[f"{term}_trim_bank{bank}"] = (f"powertrain.fuel.trim.{term}.bank{bank}", "%")
+EXPANDED_COMMANDS = {key: f"01{pid:02X}\r".encode() for key, pid in
+                     (SUPPORT_BLOCKS | {k: v[0] for k, v in MEASUREMENT_PIDS.items()}).items()
+                     if key not in COMMANDS}
+EXPANDED_SCHEDULE = {"support20": (60, 0), "support40": (60, 0), "speed": (2, 4),
+                     "oil_temperature": (15, 6), "fuel_rate": (5, 5)}
+EXPANDED_SCHEDULE.update({key: (10, 5) for key in FUEL_TRIMS})
+
+def advertising_block(key):
+    pid = SUPPORT_BLOCKS[key] if key in SUPPORT_BLOCKS else MEASUREMENT_PIDS[key][0]
+    return (pid - 1) // 32 * 32, 31 - (pid - 1) % 32
+
 INITIALIZATION = dict(zip(
     ('init_close init_defaults init_echo init_linefeeds init_memory init_spaces init_headers init_dlc init_format init_flow init_responses init_timing init_protocol init_timeout init_protocol_check init_identity').split(),
     (b'STPC\r', b'ATD\r', b'ATE0\r', b'ATL0\r', b'ATM0\r', b'ATS1\r', b'ATH1\r', b'ATD0\r', b'ATCAF1\r', b'ATCFC1\r', b'ATR1\r', b'ATAT0\r', b'STP33\r', b'STPTO500\r', b'STPR\r', b'STI\r')))
@@ -19,7 +42,7 @@ HANDOFF_INITIALIZATION = {'init_previous_protocol': b'STPR\r', 'init_previous_de
 CAN29_INITIALIZATION = {({'init_protocol':'init29_protocol', 'init_functional_header':'init29_functional_header', 'init_protocol_check':'init29_protocol_check'}.get(k,k)):
     ({'init_protocol':b'STP34\r', 'init_functional_header':b'ATSH18DB33F1\r'}.get(k,v)) for k,v in DIAGNOSTIC_INITIALIZATION.items()}
 ALL_INITIALIZATION = DIAGNOSTIC_INITIALIZATION | CAN29_INITIALIZATION | HANDOFF_INITIALIZATION
-LIVE_COMMANDS = COMMANDS | ALL_INITIALIZATION | {'can_status': b'ATCS\r'}
+LIVE_COMMANDS = COMMANDS | EXPANDED_COMMANDS | ALL_INITIALIZATION | {'can_status': b'ATCS\r'}
 
 
 def response_id(compact, can29=False):
@@ -28,7 +51,7 @@ def response_id(compact, can29=False):
     return compact[:3] if re.match(r'7E[8-F]',compact) else None
 
 
-def support_bits(data, can29=False):
+def support_bits(data, can29=False, block=0):
     candidates, seen, bad = {}, set(), set()
     for line in data.decode('ascii', errors='replace').replace('\n', '\r').replace('>', '\r').split('\r'):
         compact = ''.join(line.upper().split())
@@ -40,7 +63,7 @@ def support_bits(data, can29=False):
         payload = bytes.fromhex(compact[len(ecu):])
         if ecu in seen: bad.add(ecu)
         seen.add(ecu)
-        if payload[0] == 6 and len(payload) >= 7 and payload[1:3] == b'\x41\x00':
+        if payload[0] == 6 and len(payload) >= 7 and payload[1:3] == bytes((0x41, block)):
             candidates[ecu] = int.from_bytes(payload[3:7], 'big')
         else: bad.add(ecu)
     return {ecu: mask for ecu, mask in candidates.items() if ecu not in bad}
@@ -97,7 +120,7 @@ def replay_values(key, raw, can29=False):
     for line in lines:
         line = line.strip()
         compact = "".join(line.upper().split())
-        if not line or compact == COMMANDS[key].decode().strip():
+        if not line or compact == LIVE_COMMANDS[key].decode().strip():
             continue
         if key == "adapter_voltage":
             if re.fullmatch(r"[0-9]{1,2}\.[0-9]{2}", line) and float(line) <= 65.534:
@@ -117,14 +140,20 @@ def replay_values(key, raw, can29=False):
             duplicates.add(ecu)
             continue
         payload = data[1:1+data[0]]
-        if key == "support":
+        if key in SUPPORT_BLOCKS:
             continue
-        pid, length = (12, 4) if key == "rpm" else (5, 3)
-        if len(payload) != length or payload[:2] != bytes((65, pid)):
+        pid, width = MEASUREMENT_PIDS[key]
+        lengths = (3, 4) if key in FUEL_TRIMS else (width + 2,)
+        if len(payload) not in lengths or payload[:2] != bytes((65, pid)):
             if not (len(payload) == 3 and payload[:2] == b'\x7f\x01'): duplicates.add(ecu)
             continue
         if ecu in result: duplicates.add(ecu)
-        result[ecu] = int.from_bytes(payload[2:], "big") / 4 if key == "rpm" else payload[2] - 40
+        value = payload[2]
+        if key in ("coolant", "oil_temperature"): value -= 40
+        elif key == "rpm": value = int.from_bytes(payload[2:], "big") / 4
+        elif key == "fuel_rate": value = int.from_bytes(payload[2:], "big") / 20
+        elif key in FUEL_TRIMS: value = (value - 128) * 100 / 128
+        result[ecu] = value
     return {ecu: value for ecu, value in result.items() if ecu not in duplicates}
 
 
@@ -166,9 +195,9 @@ def _validate_acquisition(path, *, allow_incomplete=False):
         config = report['configuration']
         fields({k:v for k,v in config.items() if k not in {'start_origin','policy_version','startup_sync_version'}}, 'app_version bridge_version reference_note sensor_refresh_rate enhanced_pack maximum_duration_ns minimum_admission_ns session_id origin operating_state workload native_anchor_ns initialization_version selected_protocol connections')
         require(isinstance(config['session_id'], str) and re.fullmatch(r'live-[0-9a-f]{32}', config['session_id']), 'live session identity')
-        require(config['origin'] in ('physical', 'native-fixture', 'scripted-fixture') and config['operating_state'] in ('unknown', 'ignition_on_engine_off', 'stationary_running') and config['workload'] in ('combined', 'rpm_only', 'coolant_only', 'voltage_only', 'discovery_diagnostic', 'can29_diagnostic', 'adapter_handoff'), 'live configuration')
+        require(config['origin'] in ('physical', 'native-fixture', 'scripted-fixture') and config['operating_state'] in ('unknown', 'ignition_on_engine_off', 'stationary_running') and config['workload'] in ('combined', 'rpm_only', 'coolant_only', 'voltage_only', 'standard_expanded', 'discovery_diagnostic', 'can29_diagnostic', 'adapter_handoff'), 'live configuration')
         diagnostic = config['workload'] in ('discovery_diagnostic','can29_diagnostic')
-        regular = config['workload'] in ('combined','rpm_only','coolant_only','voltage_only')
+        regular = config['workload'] in ('combined','rpm_only','coolant_only','voltage_only','standard_expanded')
         require((regular or (can29 == (config['workload']=='can29_diagnostic'))), 'workload/protocol mismatch')
         init_steps = HANDOFF_INITIALIZATION if handoff else CAN29_INITIALIZATION if can29 else DIAGNOSTIC_INITIALIZATION if diagnostic else INITIALIZATION
         require(config['initialization_version'] == (('obdlink-stp34-diagnostic-1' if diagnostic else 'obdlink-stp34-runtime-1') if can29 else 'obdlink-adapter-handoff-1' if handoff else 'obdlink-stp33-diagnostic-2' if diagnostic else 'obdlink-stp33-runtime-1') and config['selected_protocol'] == ('ISO15765-4-CAN29-500' if can29 else 'unmodified-adapter-state' if handoff else 'ISO15765-4-CAN11-500') and config['app_version'] == '0.1.0' and type(config['bridge_version']) is int and config['bridge_version'] == 1, 'configuration version/protocol')
@@ -194,7 +223,8 @@ def _validate_acquisition(path, *, allow_incomplete=False):
     generation = _integer(report['generation'], 'generation', 1)
     require(report['state'] in {'ready', 'writing', 'awaiting', 'draining', 'blocked', 'disconnected'}, "unknown state")
     require(allow_incomplete or report['state'] in {'blocked', 'disconnected'}, "unfinished acquisition report")
-    for key, maximum in [('schedule', 32 if live else 16), ('raw', 16384 if live else 4096), ('transactions', 2048 if live else 512), ('observations', 8192 if live else 2048), ('capabilities', 512 if can29 else 32), ('statistics', 512 if can29 else 32), ('issues', 1024)]:
+    expanded = live and config['workload'] == 'standard_expanded'
+    for key, maximum in [('schedule', 40 if expanded else 32 if live else 16), ('raw', 16384 if live else 4096), ('transactions', 2048 if live else 512), ('observations', 8192 if live else 2048), ('capabilities', 512 if can29 or expanded else 32), ('statistics', 512 if can29 or expanded else 32), ('issues', 1024)]:
         require(isinstance(report[key], list) and len(report[key]) <= maximum, f"invalid {key} budget")
     require(all(isinstance(issue, str) for issue in report['issues']), "invalid issues")
     schedule = {}
@@ -209,13 +239,14 @@ def _validate_acquisition(path, *, allow_incomplete=False):
     require(schedule, "empty schedule")
     if live:
         require(list(schedule)[:len(init_steps)] == list(init_steps), 'missing/reordered initialization configuration')
-        selected = {'combined': {'support', 'rpm', 'coolant', 'adapter_voltage'}, 'rpm_only': {'support', 'rpm'}, 'coolant_only': {'support', 'coolant'}, 'voltage_only': {'adapter_voltage'}, 'discovery_diagnostic': {'support', 'rpm', 'coolant', 'adapter_voltage', 'can_status'}, 'can29_diagnostic': {'support','rpm','coolant','adapter_voltage','can_status'}, 'adapter_handoff': set()}[config['workload']]
+        selected = {'combined': {'support', 'rpm', 'coolant', 'adapter_voltage'}, 'standard_expanded': {'support','rpm','coolant','adapter_voltage'} | set(EXPANDED_SCHEDULE), 'rpm_only': {'support', 'rpm'}, 'coolant_only': {'support', 'coolant'}, 'voltage_only': {'adapter_voltage'}, 'discovery_diagnostic': {'support', 'rpm', 'coolant', 'adapter_voltage', 'can_status'}, 'can29_diagnostic': {'support','rpm','coolant','adapter_voltage','can_status'}, 'adapter_handoff': set()}[config['workload']]
         require(set(schedule)-set(init_steps) == selected, 'workload/configuration mismatch')
         require(all(schedule[k] == dict(key=k, interval_ns=60*10**9, timeout_ns=2*10**9, priority=0) for k in init_steps), 'initialization schedule')
         for key in selected:
-            interval = {'support': 15 if diagnostic else 60, 'rpm': 2, 'coolant': 5, 'adapter_voltage': 5, 'can_status': 15}[key]*10**9
-            priority = {'support': 0, 'rpm': 1, 'coolant': 2, 'adapter_voltage': 3, 'can_status': 4}[key]
-            require(schedule[key] == dict(key=key, interval_ns=interval, timeout_ns=2*10**9, priority=priority), 'unsupported live schedule')
+            intervals = {'support': (15 if diagnostic else 60, 0), 'rpm': (2, 1),
+                         'coolant': (5, 2), 'adapter_voltage': (5, 3), 'can_status': (15, 4)}
+            seconds, priority = (intervals | EXPANDED_SCHEDULE)[key]
+            require(schedule[key] == dict(key=key, interval_ns=seconds*10**9, timeout_ns=2*10**9, priority=priority), 'unsupported live schedule')
     txs, refs = {}, defaultdict(list)
     previous_end = 0
     previous_generation = 1
@@ -380,22 +411,27 @@ def _validate_acquisition(path, *, allow_incomplete=False):
     require(set(stats_by_pair) == set(groups), "missing statistics")
     support_masks = {}
     for tx in report['transactions']:
-        if tx['generation'] != generation or tx['key'] != 'support' or tx['outcome'] not in {'ok', 'partial'}:
+        if tx['generation'] != generation or tx['key'] not in SUPPORT_BLOCKS or tx['outcome'] not in {'ok', 'partial'}:
             continue
         data = b''.join(data for row, data in raw_by_tx[tx['id']] if row['kind'] == 'received')
-        support_masks.update(support_bits(data, can29))
+        block = SUPPORT_BLOCKS[tx['key']]
+        support_masks.update({(block, ecu): mask for ecu, mask in support_bits(data, can29, block).items()})
     capability_keys = set()
     for cap in report['capabilities']:
         fields(cap, "ecu key state advertised observed evidence_transaction")
         pair = (cap['ecu'], cap['key'])
-        require(pair not in capability_keys and cap['key'] in SIGNALS and (cap['ecu'] == 'adapter' or response_id(cap['ecu'],can29) == cap['ecu']), "invalid/duplicate capability")
+        require(pair not in capability_keys and (cap['key'] in {'rpm','coolant','adapter_voltage'} or (live and config['workload']=='standard_expanded' and cap['key'] in EXPANDED_COMMANDS)) and (cap['ecu'] == 'adapter' or response_id(cap['ecu'],can29) == cap['ecu']), "invalid/duplicate capability")
         require(cap['state'] in {'unknown', 'advertised', 'observed', 'unsupported', 'unavailable'} and type(cap['observed']) is bool and (cap['advertised'] is None or type(cap['advertised']) is bool), "invalid capability state")
         evidence = txs.get(cap['evidence_transaction'])
-        require(evidence is not None and evidence['generation'] == generation and evidence['key'] in {cap['key'], 'support'}, "capability cache crosses generation/configuration")
+        require(evidence is not None and evidence['generation'] == generation and (evidence['key'] == cap['key'] or evidence['key'] in SUPPORT_BLOCKS), "capability cache crosses generation/configuration")
         if cap['advertised'] is not None:
-            require(cap['ecu'] in support_masks and cap['key'] in {'rpm', 'coolant'}, "advertisement lacks raw support evidence")
-            pid = 12 if cap['key'] == 'rpm' else 5
-            require(cap['advertised'] == bool(support_masks[cap['ecu']] & (1 << (32-pid))), "advertisement differs from support bits")
+            require(cap['key'] in MEASUREMENT_PIDS or cap['key'] in ('support20', 'support40'), "invalid advertised PID")
+            block, bit = advertising_block(cap['key'])
+            if evidence['key'] in SUPPORT_BLOCKS:
+                require(SUPPORT_BLOCKS[evidence['key']] == block, "capability references the wrong support block")
+            pair_mask = (block, cap['ecu'])
+            require(pair_mask in support_masks, "advertisement lacks raw support evidence")
+            require(cap['advertised'] == bool(support_masks[pair_mask] & (1 << bit)), "advertisement differs from support bits")
         if cap['state'] == 'unsupported': require(cap['advertised'] is False and not cap['observed'], "timeout inferred unsupported")
         if cap['state'] == 'advertised': require(cap['advertised'] is True and not cap['observed'], "invalid advertised state")
         if cap['state'] == 'observed': require(cap['observed'], "invented observation")

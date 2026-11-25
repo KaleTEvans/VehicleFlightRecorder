@@ -402,3 +402,25 @@ recovery packet is retained as a record rather than requested again. Remaining
 M7 lifecycle/notification, normal-end, road and resource/battery qualification
 stay open for a separately consolidated packet; M7 is not closed and M8 has
 not started.
+
+## Expanded standard OBD workload
+
+The opt-in **Expanded standard OBD** workload appears under Stationary recording.
+It records the baseline signals plus vehicle speed (Mode 01 PID 0D), short-
+and long-term fuel trims for banks 1 and 2 (06–09), engine oil temperature
+(5C), and engine fuel rate (5E) when advertised and observed. Coolant
+temperature (05) remains available. Fuel rate is the reported value in L/h.
+Each observation retains the responder and its original transaction evidence.
+The definitions follow the [OBDLink SAE PID list](https://www.obdlink.com/obd-apps/obdwiz-app/).
+
+The workload checks block 00 and follows advertised continuation to blocks 20
+and 40 to cover the selected readings. Support is checked again after reconnect.
+M7-2 block 00 evidence advertises road speed and trims for both banks across
+responders. The capture does not establish support for the higher-block oil and
+fuel-rate PIDs. Gear selector position requires a verified Giulia-specific
+signal. Standard PID A4 describes transmission actual gear status or ratio.
+
+Automatic recording retains the Combined workload for road qualification.
+The expanded workload is locally replayed on both fixed CAN profiles.
+Physical availability, sample cadence and comparison against a reference remain
+to be measured.

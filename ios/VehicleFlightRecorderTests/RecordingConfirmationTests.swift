@@ -48,11 +48,24 @@ private final class MemoryConfirmationReceipts: ConfirmationReceipts {
         let adapter = FakeRecordingNotifications()
         let controller = make(adapter)
         controller.isForeground = { true }
-        await controller.consumeCompletion(AutomaticEndFact(sessionId: fact.sessionId, reason: .engineStopped))
+        let end = AutomaticEndFact(sessionId: fact.sessionId, reason: .engineStopped)
+        await controller.consumeCompletion(end)
+        await controller.consumeCompletion(end)
         XCTAssertEqual(controller.banner, "Drive saved · Engine stopped")
         XCTAssertEqual(controller.bannerSessionID, fact.sessionId)
-        XCTAssertTrue(adapter.completions.isEmpty)
+        XCTAssertEqual(adapter.completions, [fact.sessionId])
         XCTAssertNil(controller.route)
+    }
+
+    func testDeniedForegroundCompletionStillShowsInApp() async {
+        let adapter = FakeRecordingNotifications()
+        adapter.status = "denied"
+        let controller = make(adapter)
+        controller.isForeground = { true }
+        await controller.consumeCompletion(AutomaticEndFact(sessionId: fact.sessionId, reason: .engineStopped))
+        XCTAssertNotNil(controller.banner)
+        XCTAssertTrue(adapter.completions.isEmpty)
+        XCTAssertEqual(adapter.requests, 0)
     }
 
     func testForegroundAndDuplicateHaveOneInAppPath() async {

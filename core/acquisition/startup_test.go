@@ -102,3 +102,36 @@ func TestStartupNeverShortensInitialWaitOrTruncatesQuietAtLimit(t *testing.T) {
 		t.Fatal("quiet interval truncated at deadline", w, e)
 	}
 }
+
+// Replay the mixed reply retained in M7-2. The voltage frame belongs to a
+// different command, so a coalesced OK cannot establish synchronized setup.
+func TestStartupRejectsLateVoltageCoalescedWithCloseAcknowledgement(t *testing.T) {
+	s := startupFixture(t)
+	w, err := s.Poll(Second)
+	if err != nil || w == nil || w.Key != "init_close" {
+		t.Fatal(w, err)
+	}
+	if err := s.Accepted(1, w.ID, Second+1, len(w.Bytes)); err != nil {
+		t.Fatal(err)
+	}
+	err = s.Receive(1, Second+2, []byte("13.78\r\r>OK\r\r>"))
+	if err == nil || s.State() != "blocked" || s.initIndex != 0 {
+		t.Fatalf("mixed reply did not force a fresh connection: state=%s step=%d error=%v", s.State(), s.initIndex, err)
+	}
+	if err := s.Reconnect(2 * Second); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.BeginStartup(2 * Second); err != nil {
+		t.Fatal(err)
+	}
+	w, err = s.Poll(3 * Second)
+	if err != nil || w == nil || w.Key != "init_close" {
+		t.Fatal(w, err)
+	}
+	if err := s.Accepted(2, w.ID, 3*Second+1, len(w.Bytes)); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.Receive(2, 3*Second+2, []byte("OK\r\r>")); err != nil || s.initIndex != 1 {
+		t.Fatalf("clean acknowledgement did not restore setup: step=%d error=%v", s.initIndex, err)
+	}
+}

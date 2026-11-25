@@ -121,13 +121,12 @@ struct RecordingRoute: Identifiable, Hashable { let id = UUID(); let sessionID: 
             guard try receipts.claim(fact.sessionId, stage: "completed") else { return }
             if isForeground() {
                 try presentCompletion(fact.sessionId, message: "Drive saved · \(fact.reason.title)")
-            } else {
-                permission = await adapter.authorization()
-                if permission == "authorized" {
-                    try await adapter.submitCompletion(fact)
-                    onEvent("completion_submitted: \(fact.sessionId)")
-                } else { onEvent("completion_suppressed_\(permission): \(fact.sessionId)") }
             }
+            permission = await adapter.authorization()
+            if permission == "authorized" {
+                try await adapter.submitCompletion(fact)
+                onEvent("completion_submitted: \(fact.sessionId)")
+            } else { onEvent("completion_suppressed_\(permission): \(fact.sessionId)") }
         } catch { onEvent("completion_failed_no_retry: \(fact.sessionId): \(error.localizedDescription)") }
     }
     private func presentCompletion(_ session: String, message: String) throws {
@@ -152,14 +151,15 @@ struct RecordingRoute: Identifiable, Hashable { let id = UUID(); let sessionID: 
         onEvent("in_app_requested: \(session)")
     }
     nonisolated func userNotificationCenter(_ center: UNUserNotificationCenter, willPresent notification: UNNotification, withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void) {
-        // If a background request reaches a now-visible app, use just the in-app
-        // path. It can never also receive a system banner from this delegate.
+        // Keep completed drives in Notification Center. The in-app view owns
+        // the visible foreground banner, including when delivery races a scene change.
         let id = notification.request.content.userInfo["session_id"] as? String
         let name = notification.request.content.userInfo["vehicle_name"] as? String ?? "Vehicle"
         let own = notification.request.identifier.hasPrefix("vfr.start.")
         let body = notification.request.content.body
-        completionHandler([])
-        if let id, FileConfirmationReceipts.validID(id), notification.request.identifier == "vfr.end.\(id)" {
+        let isCompletion = id.map { FileConfirmationReceipts.validID($0) && notification.request.identifier == "vfr.end.\($0)" } ?? false
+        completionHandler(isCompletion ? [.list] : [])
+        if isCompletion, let id {
             Task { @MainActor [weak self] in
                 do { try self?.presentCompletion(id, message: "Drive saved · \(body)") }
                 catch { self?.onEvent("completion_foreground_failed_no_retry: \(id)") }

@@ -324,6 +324,14 @@ def test_expanded_standard_workload_replays_raw_evidence(live_exports, tmp_path,
         return
     for signal, value in expected.items():
         assert {o['value'] for o in report['observations'] if o['signal_id'] == signal} == {value}
+    from vehicle_flight_recorder.discovery import inventory
+    rows = {row["pid"]: row for row in inventory(path)["pids"]}
+    assert rows["0D"]["signal"] == "powertrain.vehicle.speed"
+    assert all(series["samples"] > 1 and series["longest_between_samples_seconds"] > 0
+               for series in rows["0D"]["observed"])
+    if scenario == "no_data":
+        assert rows["5E"]["outcomes"]["no_data"] > 0
+        assert not rows["5E"]["observed"]
     if scenario == 'reconnect':
         assert {o['generation'] for o in report['observations']
                 if o['signal_id'] == 'powertrain.fuel.rate'} == {1, 2}

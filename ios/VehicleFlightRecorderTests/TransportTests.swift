@@ -6,6 +6,8 @@ private final class CaptureFixture: TransportCapture {
     var writes = Data()
     var closed = 0
     var used = false
+    var writeAllowed = true
+    func canWrite() throws -> Bool { writeAllowed }
     func receive(_ data: Data) throws { rows.append(data) }
     func identity() throws -> Data { guard !used else { throw VehicleTransportError.failed("Already sent") }; used = true; return Data("STI\r".utf8) }
     func accepted(_ data: Data) throws { writes.append(data) }
@@ -33,6 +35,19 @@ final class TransportTests: XCTestCase {
         XCTAssertEqual(capture.rows.count, 3)
         XCTAssertThrowsError(try pump.identify())
         pump.disconnect(); pump.disconnect(); XCTAssertEqual(capture.closed, 1); XCTAssertEqual(channel.closes, 1)
+    }
+    func testExpiredLiveWriteIsDiscardedBeforeOutput() throws {
+        let pump = TransportPump(), capture = CaptureFixture(), channel = ChannelFixture()
+        try pump.begin(channel: channel, capture: capture)
+        pump.ready(generation: pump.generation)
+        channel.hasSpace = false
+        try pump.enqueueLive(Data("STVR\r".utf8))
+        capture.writeAllowed = false
+        channel.hasSpace = true
+        pump.flush(generation: pump.generation)
+        XCTAssertTrue(channel.sent.isEmpty)
+        XCTAssertTrue(pump.pending.isEmpty)
+        XCTAssertEqual(pump.state, .ready)
     }
     func testDeadlineDisconnectAndStaleGeneration() throws {
         var time: TimeInterval = 0

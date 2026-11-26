@@ -453,6 +453,31 @@ func (l *LiveRecorder) NextCommandBase64(nativeNS, wallMS int64) (string, error)
 	}
 	return base64.StdEncoding.EncodeToString(data), nil
 }
+
+// CanWrite is called on the native transport executor before flushing pending bytes.
+func (l *LiveRecorder) CanWrite(generation, nativeNS int64) (bool, error) {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	if !l.connected || !l.ready || l.failed || generation != int64(l.scheduler.Generation()) {
+		return false, fmt.Errorf("inactive/stale live write")
+	}
+	if len(l.pending) == 0 {
+		return false, nil
+	}
+	now, err := l.clock(nativeNS)
+	if err != nil {
+		return false, l.fail(err)
+	}
+	allowed, err := l.scheduler.CanWrite(now)
+	if !allowed {
+		l.pending = nil
+		if checkpointErr := l.checkpoint(); checkpointErr != nil {
+			return false, l.fail(checkpointErr)
+		}
+	}
+	return allowed, err
+}
+
 func (l *LiveRecorder) Accepted(generation, nativeNS int64, data []byte) (err error) {
 	l.mu.Lock()
 	defer l.mu.Unlock()

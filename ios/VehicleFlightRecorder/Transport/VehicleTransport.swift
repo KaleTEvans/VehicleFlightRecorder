@@ -23,10 +23,15 @@ protocol VehicleTransport: AnyObject {
 protocol TransportCapture: AnyObject {
     func receive(_ data: Data) throws
     func identity() throws -> Data
+    func canWrite() throws -> Bool
     func accepted(_ data: Data) throws
     func event(_ kind: String, _ detail: String) throws
     func close(_ reason: String) throws
 }
+extension TransportCapture {
+    func canWrite() throws -> Bool { true }
+}
+
 protocol TransportChannel: AnyObject {
     var hasSpace: Bool { get }
     func write(_ data: Data) -> Int
@@ -93,12 +98,20 @@ final class TransportPump {
         pending = Data(bytes); deadline = now() + 5
         flush(generation: generation)
     }
+    private func validatePendingWrite() -> Bool {
+        guard !pending.isEmpty, let capture else { return false }
+        do {
+            if try capture.canWrite() { return true }
+            pending.removeAll()
+        } catch { fail(error.localizedDescription) }
+        return false
+    }
     func flush(generation: Int) {
         guard generation == self.generation, state == .ready, let channel else { return }
-        if !pending.isEmpty && now() >= deadline { fail("Write deadline exceeded; partial delivery uncertain"); return }
         // Bounded iterations; zero progress waits for a later space event/deadline.
         for _ in 0..<16 {
-            guard !pending.isEmpty, channel.hasSpace else { return }
+            guard channel.hasSpace, validatePendingWrite() else { return }
+            if now() >= deadline { fail("Write deadline exceeded; partial delivery uncertain"); return }
             let n = channel.write(pending)
             guard n >= 0, n <= pending.count else { fail("Native stream write failed; delivery uncertain"); return }
             if n == 0 { return }
@@ -109,7 +122,9 @@ final class TransportPump {
     }
     func tick() {
         if state == .connecting && now() >= deadline { fail("Stream open deadline exceeded") }
-        if state == .ready && !pending.isEmpty && now() >= deadline { fail("Write deadline exceeded; partial delivery uncertain") }
+        if state == .ready && !pending.isEmpty && validatePendingWrite() && now() >= deadline {
+            fail("Write deadline exceeded; partial delivery uncertain")
+        }
         if let limit = identityDeadline, now() >= limit {
             identityDeadline = nil
             if !receivedSinceIdentity {

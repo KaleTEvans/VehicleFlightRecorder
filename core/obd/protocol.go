@@ -143,12 +143,16 @@ func Parse(key string, frame []byte) (Reply, error) {
 // profile accepts only normal-fixed physical replies addressed to tester F1,
 // retaining the full responder ID without assigning vehicle module names.
 func ParseProfile(profile, key string, frame []byte) (Reply, error) {
-	if profile != Profile && profile != CAN29Profile {
-		return Reply{}, fmt.Errorf("unsupported decoder profile")
-	}
 	d, err := lookupMeasurement(key)
 	if err != nil {
 		return Reply{}, err
+	}
+	return parseDefinition(profile, d, frame)
+}
+
+func parseDefinition(profile string, d Definition, frame []byte) (Reply, error) {
+	if profile != Profile && profile != CAN29Profile {
+		return Reply{}, fmt.Errorf("unsupported decoder profile")
 	}
 	if len(frame) == 0 || len(frame) > 8192 || frame[len(frame)-1] != '>' || strings.Count(string(frame), ">") != 1 {
 		return Reply{}, fmt.Errorf("one complete prompt required")
@@ -287,11 +291,11 @@ func decodeLine(profile string, d Definition, line string) (Response, error) {
 		response.State = "negative_response"
 		return response, nil
 	}
-	validLength := len(payload) == d.Bytes+2 || (isFuelTrim(d.PID) && len(payload) == 4)
+	validLength := len(payload) == d.Bytes+2 || (d.Bytes == -1 && len(payload) >= 3) || (isFuelTrim(d.PID) && len(payload) == 4)
 	if !validLength || payload[0] != 0x41 || payload[1] != d.PID {
 		return Response{}, fmt.Errorf("foreign service/PID or invalid payload length")
 	}
-	if !IsSupportRequest(d.Key) {
+	if d.Signal != "" {
 		value := float64(payload[2])
 		switch {
 		case d.Key == "coolant" || d.Key == "oil_temperature":

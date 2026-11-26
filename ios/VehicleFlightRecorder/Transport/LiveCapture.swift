@@ -43,6 +43,11 @@ final class GoLiveCapture: TransportCapture {
     let generation: Int64
     init(session: GoLiveSession, generation: Int64) { self.session = session; self.generation = generation }
     func receive(_ data: Data) throws { try session.core.receive(generation, nativeNS: TransportClock.nanoseconds(), data: data) }
+    func canWrite() throws -> Bool {
+        var allowed: ObjCBool = false
+        try session.core.canWrite(generation, nativeNS: TransportClock.nanoseconds(), ret0_: &allowed)
+        return allowed.boolValue
+    }
     func accepted(_ data: Data) throws { try session.core.accepted(generation, nativeNS: TransportClock.nanoseconds(), data: data) }
     func identity() throws -> Data { throw VehicleTransportError.failed("Live initialization owns adapter identification") }
     func event(_ kind: String, _ detail: String) throws {

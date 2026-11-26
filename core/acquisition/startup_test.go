@@ -135,3 +135,31 @@ func TestStartupRejectsLateVoltageCoalescedWithCloseAcknowledgement(t *testing.T
 		t.Fatalf("clean acknowledgement did not restore setup: step=%d error=%v", s.initIndex, err)
 	}
 }
+
+// M7-4 observed a voltage write accepted just after the two-second deadline.
+// The preflight can drop an unsent request without resetting synchronization.
+func TestExpiredVoltagePreflightDistinguishesUnsentAndPartialWrites(t *testing.T) {
+	for _, n := range []int{0, 1} {
+		s, err := New(1700000000000, []Schedule{{"adapter_voltage", 5 * Second, 2 * Second, 0}})
+		if err != nil {
+			t.Fatal(err)
+		}
+		work, err := s.Poll(0)
+		if err != nil || work == nil {
+			t.Fatal(work, err)
+		}
+		if n > 0 {
+			if err := s.Accepted(1, work.ID, Second, n); err != nil {
+				t.Fatal(err)
+			}
+		}
+		allowed, err := s.CanWrite(2*Second + Second/10)
+		if allowed || (err != nil) != (n > 0) {
+			t.Fatalf("accepted=%d allowed=%v error=%v", n, allowed, err)
+		}
+		tx := s.Report().Transactions[0]
+		if tx.Outcome != "timeout" || tx.AcceptedBytes != n {
+			t.Fatal(tx)
+		}
+	}
+}

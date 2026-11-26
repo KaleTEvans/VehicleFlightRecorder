@@ -313,6 +313,17 @@ func (s *Scheduler) LatestRPMResult() (string, bool) {
 	return "", false
 }
 
+// CanWrite expires queued work before the native stream accepts another byte.
+func (s *Scheduler) CanWrite(now int64) (bool, error) {
+	if err := s.Tick(now); err != nil {
+		return false, err
+	}
+	if s.report.State == "blocked" {
+		return false, fmt.Errorf("outbound deadline requires a fresh connection")
+	}
+	return s.report.State == "writing", nil
+}
+
 // Accepted represents actual stream acceptance of the next Go-owned prefix.
 // Zero progress is a no-op, not a successful write or a busy retry loop.
 func (s *Scheduler) Accepted(generation int, id string, now int64, n int) error {

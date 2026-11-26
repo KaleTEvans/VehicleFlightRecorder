@@ -294,7 +294,7 @@ func (s Session) Validate() error {
 			return fmt.Errorf("automatic policy/workload mismatch")
 		}
 		profile, catalog, protocol := "generic-obd-can11-500", "standard-live-can11-1", "can11-single-frame-headers-pci"
-		regular := s.Live.Workload == "combined" || s.Live.Workload == "rpm_only" || s.Live.Workload == "coolant_only" || s.Live.Workload == "voltage_only" || s.Live.Workload == "standard_expanded"
+		regular := s.Live.Workload == "combined" || s.Live.Workload == "rpm_only" || s.Live.Workload == "coolant_only" || s.Live.Workload == "voltage_only" || s.Live.Workload == "standard_expanded" || s.Live.Workload == "standard_pid_discovery"
 		if s.Live.Workload == "can29_diagnostic" || (regular && s.Live.Protocol == "can29-normal-fixed-single-frame-headers-pci") {
 			profile, catalog, protocol = "generic-obd-can29-500", "standard-live-can29-1", "can29-normal-fixed-single-frame-headers-pci"
 		}
@@ -319,7 +319,7 @@ func (s Session) Validate() error {
 			return fmt.Errorf("invalid operating state")
 		}
 		switch s.Live.Workload {
-		case "combined", "rpm_only", "coolant_only", "voltage_only", "standard_expanded", "discovery_diagnostic", "can29_diagnostic", "adapter_handoff":
+		case "combined", "rpm_only", "coolant_only", "voltage_only", "standard_expanded", "standard_pid_discovery", "discovery_diagnostic", "can29_diagnostic", "adapter_handoff":
 		default:
 			return fmt.Errorf("invalid live workload")
 		}

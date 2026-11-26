@@ -42,6 +42,7 @@ HANDOFF_INITIALIZATION = {'init_previous_protocol': b'STPR\r', 'init_previous_de
 CAN29_INITIALIZATION = {({'init_protocol':'init29_protocol', 'init_functional_header':'init29_functional_header', 'init_protocol_check':'init29_protocol_check'}.get(k,k)):
     ({'init_protocol':b'STP34\r', 'init_functional_header':b'ATSH18DB33F1\r'}.get(k,v)) for k,v in DIAGNOSTIC_INITIALIZATION.items()}
 ALL_INITIALIZATION = DIAGNOSTIC_INITIALIZATION | CAN29_INITIALIZATION | HANDOFF_INITIALIZATION
+DISCOVERY_COMMANDS = {f"mode01_{pid:02x}": f"01{pid:02X}\r".encode() for pid in range(256)}
 LIVE_COMMANDS = COMMANDS | EXPANDED_COMMANDS | ALL_INITIALIZATION | {'can_status': b'ATCS\r'}
 
 
@@ -67,6 +68,28 @@ def support_bits(data, can29=False, block=0):
             candidates[ecu] = int.from_bytes(payload[3:7], 'big')
         else: bad.add(ecu)
     return {ecu: mask for ecu, mask in candidates.items() if ecu not in bad}
+
+
+def discovery_responders(frame, pid, can29):
+    if not frame.endswith(b'>') or frame.count(b'>') != 1 or len(frame) > 8192:
+        return {}
+    lines = frame[:-1].decode('ascii').replace('\n', '\r').split('\r')
+    matched, seen, bad = {}, set(), set()
+    for line in lines:
+        compact = ''.join(line.upper().split())
+        ecu = response_id(compact, can29)
+        if ecu is None:
+            continue
+        if ecu in seen:
+            bad.add(ecu)
+        seen.add(ecu)
+        text = compact[len(ecu):]
+        if not re.fullmatch(r"(?:[0-9A-F]{2}){2,8}", text):
+            continue
+        data = bytes.fromhex(text)
+        if 3 <= data[0] <= 7 and data[0] < len(data) and data[1:3] == bytes((0x41, pid)):
+            matched[ecu] = data[3:1+data[0]].hex()
+    return {ecu: value for ecu, value in matched.items() if ecu not in bad}
 
 
 def initialization_value(key, raw):
@@ -195,9 +218,9 @@ def _validate_acquisition(path, *, allow_incomplete=False):
         config = report['configuration']
         fields({k:v for k,v in config.items() if k not in {'start_origin','policy_version','startup_sync_version'}}, 'app_version bridge_version reference_note sensor_refresh_rate enhanced_pack maximum_duration_ns minimum_admission_ns session_id origin operating_state workload native_anchor_ns initialization_version selected_protocol connections')
         require(isinstance(config['session_id'], str) and re.fullmatch(r'live-[0-9a-f]{32}', config['session_id']), 'live session identity')
-        require(config['origin'] in ('physical', 'native-fixture', 'scripted-fixture') and config['operating_state'] in ('unknown', 'ignition_on_engine_off', 'stationary_running') and config['workload'] in ('combined', 'rpm_only', 'coolant_only', 'voltage_only', 'standard_expanded', 'discovery_diagnostic', 'can29_diagnostic', 'adapter_handoff'), 'live configuration')
+        require(config['origin'] in ('physical', 'native-fixture', 'scripted-fixture') and config['operating_state'] in ('unknown', 'ignition_on_engine_off', 'stationary_running') and config['workload'] in ('combined', 'rpm_only', 'coolant_only', 'voltage_only', 'standard_expanded', 'standard_pid_discovery', 'discovery_diagnostic', 'can29_diagnostic', 'adapter_handoff'), 'live configuration')
         diagnostic = config['workload'] in ('discovery_diagnostic','can29_diagnostic')
-        regular = config['workload'] in ('combined','rpm_only','coolant_only','voltage_only','standard_expanded')
+        regular = config['workload'] in ('combined','rpm_only','coolant_only','voltage_only','standard_expanded','standard_pid_discovery')
         require((regular or (can29 == (config['workload']=='can29_diagnostic'))), 'workload/protocol mismatch')
         init_steps = HANDOFF_INITIALIZATION if handoff else CAN29_INITIALIZATION if can29 else DIAGNOSTIC_INITIALIZATION if diagnostic else INITIALIZATION
         require(config['initialization_version'] == (('obdlink-stp34-diagnostic-1' if diagnostic else 'obdlink-stp34-runtime-1') if can29 else 'obdlink-adapter-handoff-1' if handoff else 'obdlink-stp33-diagnostic-2' if diagnostic else 'obdlink-stp33-runtime-1') and config['selected_protocol'] == ('ISO15765-4-CAN29-500' if can29 else 'unmodified-adapter-state' if handoff else 'ISO15765-4-CAN11-500') and config['app_version'] == '0.1.0' and type(config['bridge_version']) is int and config['bridge_version'] == 1, 'configuration version/protocol')
@@ -224,7 +247,12 @@ def _validate_acquisition(path, *, allow_incomplete=False):
     require(report['state'] in {'ready', 'writing', 'awaiting', 'draining', 'blocked', 'disconnected'}, "unknown state")
     require(allow_incomplete or report['state'] in {'blocked', 'disconnected'}, "unfinished acquisition report")
     expanded = live and config['workload'] == 'standard_expanded'
-    for key, maximum in [('schedule', 40 if expanded else 32 if live else 16), ('raw', 16384 if live else 4096), ('transactions', 2048 if live else 512), ('observations', 8192 if live else 2048), ('capabilities', 512 if can29 or expanded else 32), ('statistics', 512 if can29 or expanded else 32), ('issues', 1024)]:
+    discovery = live and config['workload'] == 'standard_pid_discovery'
+    if discovery:
+        commands = commands | DISCOVERY_COMMANDS
+        require(generation == 1 and len(config['connections']) <= 1, 'discovery pass crosses connections')
+        require(not report['observations'] and not report['capabilities'] and not report['statistics'], 'discovery must retain raw replies without claiming measurements')
+    for key, maximum in [('schedule', 280 if discovery else 40 if expanded else 32 if live else 16), ('raw', 16384 if live else 4096), ('transactions', 2048 if live else 512), ('observations', 8192 if live else 2048), ('capabilities', 512 if can29 or expanded else 32), ('statistics', 512 if can29 or expanded else 32), ('issues', 1024)]:
         require(isinstance(report[key], list) and len(report[key]) <= maximum, f"invalid {key} budget")
     require(all(isinstance(issue, str) for issue in report['issues']), "invalid issues")
     schedule = {}
@@ -239,10 +267,14 @@ def _validate_acquisition(path, *, allow_incomplete=False):
     require(schedule, "empty schedule")
     if live:
         require(list(schedule)[:len(init_steps)] == list(init_steps), 'missing/reordered initialization configuration')
-        selected = {'combined': {'support', 'rpm', 'coolant', 'adapter_voltage'}, 'standard_expanded': {'support','rpm','coolant','adapter_voltage'} | set(EXPANDED_SCHEDULE), 'rpm_only': {'support', 'rpm'}, 'coolant_only': {'support', 'coolant'}, 'voltage_only': {'adapter_voltage'}, 'discovery_diagnostic': {'support', 'rpm', 'coolant', 'adapter_voltage', 'can_status'}, 'can29_diagnostic': {'support','rpm','coolant','adapter_voltage','can_status'}, 'adapter_handoff': set()}[config['workload']]
+        selected = set(schedule)-set(init_steps) if discovery else {'combined': {'support', 'rpm', 'coolant', 'adapter_voltage'}, 'standard_expanded': {'support','rpm','coolant','adapter_voltage'} | set(EXPANDED_SCHEDULE), 'rpm_only': {'support', 'rpm'}, 'coolant_only': {'support', 'coolant'}, 'voltage_only': {'adapter_voltage'}, 'discovery_diagnostic': {'support', 'rpm', 'coolant', 'adapter_voltage', 'can_status'}, 'can29_diagnostic': {'support','rpm','coolant','adapter_voltage','can_status'}, 'adapter_handoff': set()}[config['workload']]
         require(set(schedule)-set(init_steps) == selected, 'workload/configuration mismatch')
         require(all(schedule[k] == dict(key=k, interval_ns=60*10**9, timeout_ns=2*10**9, priority=0) for k in init_steps), 'initialization schedule')
-        for key in selected:
+        if discovery:
+            require(all(key in DISCOVERY_COMMANDS and schedule[key] == dict(
+                key=key, interval_ns=60*10**9, timeout_ns=2*10**9, priority=0
+            ) for key in selected), 'unsupported discovery schedule')
+        for key in () if discovery else selected:
             intervals = {'support': (15 if diagnostic else 60, 0), 'rpm': (2, 1),
                          'coolant': (5, 2), 'adapter_voltage': (5, 3), 'can_status': (15, 4)}
             seconds, priority = (intervals | EXPANDED_SCHEDULE)[key]
@@ -311,7 +343,7 @@ def _validate_acquisition(path, *, allow_incomplete=False):
             accepted_rows = [row for row, _ in rows if row['kind'] == 'accepted']
             require(accepted == commands[tx['key']] and accepted_rows[-1]['monotonic_ns'] == tx['sent_ns'], "send time lacks full acceptance evidence")
         received_rows = [(row, data) for row, data in rows if row['kind'] == 'received']
-        expected_values[id] = replay_values(tx['key'], b''.join(data for _, data in received_rows), can29)
+        expected_values[id] = {} if tx['key'] in DISCOVERY_COMMANDS else replay_values(tx['key'], b''.join(data for _, data in received_rows), can29)
         if tx['outcome'] in {'ok', 'partial'}:
             require(tx['sent_ns'] is not None and received_rows, "success lacks response provenance")
             require(max(row['sequence'] for row, _ in rows if row['kind'] == 'accepted') < received_rows[0][0]['sequence'], "response predates completed write")
@@ -329,6 +361,10 @@ def _validate_acquisition(path, *, allow_incomplete=False):
         stopped_counts = defaultdict(int)
         first_admitted = set()
         support_by_generation = defaultdict(dict)
+        next_block = 0
+        candidates = set()
+        probes = None
+        discovery_keys = []
         for tx in report['transactions']:
             gen = tx['generation']
             require(1 <= gen <= len(config['connections']), 'transaction lacks connection provenance')
@@ -362,12 +398,35 @@ def _validate_acquisition(path, *, allow_incomplete=False):
                         require(stopped_counts[gen]<=3,'startup retry limit')
             else:
                 require(positions[gen] == len(init_steps), 'measurement requested before setup verification')
-                if tx['key'] == 'support' and tx['outcome'] in {'ok','partial'}:
-                    frame = b''.join(data for row,data in raw_by_tx[tx['id']] if row['kind']=='received')
-                    support_by_generation[gen].update(support_bits(frame, can29))
-                elif tx['key'] in {'rpm','coolant'}:
-                    pid = 12 if tx['key']=='rpm' else 5
-                    require(any(mask & (1 << (32-pid)) for mask in support_by_generation[gen].values()), 'measurement requested without prior same-generation advertised support')
+                key = tx['key']
+                if discovery:
+                    discovery_keys.append(key)
+                    pid = int(key.removeprefix('mode01_'), 16)
+                    if next_block is not None:
+                        require(pid == next_block, 'discovery did not follow an advertised support block')
+                        frame = b''.join(data for row, data in raw_by_tx[tx['id']] if row['kind'] == 'received')
+                        masks = support_bits(frame, can29, pid) if tx['outcome'] == 'ok' else {}
+                        require(tx['outcome'] != 'ok' or masks, 'discovery support success lacks valid reply')
+                        candidates.update(pid + offset for mask in masks.values()
+                                          for offset in range(1, 32) if mask & (1 << (32-offset)))
+                        next_block = pid + 0x20 if pid < 0xE0 and any(mask & 1 for mask in masks.values()) else None
+                    else:
+                        if probes is None:
+                            probes = iter(sorted(candidates))
+                        require(pid == next(probes, None), 'discovery probed an unadvertised or repeated PID')
+                        if tx['outcome'] == 'ok':
+                            frame = b''.join(data for row, data in raw_by_tx[tx['id']] if row['kind'] == 'received')
+                            require(discovery_responders(frame, pid, can29), 'discovery success lacks a matching reply')
+                    continue
+                if key in MEASUREMENT_PIDS or key in ('support20', 'support40'):
+                    block, bit = advertising_block(key)
+                    require(any(b == block and mask & (1 << bit) for (b, _), mask in support_by_generation[gen].items()), 'measurement requested without prior same-generation advertised support')
+                if key in SUPPORT_BLOCKS and tx['outcome'] in {'ok','partial'}:
+                    frame = b''.join(data for row, data in raw_by_tx[tx['id']] if row['kind'] == 'received')
+                    block = SUPPORT_BLOCKS[key]
+                    support_by_generation[gen].update({(block, ecu): mask for ecu, mask in support_bits(frame, can29, block).items()})
+        if discovery:
+            require(discovery_keys == list(schedule)[len(init_steps):], 'discovery schedule differs from captured requests')
     if handoff:
         require(generation == 1 and len(config['connections']) <= 1 and len(report['transactions']) <= 3, 'handoff must not reconnect or retry')
         require([t['key'] for t in report['transactions']] == list(HANDOFF_INITIALIZATION)[:len(report['transactions'])], 'handoff command sequence')

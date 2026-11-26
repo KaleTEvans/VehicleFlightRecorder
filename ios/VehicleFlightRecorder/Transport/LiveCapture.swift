@@ -64,13 +64,15 @@ struct LiveSnapshot: Decodable {
     let requiresReconnect: Bool?
     let state: String
     let workload: String?
+    let endReason: String?
+    var isPIDDiscovery: Bool { workload == "standard_pid_discovery" }
     let protocolProfile: String?
     let generation: Int?
     var protocolTitle: String { StationaryProtocol.title(protocolProfile) }
     let discovery: LiveDiscovery?
     let adapterState: AdapterStateReadback?
     var isHandoff: Bool { workload == "adapter_handoff" }
-    var isDiagnostic: Bool { workload == "discovery_diagnostic" || workload == "can29_diagnostic" }
+    var isDiagnostic: Bool { workload == "discovery_diagnostic" || workload == "can29_diagnostic" || isPIDDiscovery }
     let elapsedMs: Int64
     let initialized: Bool
     let error: String

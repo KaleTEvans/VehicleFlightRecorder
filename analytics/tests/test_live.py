@@ -335,3 +335,32 @@ def test_expanded_standard_workload_replays_raw_evidence(live_exports, tmp_path,
     if scenario == 'reconnect':
         assert {o['generation'] for o in report['observations']
                 if o['signal_id'] == 'powertrain.fuel.rate'} == {1, 2}
+
+
+@pytest.mark.parametrize("scenario", ["healthy", "unsupported"])
+def test_bounded_discovery_session_exports_and_inventories_raw_replies(live_exports, tmp_path, scenario):
+    from vehicle_flight_recorder.discovery import inventory
+
+    binary = live_exports["healthy"].parent.parent / "live-fixture"
+    run = subprocess.run([str(binary), "--output", str(tmp_path / "discovery"),
+                          "--workload", "standard_pid_discovery", "--profile", "can29",
+                          "--scenario", scenario], check=True, capture_output=True, text=True)
+    path = Path(run.stdout.strip())
+    session = load_session(path)
+    assert session["state"] == "complete"
+    assert session["observation_count"] == 0
+    events = [json.loads(row) for row in (path / "events.jsonl").read_text().splitlines()]
+    assert any(event.get("attributes", {}).get("reason") == "pid_discovery_completed" for event in events)
+    report = json.loads((path / "capability.json").read_text())
+    requests = [t["key"] for t in report["transactions"] if t["key"].startswith("mode01_")]
+    summary = inventory(path)
+    if scenario == "unsupported":
+        assert requests == ["mode01_00"]
+        assert summary["pids"] == []
+    else:
+        assert requests[:3] == ["mode01_00", "mode01_20", "mode01_40"]
+        assert len(requests) == len(set(requests)) == 12
+        rows = {row["pid"]: row for row in summary["pids"]}
+        assert rows["0D"]["raw_probe_payloads"] == {"18DAF110": "32"}
+        assert rows["5E"]["raw_probe_payloads"] == {"18DAF110": "00f0"}
+        assert summary["unread_continuation_blocks"] == []

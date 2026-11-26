@@ -134,6 +134,17 @@ final class LiveRecorderTests: XCTestCase {
         }
     }
 
+    func testNativePIDDiscoveryAutoSavesExportableRawEvidence() async throws {
+        let result = try RegularCAN29Fixture.make(kind: "standard_pid_discovery")
+        XCTAssertEqual(result.snapshot.state, "complete")
+        XCTAssertEqual(result.snapshot.endReason, "pid_discovery_completed")
+        XCTAssertTrue(result.snapshot.readings.isEmpty)
+        let service = try RecorderService(history: result.root)
+        let archive = try await service.archive(result.sessionID)
+        XCTAssertTrue(FileManager.default.fileExists(atPath: archive.path))
+        try await service.close()
+    }
+
     func testNativeRegularCAN29WorkloadsIncidentsAndRecoveryExports() async throws {
         for kind in ["reconnect", "partial", "rpm_only", "coolant_only", "voltage_only", "no_data"] {
             let result = try RegularCAN29Fixture.make(kind: kind)

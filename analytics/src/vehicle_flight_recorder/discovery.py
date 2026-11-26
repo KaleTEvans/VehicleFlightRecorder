@@ -4,7 +4,7 @@ import base64
 from collections import Counter, defaultdict
 from pathlib import Path
 
-from .acquisition import MEASUREMENT_PIDS, SIGNALS, SUPPORT_BLOCKS, support_bits
+from .acquisition import MEASUREMENT_PIDS, SIGNALS, SUPPORT_BLOCKS, discovery_responders, support_bits
 from .session import ValidationError, _decode, load_session
 
 
@@ -23,7 +23,12 @@ def inventory(directory, *, allow_incomplete=False):
 
     masks = {}
     for tx in report["transactions"]:
-        block = SUPPORT_BLOCKS.get(tx["key"])
+        key = tx["key"]
+        block = SUPPORT_BLOCKS.get(key)
+        if key.startswith("mode01_"):
+            pid = int(key.removeprefix("mode01_"), 16)
+            if pid % 32 == 0:
+                block = pid
         if block is not None and tx["outcome"] in {"ok", "partial"}:
             for ecu, mask in support_bits(frames[tx["id"]], can29, block).items():
                 masks[tx["generation"], ecu, block] = mask
@@ -42,8 +47,14 @@ def inventory(directory, *, allow_incomplete=False):
 
     keys_by_pid = {pid: key for key, (pid, _) in MEASUREMENT_PIDS.items()}
     tx_by_key = defaultdict(list)
+    raw_probe_replies = defaultdict(dict)
     for tx in report["transactions"]:
-        tx_by_key[tx["key"]].append(tx)
+        key = tx["key"]
+        tx_by_key[key].append(tx)
+        if key.startswith("mode01_") and tx["outcome"] == "ok":
+            pid = int(key.removeprefix("mode01_"), 16)
+            if pid % 32 != 0:
+                raw_probe_replies[pid] = discovery_responders(frames[tx["id"]], pid, can29)
     observations = defaultdict(list)
     for observation in report["observations"]:
         observations[observation["signal_id"], observation["generation"], observation["ecu"]].append(
@@ -67,7 +78,7 @@ def inventory(directory, *, allow_incomplete=False):
     for pid in pids:
         key = keys_by_pid.get(pid)
         signal = SIGNALS[key][0] if key else None
-        transactions = tx_by_key.get(key, ())
+        transactions = tx_by_key.get(key, []) + tx_by_key.get(f"mode01_{pid:02x}", [])
         rows.append({
             "pid": f"{pid:02X}",
             "advertised_by": advertised[pid],
@@ -75,6 +86,7 @@ def inventory(directory, *, allow_incomplete=False):
             "requests": len(transactions),
             "outcomes": dict(sorted(Counter(tx["outcome"] for tx in transactions).items())),
             "observed": series[signal],
+            "raw_probe_payloads": raw_probe_replies.get(pid, {}),
         })
     return {
         "session_id": summary["session_id"],

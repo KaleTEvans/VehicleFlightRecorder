@@ -39,6 +39,7 @@ type liveOptions struct {
 // continuous-clock nanoseconds; no UI refresh, Go ticker or mock clock polls a car.
 // No public API accepts an arbitrary command string or manufacturer pack request.
 type LiveRecorder struct {
+	endReason                                                string
 	mu                                                       sync.Mutex
 	core                                                     *recorder.Recorder
 	scheduler                                                *acquisition.Scheduler
@@ -77,7 +78,7 @@ func NewLiveRecorder(root, options string, wallMS, nativeNS int64) (result *Live
 	if config.StartOrigin == "manual" && config.PolicyVersion != "" {
 		return nil, fmt.Errorf("manual session cannot declare automatic policy")
 	}
-	regular := config.Workload == "combined" || config.Workload == "rpm_only" || config.Workload == "coolant_only" || config.Workload == "voltage_only" || config.Workload == obd.ExpandedWorkload
+	regular := config.Workload == "combined" || config.Workload == "rpm_only" || config.Workload == "coolant_only" || config.Workload == "voltage_only" || config.Workload == obd.ExpandedWorkload || config.Workload == obd.DiscoveryWorkload
 	if config.ProtocolProfile != "" && (!regular || (config.ProtocolProfile != obd.Profile && config.ProtocolProfile != obd.CAN29Profile)) {
 		return nil, fmt.Errorf("explicit profile requires a regular workload and a supported fixed profile")
 	}
@@ -152,6 +153,9 @@ func NewLiveRecorder(root, options string, wallMS, nativeNS int64) (result *Live
 	// Voltage-only testing does not query an ECU merely to measure the adapter.
 	if config.Workload == "voltage_only" {
 		specs = specs[1:]
+	}
+	if config.Workload == obd.DiscoveryWorkload {
+		specs = nil
 	}
 	if config.Workload == obd.HandoffWorkload {
 		specs = nil
@@ -272,7 +276,7 @@ func (l *LiveRecorder) Connected(metadata string, nativeNS int64) (generation in
 	l.mu.Lock()
 	defer l.mu.Unlock()
 	defer wrapFailure("LiveConnected", &err)
-	if l.failed || l.core.State() != "recording" || l.connected || (l.options.Workload == obd.HandoffWorkload && l.connectedOnce) {
+	if l.failed || l.core.State() != "recording" || l.connected || ((l.options.Workload == obd.HandoffWorkload || l.options.Workload == obd.DiscoveryWorkload) && l.connectedOnce) {
 		return 0, fmt.Errorf("session cannot accept a connection")
 	}
 	now, err := l.clock(nativeNS)
@@ -346,6 +350,9 @@ func (l *LiveRecorder) Disconnected(generation, nativeNS int64, reason string) (
 	if l.options.Workload == obd.HandoffWorkload {
 		return l.stop("handoff_transport_lost")
 	}
+	if l.options.Workload == obd.DiscoveryWorkload {
+		return l.stop("pid_discovery_transport_lost")
+	}
 	return nil
 }
 func (l *LiveRecorder) NextCommand(nativeNS, wallMS int64) (data []byte, err error) {
@@ -417,6 +424,9 @@ func (l *LiveRecorder) NextCommand(nativeNS, wallMS int64) (data []byte, err err
 		if err = l.checkpoint(); err != nil {
 			return nil, l.fail(err)
 		}
+		if l.options.Workload == obd.DiscoveryWorkload && !resource {
+			return nil, l.stop("pid_discovery_synchronization_lost")
+		}
 		if l.options.Workload == obd.HandoffWorkload && !resource {
 			return nil, l.stop("handoff_readback_unavailable")
 		}
@@ -432,6 +442,9 @@ func (l *LiveRecorder) NextCommand(nativeNS, wallMS int64) (data []byte, err err
 	}
 	if pollErr != nil {
 		return nil, l.fail(pollErr)
+	}
+	if l.scheduler.DiscoveryComplete() {
+		return nil, l.stop("pid_discovery_completed")
 	}
 	if work == nil {
 		return nil, nil
@@ -588,7 +601,7 @@ func (l *LiveRecorder) Mark(label string, nativeNS int64) (id string, err error)
 	l.mu.Lock()
 	defer l.mu.Unlock()
 	defer wrapFailure("LiveMark", &err)
-	if l.options.Workload == obd.HandoffWorkload || l.failed || l.core.State() != "recording" || l.marks >= maxManualMarks {
+	if l.options.Workload == obd.HandoffWorkload || l.options.Workload == obd.DiscoveryWorkload || l.failed || l.core.State() != "recording" || l.marks >= maxManualMarks {
 		return "", fmt.Errorf("manual marking unavailable")
 	}
 	if _, err = l.clock(nativeNS); err != nil {
@@ -623,6 +636,7 @@ func (l *LiveRecorder) stop(reason string) error {
 	if err := l.core.Stop(l.anchorMS + l.elapsed/1_000_000); err != nil {
 		return l.fail(err)
 	}
+	l.endReason = reason
 	return nil
 }
 func (l *LiveRecorder) Stop(nativeNS int64) error {
@@ -690,6 +704,6 @@ func (l *LiveRecorder) Snapshot() (result string) {
 	}
 	capabilities := l.scheduler.CapabilityRows()
 	session := l.core.Session()
-	b, _ := json.Marshal(map[string]any{"protocol_profile": session.Live.Protocol, "state": state, "workload": l.options.Workload, "session": session, "elapsed_ms": l.elapsed / 1_000_000, "maximum_duration_ms": l.limitNS / 1_000_000, "generation": l.scheduler.Generation(), "readings": readings, "capabilities": capabilities, "initialized": l.scheduler.Initialized(), "discovery": l.scheduler.DiscoverySummary(l.elapsed), "adapter_state": l.scheduler.AdapterStateReadback(), "incidents": l.core.Incidents(), "error": l.failure, "requires_reconnect": l.reconnectNeeded, "start_origin": l.options.StartOrigin, "source": "obd-live"})
+	b, _ := json.Marshal(map[string]any{"protocol_profile": session.Live.Protocol, "state": state, "workload": l.options.Workload, "end_reason": l.endReason, "session": session, "elapsed_ms": l.elapsed / 1_000_000, "maximum_duration_ms": l.limitNS / 1_000_000, "generation": l.scheduler.Generation(), "readings": readings, "capabilities": capabilities, "initialized": l.scheduler.Initialized(), "discovery": l.scheduler.DiscoverySummary(l.elapsed), "adapter_state": l.scheduler.AdapterStateReadback(), "incidents": l.core.Incidents(), "error": l.failure, "requires_reconnect": l.reconnectNeeded, "start_origin": l.options.StartOrigin, "source": "obd-live"})
 	return string(b)
 }

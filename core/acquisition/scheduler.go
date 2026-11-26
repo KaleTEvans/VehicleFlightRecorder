@@ -120,6 +120,10 @@ type Work struct {
 	Bytes      []byte
 }
 type Scheduler struct {
+	discovery                                            *obd.DiscoveryPass
+	discoveryRequest                                     *obd.DiscoveryRequest
+	discoveryDefinitions                                 map[string]obd.Definition
+	discoveryComplete                                    bool
 	settling                                             bool
 	quietUntil, settleLimit                              int64
 	stoppedRetries                                       int
@@ -247,6 +251,33 @@ func (s *Scheduler) poll(now int64, rpmRecovery bool) (*Work, error) {
 	if s.settling || s.report.State != "ready" || now < s.nextSend {
 		return nil, nil
 	}
+	if s.discovery != nil && s.Initialized() {
+		if s.discoveryComplete {
+			return nil, nil
+		}
+		request, ok := s.discovery.Next()
+		if !ok {
+			s.discoveryComplete = true
+			return nil, nil
+		}
+		s.discoveryRequest = &request
+		key := fmt.Sprintf("mode01_%02x", request.PID)
+		if s.discoveryDefinitions == nil {
+			s.discoveryDefinitions = make(map[string]obd.Definition)
+		}
+		s.discoveryDefinitions[key] = obd.Definition{Key: key, Command: request.Command}
+		spec := Schedule{Key: key, IntervalNS: 60 * Second, TimeoutNS: 2 * Second}
+		s.entries = append(s.entries, entry{spec: spec, due: now})
+		s.report.Schedule = append(s.report.Schedule, spec)
+		transactionCount := len(s.report.Transactions)
+		work, err := s.admit(now, len(s.entries)-1)
+		if len(s.report.Transactions) == transactionCount {
+			s.entries = s.entries[:len(s.entries)-1]
+			s.report.Schedule = s.report.Schedule[:len(s.report.Schedule)-1]
+			delete(s.discoveryDefinitions, key)
+		}
+		return work, err
+	}
 	selected := -1
 	for i, e := range s.entries {
 		if rpmRecovery && e.spec.Key != "rpm" && (e.spec.Key != "support" || s.hasRecoveryDiscovery()) && !obd.IsInitialization(e.spec.Key) {
@@ -262,6 +293,12 @@ func (s *Scheduler) poll(now int64, rpmRecovery bool) (*Work, error) {
 	if selected < 0 {
 		return nil, nil
 	}
+	return s.admit(now, selected)
+}
+
+func (s *Scheduler) DiscoveryComplete() bool { return s.discoveryComplete }
+
+func (s *Scheduler) admit(now int64, selected int) (*Work, error) {
 	if len(s.report.Transactions) >= s.maxTransactions {
 		s.report.State = "blocked"
 		s.issue("transaction_budget_exhausted")
@@ -377,6 +414,10 @@ func (s *Scheduler) finish(now int64, outcome string) {
 	tx := &s.report.Transactions[s.active]
 	value := now
 	tx.EndNS = &value
+	if s.discoveryRequest != nil {
+		_, _ = s.discovery.Complete(*s.discoveryRequest, nil)
+		s.discoveryRequest = nil
+	}
 	tx.Outcome = outcome
 	for i := range s.entries {
 		if s.entries[i].spec.Key != tx.Key {
@@ -561,6 +602,24 @@ func (s *Scheduler) Receive(generation int, now int64, data []byte) error {
 		s.finish(now, "ok")
 		return nil
 	}
+	if s.discoveryRequest != nil {
+		result, err := s.discovery.Complete(*s.discoveryRequest, frames[0])
+		s.discoveryRequest = nil
+		if err != nil {
+			s.finish(now, "protocol_error")
+			s.report.State = "blocked"
+			return err
+		}
+		outcome := "unavailable"
+		switch result.Outcome {
+		case "reply":
+			outcome = "ok"
+		case "no_data", "negative_response":
+			outcome = result.Outcome
+		}
+		s.finish(now, outcome)
+		return nil
+	}
 	reply, err := obd.ParseProfile(s.report.Profile, tx.Key, frames[0])
 	if err != nil {
 		s.finish(now, "protocol_error")
@@ -634,6 +693,9 @@ func (s *Scheduler) Receive(generation int, now int64, data []byte) error {
 // Reconnect is explicit. It cancels old work, discards framing and capability
 // cache, and never replays a partly sent command. Clock anchors remain unchanged.
 func (s *Scheduler) Reconnect(now int64) error {
+	if s.discovery != nil {
+		return fmt.Errorf("PID discovery requires one connection")
+	}
 	if err := s.clock(now); err != nil {
 		return err
 	}

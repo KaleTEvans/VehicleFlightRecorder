@@ -17,7 +17,7 @@ func NewLive(anchorMS int64, specs []Schedule, config LiveConfiguration) (*Sched
 		return nil, fmt.Errorf("unknown startup synchronization policy")
 	}
 	handoff := config.Workload == obd.HandoffWorkload
-	if !handoff && len(specs) == 0 {
+	if !handoff && config.Workload != obd.DiscoveryWorkload && len(specs) == 0 {
 		return nil, fmt.Errorf("measurement workload needs a schedule")
 	}
 	protocol := "ISO15765-4-CAN11-500"
@@ -53,14 +53,14 @@ func NewLive(anchorMS int64, specs []Schedule, config LiveConfiguration) (*Sched
 			return nil, fmt.Errorf("CAN29 diagnostic requires CAN29")
 		}
 		expected = obd.CAN29InitializationVersion
-	case "combined", "rpm_only", "coolant_only", "voltage_only", obd.ExpandedWorkload:
+	case "combined", "rpm_only", "coolant_only", "voltage_only", obd.ExpandedWorkload, obd.DiscoveryWorkload:
 		if can29 {
 			expected = obd.CAN29RuntimeInitializationVersion
 		}
 	default:
 		return nil, fmt.Errorf("unknown live workload")
 	}
-	if config.Initialization != expected || (handoff && len(specs) != 0) {
+	if config.Initialization != expected || ((handoff || config.Workload == obd.DiscoveryWorkload) && len(specs) != 0) {
 		return nil, fmt.Errorf("diagnostic workload/version mismatch")
 	}
 	for _, spec := range specs {
@@ -90,6 +90,12 @@ func NewLive(anchorMS int64, specs []Schedule, config LiveConfiguration) (*Sched
 		s.report.Profile = obd.HandoffProfile
 	}
 	s.report.Configuration = &config
+	if config.Workload == obd.DiscoveryWorkload {
+		s.discovery, err = obd.NewDiscoveryPass(s.report.Profile)
+		if err != nil {
+			return nil, err
+		}
+	}
 	init := []entry{}
 	for _, d := range steps {
 		init = append(init, entry{spec: Schedule{d.Key, 60 * Second, 2 * Second, 0}})
@@ -102,6 +108,9 @@ func NewLive(anchorMS int64, specs []Schedule, config LiveConfiguration) (*Sched
 	return s, nil
 }
 func (s *Scheduler) lookup(key string) (obd.Definition, error) {
+	if definition, ok := s.discoveryDefinitions[key]; ok {
+		return definition, nil
+	}
 	if s.live {
 		return obd.LookupLive(key)
 	}

@@ -11,7 +11,7 @@ struct TransportDebugView: View {
     @State private var workload = "combined"
     @State private var reference = ""
     @AppStorage("stationaryProtocolProfile") private var protocolProfile = StationaryProtocol.can29.rawValue
-    private var isRegularWorkload: Bool { ["combined", "rpm_only", "coolant_only", "voltage_only", "standard_expanded"].contains(workload) }
+    private var isRegularWorkload: Bool { ["combined", "rpm_only", "coolant_only", "voltage_only", "standard_expanded", "standard_pid_discovery"].contains(workload) }
     var body: some View {
         NavigationStack {
             List {
@@ -89,6 +89,7 @@ struct TransportDebugView: View {
                     Picker("Workload", selection: $workload) {
                         Text("Combined").tag("combined")
                         Text("Expanded standard OBD").tag("standard_expanded")
+                        Text("Standard PID discovery").tag("standard_pid_discovery")
                         Text("Discovery diagnostic").tag("discovery_diagnostic")
                         Text("CAN 29-bit diagnostic").tag("can29_diagnostic")
                         Text("Adapter handoff capture").tag("adapter_handoff")
@@ -104,6 +105,9 @@ struct TransportDebugView: View {
                         }.disabled(model.live?.active == true)
                             .accessibilityIdentifier("stationary-protocol-picker")
                         Text("Select the vehicle's tested profile. CAN 29-bit / 500 kbps passed initial acquisition on this test car; no automatic protocol search is performed.").font(.caption)
+                    }
+                    if workload == "standard_pid_discovery" {
+                        Text("Keep the car parked and VFR open. VFR checks which standard readings the car advertises, requests each once, and saves the raw replies.").font(.caption)
                     }
                     if workload == "discovery_diagnostic" || workload == "can29_diagnostic" {
                         Text("Record about 2 minutes, then Stop and save. This mode records discovery attempts, adapter CAN status and voltage; RPM/coolant wait for valid support evidence. Keep this app open and the vehicle parked.").font(.caption)
@@ -203,6 +207,14 @@ struct LiveDiscoveryStatusView: View {
                     if !live.active && state.captured < 3 {
                         Text("Some settings were not received. The completed capture preserves the available raw evidence.").font(.caption)
                     }
+                }
+            } else if live.isPIDDiscovery {
+                if live.active {
+                    Text(live.initialized ? "Checking advertised PIDs" : "Waiting for verified adapter setup")
+                } else if live.endReason == "pid_discovery_completed" {
+                    Text("PID discovery saved")
+                } else {
+                    Text("PID discovery ended early. Available raw evidence is retained.")
                 }
             } else if let discovery = live.discovery {
                 Text("Profile: \(live.protocolTitle)").font(.caption)

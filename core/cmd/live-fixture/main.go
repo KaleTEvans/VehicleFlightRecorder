@@ -84,7 +84,7 @@ func run() error {
 		replies["STPR\r"] = "34\r>"
 	}
 
-	if *workload == obd.ExpandedWorkload {
+	if *workload == obd.ExpandedWorkload || *workload == obd.DiscoveryWorkload {
 		replies["0100\r"] = "7E8 06 41 00 0F 98 00 01\r>"
 		replies["0120\r"] = "7E8 06 41 20 00 00 00 01\r>"
 		replies["0140\r"] = "7E8 06 41 40 00 00 00 14\r>"
@@ -127,7 +127,7 @@ func run() error {
 			}
 			offline = false
 		}
-		if now == 80000000000 && *workload != "discovery_diagnostic" && *workload != "can29_diagnostic" && *workload != "adapter_handoff" {
+		if now == 80000000000 && *workload != obd.DiscoveryWorkload && *workload != "discovery_diagnostic" && *workload != "can29_diagnostic" && *workload != "adapter_handoff" {
 			if _, e = l.Mark("Scripted manual evidence", base+now); e != nil {
 				return e
 			}

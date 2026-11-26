@@ -6,6 +6,8 @@ import (
 	"sort"
 )
 
+const DiscoveryWorkload = "standard_pid_discovery"
+
 // DiscoveryPass plans one read-only Mode 01 pass for one connection. The
 // transport owns write admission, timeouts, raw evidence and synchronization.
 // Discard the pass on reconnect so prior capability bits cannot admit requests.

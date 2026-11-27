@@ -32,7 +32,7 @@ func run() error {
 	if e != nil {
 		return e
 	}
-	valid := map[string]bool{"healthy": true, "reconnect": true, "malformed": true, "unsupported": true, "timeout": true, "no_data": true, "recovery": true, "handoff_retained": true, "handoff_unknown": true, "handoff_timeout": true, "physical_cadence": true}
+	valid := map[string]bool{"healthy": true, "reconnect": true, "malformed": true, "unsupported": true, "timeout": true, "no_data": true, "recovery": true, "handoff_retained": true, "handoff_unknown": true, "handoff_timeout": true, "physical_cadence": true, "fault_context_cadence": true}
 	if !valid[*scenario] {
 		return fmt.Errorf("unknown scripted scenario")
 	}
@@ -99,7 +99,7 @@ func run() error {
 			replies["015E\r"] = "NO DATA\r>"
 		}
 	}
-	if *workload == obd.DiagnosticRecordingWorkload {
+	if *workload == obd.DiagnosticRecordingWorkload || *workload == obd.FaultContextWorkload {
 		replies["0100\r"] = "7E8 06 41 00 1F BA 80 01\r>"
 		replies["0120\r"] = "7E8 06 41 20 20 00 00 00\r>"
 		replies["0104\r"] = "7E8 03 41 04 FF\r>"
@@ -134,7 +134,11 @@ func run() error {
 	timedOut := false
 	offline := false
 	var nextFixtureTick int64
-	for now := int64(0); now <= 210000000000; now += 100000000 {
+	duration := int64(210_000_000_000)
+	if *scenario == "fault_context_cadence" {
+		duration = 600_100_000_000
+	}
+	for now := int64(0); now <= duration; now += 100000000 {
 		if now < nextFixtureTick {
 			continue
 		}
@@ -208,6 +212,13 @@ func run() error {
 			}
 			nextFixtureTick = now + replyDelay + 4000
 		}
+		if *scenario == "fault_context_cadence" {
+			replyDelay = 604_000_000
+			if string(command) == "STVR\r" {
+				replyDelay = 113_000_000
+			}
+			nextFixtureTick = now + replyDelay + 4000
+		}
 		half := len(response) / 2
 		if e = l.Receive(gen, base+now+replyDelay+3000, []byte(response[:half])); e != nil {
 			return e
@@ -216,7 +227,7 @@ func run() error {
 			return e
 		}
 	}
-	if e = l.Stop(base + 211000000000); e != nil {
+	if e = l.Stop(base + duration + 1_000_000_000); e != nil {
 		return e
 	}
 	fmt.Println(l.Path())

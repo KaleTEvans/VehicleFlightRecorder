@@ -504,9 +504,16 @@ func (s *Scheduler) finish(now int64, outcome string) {
 			delay = cap
 		}
 		e.due = now + delay
-		if (outcome == "ok" || outcome == "partial") && s.live &&
-			s.report.Configuration.PollingPolicy == DiagnosticPollingPolicy && isFastDiagnosticSignal(tx.Key) {
-			e.due = tx.StartNS + delay
+		if (outcome == "ok" || outcome == "partial") && s.live {
+			config := s.report.Configuration
+			if config.PollingPolicy == DiagnosticPollingPolicy && isFastDiagnosticSignal(tx.Key) {
+				e.due = tx.StartNS + delay
+			}
+			if config.Workload == obd.FaultContextWorkload && obd.IsSupportRequest(tx.Key) {
+				// One successful bitmap read per connection. Reconnect resets
+				// the deadlines and clears all advertised capabilities.
+				e.due = now + config.MaximumDurationNS
+			}
 		}
 	}
 	s.active = -1
@@ -727,6 +734,8 @@ func (s *Scheduler) Receive(generation int, now int64, data []byte) error {
 					applySupport = s.capabilities.ApplyExpandedSupport
 				case obd.DiagnosticRecordingWorkload:
 					applySupport = s.capabilities.ApplyDiagnosticRecordingSupport
+				case obd.FaultContextWorkload:
+					applySupport = s.capabilities.ApplyFaultContextSupport
 				}
 			}
 			_ = applySupport(response, tx.ID)

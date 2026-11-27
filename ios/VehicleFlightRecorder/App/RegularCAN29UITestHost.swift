@@ -13,7 +13,7 @@ enum RegularCAN29Fixture {
     static func make(kind: String) throws -> Result {
         let docs = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
         let root = docs.appendingPathComponent("NativeAcceptance/Regular-\(kind)-\(UUID().uuidString)/Sessions", isDirectory: true)
-        let workload = ["rpm_only", "coolant_only", "voltage_only", "standard_pid_discovery", "standard_fault_scan"].contains(kind) ? kind : "combined"
+        let workload = ["rpm_only", "coolant_only", "voltage_only", "standard_pid_discovery", "standard_fault_scan", "standard_fault_context"].contains(kind) ? kind : "combined"
         let base: Int64 = 1_000_000_000_000, anchor: Int64 = 1_700_000_000_000
         let session = try GoLiveSession(root: root, operatingState: "stationary_running", workload: workload, reference: "Scripted ordinary CAN29 \(kind); no vehicle/reference measurement", protocolProfile: StationaryProtocol.can29.rawValue, origin: "native-fixture", wallMS: anchor, nativeNS: base)
         let core = session.core
@@ -50,11 +50,18 @@ enum RegularCAN29Fixture {
                 case "STPR\r": reply = "34\r>"
                 case "STPBRR\r": reply = "500000\r>"
                 case "STI\r": reply = "STN2255 v5.8.1\r>"
+                case "0100\r" where kind == "standard_fault_context":
+                    reply = "18DAF110 06 41 00 18 18 80 01\r>"
+                case "0120\r" where kind == "standard_fault_context":
+                    reply = "18DAF110 06 41 20 20 00 00 00\r>"
+                case "0104\r": reply = "18DAF110 03 41 04 80\r>"
+                case "0111\r": reply = "18DAF110 03 41 11 33\r>"
+                case "0123\r": reply = "18DAF110 04 41 23 04 00\r>"
                 case "0100\r" where kind == "standard_pid_discovery":
                     reply = "18DAF110 06 41 00 00 18 00 01\r>"
                 case "0120\r": reply = "18DAF110 06 41 20 00 00 00 01\r>"
                 case "0140\r": reply = "18DAF110 06 41 40 00 00 00 04\r>"
-                case "010D\r": reply = "NO DATA\r>"
+                case "010D\r": reply = kind == "standard_fault_context" ? "18DAF110 03 41 0D 32\r>" : "NO DATA\r>"
                 case "015E\r": reply = "18DAF110 04 41 5E 00 F0\r>"
                 case "0100\r": reply = kind == "no_data" ? "NO DATA\r>" : "18DAF110 06 41 00 08 10 00 00\r18DAF117 06 41 00 08 10 00 00\r18DAF118 06 41 00 08 10 00 00\r>"
                 case "010C\r": reply = "18DAF110 04 41 0C 0C 80\r18DAF117 04 41 0C 0E 10\r18DAF118 04 41 0C 0F A0\r>"

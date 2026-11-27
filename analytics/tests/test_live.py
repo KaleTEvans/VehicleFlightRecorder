@@ -440,3 +440,31 @@ def test_diagnostic_cadence_prioritizes_speed_and_rpm_at_observed_link_timing(li
         assert max(gaps) < 4.1
     for signal in result["signal_coverage"]:
         assert sum(row["signal_id"] == signal for row in report["observations"]) >= 4
+
+
+def test_fault_context_keeps_five_signals_fresh_together_at_observed_link_timing(live_exports, tmp_path):
+    from statistics import median
+    from vehicle_flight_recorder.discovery import inventory
+
+    binary = live_exports["healthy"].parent.parent / "live-fixture"
+    run = subprocess.run([str(binary), "--output", str(tmp_path / "context"),
+                          "--workload", "standard_fault_context", "--profile", "can29",
+                          "--scenario", "fault_context_cadence"], check=True, capture_output=True, text=True)
+    path = Path(run.stdout.strip())
+    result = load_session(path)
+    report = json.loads((path / "capability.json").read_text())
+    assert result["state"] == "complete"
+    assert 600 <= report["duration_ns"] / 10**9 < 601
+    assert len(result["signal_coverage"]) == 7
+    keys = [tx["key"] for tx in report["transactions"]]
+    assert keys.count("support") == keys.count("support20") == 1
+    assert not {"manifold_pressure", "short_trim_bank1", "long_trim_bank2", "intake_temperature"}.intersection(keys)
+    for signal in ["powertrain.engine.rpm", "powertrain.vehicle.speed", "powertrain.engine.calculated_load",
+                   "powertrain.throttle.position", "powertrain.fuel.rail_pressure_gauge"]:
+        times = [row["receive_ns"] / 10**9 for row in report["observations"]
+                 if row["signal_id"] == signal and row["ecu"] == "18DAF110"]
+        assert len(times) >= 80
+        gaps = [after - before for before, after in zip(times, times[1:])]
+        assert median(gaps) < 7
+        assert max(gaps) < 8.5
+    assert len(inventory(path)["adapter_voltage"]) == 1

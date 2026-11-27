@@ -78,7 +78,7 @@ func NewLiveRecorder(root, options string, wallMS, nativeNS int64) (result *Live
 	if config.StartOrigin == "manual" && config.PolicyVersion != "" {
 		return nil, fmt.Errorf("manual session cannot declare automatic policy")
 	}
-	regular := config.Workload == "combined" || config.Workload == "rpm_only" || config.Workload == "coolant_only" || config.Workload == "voltage_only" || config.Workload == obd.ExpandedWorkload || config.Workload == obd.DiscoveryWorkload || config.Workload == obd.DiagnosticRecordingWorkload || config.Workload == obd.FaultScanWorkload
+	regular := config.Workload == "combined" || config.Workload == "rpm_only" || config.Workload == "coolant_only" || config.Workload == "voltage_only" || config.Workload == obd.ExpandedWorkload || config.Workload == obd.DiscoveryWorkload || config.Workload == obd.DiagnosticRecordingWorkload || config.Workload == obd.FaultScanWorkload || config.Workload == obd.FaultContextWorkload
 	if config.ProtocolProfile != "" && (!regular || (config.ProtocolProfile != obd.Profile && config.ProtocolProfile != obd.CAN29Profile)) {
 		return nil, fmt.Errorf("explicit profile requires a regular workload and a supported fixed profile")
 	}
@@ -158,6 +158,21 @@ func NewLiveRecorder(root, options string, wallMS, nativeNS int64) (result *Live
 			{"short_trim_bank1", 10, 6}, {"long_trim_bank1", 15, 6},
 			{"short_trim_bank2", 10, 6}, {"long_trim_bank2", 15, 6},
 			{"intake_temperature", 15, 7},
+		} {
+			specs = append(specs, acquisition.Schedule{Key: reading.key, IntervalNS: reading.seconds * acquisition.Second, TimeoutNS: 2 * acquisition.Second, Priority: reading.priority})
+		}
+	}
+	if config.Workload == obd.FaultContextWorkload {
+		specs = specs[:1]
+		for _, reading := range []struct {
+			key      string
+			seconds  int64
+			priority int
+		}{
+			{"support20", 60, 0},
+			{"rpm", 3, 1}, {"speed", 3, 2},
+			{"calculated_load", 4, 3}, {"throttle_position", 4, 4}, {"fuel_rail_pressure", 4, 5},
+			{"coolant", 15, 6}, {"adapter_voltage", 30, 7},
 		} {
 			specs = append(specs, acquisition.Schedule{Key: reading.key, IntervalNS: reading.seconds * acquisition.Second, TimeoutNS: 2 * acquisition.Second, Priority: reading.priority})
 		}

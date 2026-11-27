@@ -58,7 +58,7 @@ func NewLive(anchorMS int64, specs []Schedule, config LiveConfiguration) (*Sched
 			return nil, fmt.Errorf("CAN29 diagnostic requires CAN29")
 		}
 		expected = obd.CAN29InitializationVersion
-	case "combined", "rpm_only", "coolant_only", "voltage_only", obd.ExpandedWorkload, obd.DiscoveryWorkload, obd.DiagnosticRecordingWorkload, obd.FaultScanWorkload:
+	case "combined", "rpm_only", "coolant_only", "voltage_only", obd.ExpandedWorkload, obd.DiscoveryWorkload, obd.DiagnosticRecordingWorkload, obd.FaultScanWorkload, obd.FaultContextWorkload:
 		if can29 {
 			expected = obd.CAN29RuntimeInitializationVersion
 		}
@@ -68,8 +68,17 @@ func NewLive(anchorMS int64, specs []Schedule, config LiveConfiguration) (*Sched
 	if config.Initialization != expected || ((handoff || config.Workload == obd.DiscoveryWorkload || config.Workload == obd.FaultScanWorkload) && len(specs) != 0) {
 		return nil, fmt.Errorf("diagnostic workload/version mismatch")
 	}
+	expanded := config.Workload == obd.ExpandedWorkload || config.Workload == obd.DiagnosticRecordingWorkload
 	for _, spec := range specs {
-		if obd.IsInitialization(spec.Key) || (spec.Key == "can_status" && !diagnostic) || (obd.ExpandedRequest(spec.Key) && config.Workload != obd.ExpandedWorkload && config.Workload != obd.DiagnosticRecordingWorkload) || (obd.DiagnosticRecordingRequest(spec.Key) && config.Workload != obd.DiagnosticRecordingWorkload) {
+		if config.Workload == obd.FaultContextWorkload {
+			if !obd.FaultContextRequest(spec.Key) {
+				return nil, fmt.Errorf("unrequested fault-context command")
+			}
+			continue
+		}
+		if obd.IsInitialization(spec.Key) || (spec.Key == "can_status" && !diagnostic) ||
+			(obd.ExpandedRequest(spec.Key) && !expanded) ||
+			(obd.DiagnosticRecordingRequest(spec.Key) && config.Workload != obd.DiagnosticRecordingWorkload) {
 			return nil, fmt.Errorf("unrequested diagnostic command")
 		}
 	}

@@ -34,6 +34,7 @@ var catalog = []Definition{
 
 const ExpandedWorkload = "standard_expanded"
 const DiagnosticRecordingWorkload = "standard_diagnostic_recording"
+const FaultContextWorkload = "standard_fault_context"
 const J1979Reference = "https://www.obdlink.com/obd-apps/obdwiz-app/"
 
 var expandedCatalog = []Definition{
@@ -57,6 +58,15 @@ var diagnosticRecordingCatalog = []Definition{
 }
 var expandedMeasurementCatalog = append(Catalog(), expandedCatalog...)
 var liveMeasurementCatalog = append(append([]Definition(nil), expandedMeasurementCatalog...), diagnosticRecordingCatalog...)
+
+func FaultContextRequest(key string) bool {
+	switch key {
+	case "support", "support20", "rpm", "speed", "calculated_load", "throttle_position", "fuel_rail_pressure", "coolant", "adapter_voltage":
+		return true
+	default:
+		return false
+	}
+}
 
 func DiagnosticRecordingRequest(key string) bool {
 	for _, d := range diagnosticRecordingCatalog {
@@ -364,6 +374,16 @@ func (c *Capabilities) ApplyExpandedSupport(response Response, tx string) error 
 
 func (c *Capabilities) ApplyDiagnosticRecordingSupport(response Response, tx string) error {
 	return c.applySupport(response, tx, liveMeasurementCatalog, 0x20)
+}
+
+func (c *Capabilities) ApplyFaultContextSupport(response Response, tx string) error {
+	var definitions []Definition
+	for _, definition := range liveMeasurementCatalog {
+		if FaultContextRequest(definition.Key) {
+			definitions = append(definitions, definition)
+		}
+	}
+	return c.applySupport(response, tx, definitions, 0x20)
 }
 
 func (c *Capabilities) applySupport(response Response, tx string, definitions []Definition, maxBlock int) error {

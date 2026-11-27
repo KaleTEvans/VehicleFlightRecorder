@@ -171,6 +171,21 @@ final class LiveRecorderTests: XCTestCase {
         try await service.close()
     }
 
+    func testNativeFaultContextRecordsAndExportsSelectedSignals() async throws {
+        let result = try RegularCAN29Fixture.make(kind: "standard_fault_context")
+        XCTAssertEqual(result.snapshot.state, "complete")
+        XCTAssertEqual(Set(result.snapshot.readings.map { $0.signalId }), [
+            "powertrain.engine.rpm", "powertrain.vehicle.speed",
+            "powertrain.engine.calculated_load", "powertrain.throttle.position",
+            "powertrain.fuel.rail_pressure_gauge", "powertrain.coolant.temperature",
+            "electrical.adapter_voltage"
+        ])
+        let service = try RecorderService(history: result.root)
+        let archive = try await service.archive(result.sessionID)
+        XCTAssertTrue(FileManager.default.fileExists(atPath: archive.path))
+        try await service.close()
+    }
+
     func testNativeRegularCAN29WorkloadsIncidentsAndRecoveryExports() async throws {
         for kind in ["reconnect", "partial", "rpm_only", "coolant_only", "voltage_only", "no_data"] {
             let result = try RegularCAN29Fixture.make(kind: kind)

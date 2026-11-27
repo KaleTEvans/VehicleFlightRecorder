@@ -99,6 +99,20 @@ func run() error {
 			replies["015E\r"] = "NO DATA\r>"
 		}
 	}
+	if *workload == obd.DiagnosticRecordingWorkload {
+		replies["0100\r"] = "7E8 06 41 00 1F BA 80 01\r>"
+		replies["0120\r"] = "7E8 06 41 20 20 00 00 00\r>"
+		replies["0104\r"] = "7E8 03 41 04 FF\r>"
+		replies["0106\r"] = "7E8 03 41 06 90\r>"
+		replies["0107\r"] = "7E8 03 41 07 70\r>"
+		replies["0108\r"] = "7E8 03 41 08 80\r>"
+		replies["0109\r"] = "7E8 03 41 09 82\r>"
+		replies["010B\r"] = "7E8 03 41 0B 40\r>"
+		replies["010D\r"] = "7E8 03 41 0D 32\r>"
+		replies["010F\r"] = "7E8 03 41 0F 45\r>"
+		replies["0111\r"] = "7E8 03 41 11 33\r>"
+		replies["0123\r"] = "7E8 04 41 23 04 00\r>"
+	}
 	supportAttempts := 0
 	if *scenario == "unsupported" {
 		replies["0100\r"] = "7E8 06 41 00 00 00 00 00\r>"

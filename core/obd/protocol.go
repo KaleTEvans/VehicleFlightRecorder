@@ -33,6 +33,7 @@ var catalog = []Definition{
 }
 
 const ExpandedWorkload = "standard_expanded"
+const DiagnosticRecordingWorkload = "standard_diagnostic_recording"
 const J1979Reference = "https://www.obdlink.com/obd-apps/obdwiz-app/"
 
 var expandedCatalog = []Definition{
@@ -47,7 +48,24 @@ var expandedCatalog = []Definition{
 	{"fuel_rate", "015E\r", "powertrain.fuel.rate", "L/h", J1979Reference, 0x5e, 2},
 }
 
-var liveMeasurementCatalog = append(Catalog(), expandedCatalog...)
+var diagnosticRecordingCatalog = []Definition{
+	{"calculated_load", "0104\r", "powertrain.engine.calculated_load", "%", J1979Reference, 0x04, 1},
+	{"manifold_pressure", "010B\r", "powertrain.intake.manifold_pressure", "kPa", J1979Reference, 0x0b, 1},
+	{"intake_temperature", "010F\r", "powertrain.intake.temperature", "degC", J1979Reference, 0x0f, 1},
+	{"throttle_position", "0111\r", "powertrain.throttle.position", "%", J1979Reference, 0x11, 1},
+	{"fuel_rail_pressure", "0123\r", "powertrain.fuel.rail_pressure_gauge", "kPa", J1979Reference, 0x23, 2},
+}
+var expandedMeasurementCatalog = append(Catalog(), expandedCatalog...)
+var liveMeasurementCatalog = append(append([]Definition(nil), expandedMeasurementCatalog...), diagnosticRecordingCatalog...)
+
+func DiagnosticRecordingRequest(key string) bool {
+	for _, d := range diagnosticRecordingCatalog {
+		if d.Key == key {
+			return true
+		}
+	}
+	return false
+}
 
 func ExpandedRequest(key string) bool {
 	for _, d := range expandedCatalog {
@@ -298,10 +316,14 @@ func decodeLine(profile string, d Definition, line string) (Response, error) {
 	if d.Signal != "" {
 		value := float64(payload[2])
 		switch {
-		case d.Key == "coolant" || d.Key == "oil_temperature":
+		case d.Key == "coolant" || d.Key == "oil_temperature" || d.Key == "intake_temperature":
 			value -= 40
 		case d.Key == "rpm":
 			value = float64(binary.BigEndian.Uint16(payload[2:])) / 4
+		case d.Key == "calculated_load" || d.Key == "throttle_position":
+			value = value * 100 / 255
+		case d.Key == "fuel_rail_pressure":
+			value = float64(binary.BigEndian.Uint16(payload[2:])) * 10
 		case d.Key == "fuel_rate":
 			value = float64(binary.BigEndian.Uint16(payload[2:])) / 20
 		case isFuelTrim(d.PID):
@@ -333,29 +355,29 @@ func NewCapabilities(scope string) *Capabilities {
 	return &Capabilities{scope, map[string]Capability{}}
 }
 func (c *Capabilities) ApplySupport(response Response, tx string) error {
-	return c.applySupport(response, tx, false)
+	return c.applySupport(response, tx, catalog, 0)
 }
 
 func (c *Capabilities) ApplyExpandedSupport(response Response, tx string) error {
-	return c.applySupport(response, tx, true)
+	return c.applySupport(response, tx, expandedMeasurementCatalog, 0x40)
 }
 
-func (c *Capabilities) applySupport(response Response, tx string, expanded bool) error {
+func (c *Capabilities) ApplyDiagnosticRecordingSupport(response Response, tx string) error {
+	return c.applySupport(response, tx, liveMeasurementCatalog, 0x20)
+}
+
+func (c *Capabilities) applySupport(response Response, tx string, definitions []Definition, maxBlock int) error {
 	if response.State != "advertised" || len(response.Payload) != 6 || response.Payload[0] != 0x41 {
 		return fmt.Errorf("valid support block response required")
 	}
 	block := int(response.Payload[1])
-	definitions := catalog
-	if expanded {
-		definitions = liveMeasurementCatalog
-	}
-	if block != 0 && (!expanded || (block != 0x20 && block != 0x40)) {
+	if block > maxBlock || block%32 != 0 {
 		return fmt.Errorf("unsupported capability block")
 	}
 	bits := binary.BigEndian.Uint32(response.Payload[2:])
 	for _, d := range definitions {
 		offset := int(d.PID) - block
-		if offset <= 0 || offset > 32 {
+		if offset <= 0 || offset > 32 || (IsSupportRequest(d.Key) && int(d.PID) > maxBlock) {
 			continue
 		}
 		yes := bits&(uint32(1)<<uint(32-offset)) != 0

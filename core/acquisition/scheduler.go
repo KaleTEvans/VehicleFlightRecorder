@@ -646,8 +646,13 @@ func (s *Scheduler) Receive(generation int, now int64, data []byte) error {
 	for _, response := range reply.Responses {
 		if response.State == "advertised" {
 			applySupport := s.capabilities.ApplySupport
-			if s.live && s.report.Configuration.Workload == obd.ExpandedWorkload {
-				applySupport = s.capabilities.ApplyExpandedSupport
+			if s.live {
+				switch s.report.Configuration.Workload {
+				case obd.ExpandedWorkload:
+					applySupport = s.capabilities.ApplyExpandedSupport
+				case obd.DiagnosticRecordingWorkload:
+					applySupport = s.capabilities.ApplyDiagnosticRecordingSupport
+				}
 			}
 			_ = applySupport(response, tx.ID)
 			outcome = "ok"

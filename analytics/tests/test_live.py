@@ -364,3 +364,30 @@ def test_bounded_discovery_session_exports_and_inventories_raw_replies(live_expo
         assert rows["0D"]["raw_probe_payloads"] == {"18DAF110": "32"}
         assert rows["5E"]["raw_probe_payloads"] == {"18DAF110": "00f0"}
         assert summary["unread_continuation_blocks"] == []
+
+
+def test_standard_diagnostic_recording_preserves_shortlist_cadence(live_exports, tmp_path):
+    from vehicle_flight_recorder.discovery import inventory
+
+    binary = live_exports["healthy"].parent.parent / "live-fixture"
+    run = subprocess.run([str(binary), "--output", str(tmp_path / "diagnostic"),
+                          "--workload", "standard_diagnostic_recording", "--profile", "can29"],
+                         check=True, capture_output=True, text=True)
+    path = Path(run.stdout.strip())
+    summary = load_session(path)
+    report = json.loads((path / "capability.json").read_text())
+    results = {row["pid"]: row for row in inventory(path)["pids"]}
+    assert summary["state"] == "complete"
+    expected = {
+        "powertrain.engine.calculated_load": 100,
+        "powertrain.intake.manifold_pressure": 64,
+        "powertrain.intake.temperature": 29,
+        "powertrain.throttle.position": 20,
+        "powertrain.fuel.rail_pressure_gauge": 10240,
+    }
+    for signal, value in expected.items():
+        assert {o["value"] for o in report["observations"] if o["signal_id"] == signal} == {value}
+    for pid in ("04", "0B", "0C", "0D", "0F", "11", "23"):
+        series = results[pid]["observed"]
+        assert series and any(row["samples"] > 1 for row in series)
+    assert all(tx["key"] not in {"support40", "oil_temperature", "fuel_rate"} for tx in report["transactions"])

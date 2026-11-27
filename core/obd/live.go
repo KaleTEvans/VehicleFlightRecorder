@@ -107,7 +107,7 @@ func LookupLive(key string) (Definition, error) {
 }
 
 func lookupMeasurement(key string) (Definition, error) {
-	for _, d := range expandedCatalog {
+	for _, d := range liveMeasurementCatalog {
 		if d.Key == key {
 			return d, nil
 		}

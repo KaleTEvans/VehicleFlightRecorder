@@ -11,7 +11,7 @@ struct TransportDebugView: View {
     @State private var workload = "combined"
     @State private var reference = ""
     @AppStorage("stationaryProtocolProfile") private var protocolProfile = StationaryProtocol.can29.rawValue
-    private var isRegularWorkload: Bool { ["combined", "rpm_only", "coolant_only", "voltage_only", "standard_expanded", "standard_pid_discovery"].contains(workload) }
+    private var isRegularWorkload: Bool { ["combined", "rpm_only", "coolant_only", "voltage_only", "standard_expanded", "standard_pid_discovery", "standard_diagnostic_recording"].contains(workload) }
     var body: some View {
         NavigationStack {
             List {
@@ -89,6 +89,7 @@ struct TransportDebugView: View {
                     Picker("Workload", selection: $workload) {
                         Text("Combined").tag("combined")
                         Text("Expanded standard OBD").tag("standard_expanded")
+                        Text("Standard diagnostic recording").tag("standard_diagnostic_recording")
                         Text("Standard PID discovery").tag("standard_pid_discovery")
                         Text("Discovery diagnostic").tag("discovery_diagnostic")
                         Text("CAN 29-bit diagnostic").tag("can29_diagnostic")

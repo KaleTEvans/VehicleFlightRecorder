@@ -30,6 +30,11 @@ enum LiveReadingSelection {
         case "powertrain.fuel.trim.long.bank1": return "Long-term fuel trim (bank 1)"
         case "powertrain.fuel.trim.short.bank2": return "Short-term fuel trim (bank 2)"
         case "powertrain.fuel.trim.long.bank2": return "Long-term fuel trim (bank 2)"
+        case "powertrain.engine.calculated_load": return "Calculated engine load"
+        case "powertrain.intake.manifold_pressure": return "Manifold absolute pressure"
+        case "powertrain.intake.temperature": return "Intake air temperature"
+        case "powertrain.throttle.position": return "Throttle position"
+        case "powertrain.fuel.rail_pressure_gauge": return "Fuel rail gauge pressure"
         default: return signal
         }
     }

@@ -78,7 +78,7 @@ func NewLiveRecorder(root, options string, wallMS, nativeNS int64) (result *Live
 	if config.StartOrigin == "manual" && config.PolicyVersion != "" {
 		return nil, fmt.Errorf("manual session cannot declare automatic policy")
 	}
-	regular := config.Workload == "combined" || config.Workload == "rpm_only" || config.Workload == "coolant_only" || config.Workload == "voltage_only" || config.Workload == obd.ExpandedWorkload || config.Workload == obd.DiscoveryWorkload
+	regular := config.Workload == "combined" || config.Workload == "rpm_only" || config.Workload == "coolant_only" || config.Workload == "voltage_only" || config.Workload == obd.ExpandedWorkload || config.Workload == obd.DiscoveryWorkload || config.Workload == obd.DiagnosticRecordingWorkload
 	if config.ProtocolProfile != "" && (!regular || (config.ProtocolProfile != obd.Profile && config.ProtocolProfile != obd.CAN29Profile)) {
 		return nil, fmt.Errorf("explicit profile requires a regular workload and a supported fixed profile")
 	}
@@ -129,7 +129,7 @@ func NewLiveRecorder(root, options string, wallMS, nativeNS int64) (result *Live
 	}
 	specs := []acquisition.Schedule{{Key: "support", IntervalNS: interval, TimeoutNS: 2 * acquisition.Second, Priority: 0}}
 	for _, spec := range []acquisition.Schedule{{Key: "rpm", IntervalNS: 2 * acquisition.Second, TimeoutNS: 2 * acquisition.Second, Priority: 1}, {Key: "coolant", IntervalNS: 5 * acquisition.Second, TimeoutNS: 2 * acquisition.Second, Priority: 2}, {Key: "adapter_voltage", IntervalNS: 5 * acquisition.Second, TimeoutNS: 2 * acquisition.Second, Priority: 3}} {
-		if config.Workload == "combined" || config.Workload == obd.ExpandedWorkload || diagnostic || (config.Workload == "rpm_only" && spec.Key == "rpm") || (config.Workload == "coolant_only" && spec.Key == "coolant") || (config.Workload == "voltage_only" && spec.Key == "adapter_voltage") {
+		if config.Workload == "combined" || config.Workload == obd.ExpandedWorkload || config.Workload == obd.DiagnosticRecordingWorkload || diagnostic || (config.Workload == "rpm_only" && spec.Key == "rpm") || (config.Workload == "coolant_only" && spec.Key == "coolant") || (config.Workload == "voltage_only" && spec.Key == "adapter_voltage") {
 			specs = append(specs, spec)
 		}
 	}
@@ -143,6 +143,21 @@ func NewLiveRecorder(root, options string, wallMS, nativeNS int64) (result *Live
 			{"short_trim_bank1", 10, 5}, {"long_trim_bank1", 10, 5},
 			{"short_trim_bank2", 10, 5}, {"long_trim_bank2", 10, 5},
 			{"oil_temperature", 15, 6}, {"fuel_rate", 5, 5},
+		} {
+			specs = append(specs, acquisition.Schedule{Key: reading.key, IntervalNS: reading.seconds * acquisition.Second, TimeoutNS: 2 * acquisition.Second, Priority: reading.priority})
+		}
+	}
+	if config.Workload == obd.DiagnosticRecordingWorkload {
+		for _, reading := range []struct {
+			key      string
+			seconds  int64
+			priority int
+		}{
+			{"support20", 60, 0}, {"speed", 3, 4}, {"calculated_load", 5, 5},
+			{"manifold_pressure", 5, 5}, {"throttle_position", 5, 5}, {"fuel_rail_pressure", 5, 5},
+			{"short_trim_bank1", 10, 6}, {"long_trim_bank1", 15, 6},
+			{"short_trim_bank2", 10, 6}, {"long_trim_bank2", 15, 6},
+			{"intake_temperature", 15, 7},
 		} {
 			specs = append(specs, acquisition.Schedule{Key: reading.key, IntervalNS: reading.seconds * acquisition.Second, TimeoutNS: 2 * acquisition.Second, Priority: reading.priority})
 		}

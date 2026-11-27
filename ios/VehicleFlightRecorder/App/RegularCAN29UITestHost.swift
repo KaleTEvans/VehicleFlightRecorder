@@ -13,7 +13,7 @@ enum RegularCAN29Fixture {
     static func make(kind: String) throws -> Result {
         let docs = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
         let root = docs.appendingPathComponent("NativeAcceptance/Regular-\(kind)-\(UUID().uuidString)/Sessions", isDirectory: true)
-        let workload = ["rpm_only", "coolant_only", "voltage_only", "standard_pid_discovery"].contains(kind) ? kind : "combined"
+        let workload = ["rpm_only", "coolant_only", "voltage_only", "standard_pid_discovery", "standard_fault_scan"].contains(kind) ? kind : "combined"
         let base: Int64 = 1_000_000_000_000, anchor: Int64 = 1_700_000_000_000
         let session = try GoLiveSession(root: root, operatingState: "stationary_running", workload: workload, reference: "Scripted ordinary CAN29 \(kind); no vehicle/reference measurement", protocolProfile: StationaryProtocol.can29.rawValue, origin: "native-fixture", wallMS: anchor, nativeNS: base)
         let core = session.core
@@ -59,6 +59,13 @@ enum RegularCAN29Fixture {
                 case "0100\r": reply = kind == "no_data" ? "NO DATA\r>" : "18DAF110 06 41 00 08 10 00 00\r18DAF117 06 41 00 08 10 00 00\r18DAF118 06 41 00 08 10 00 00\r>"
                 case "010C\r": reply = "18DAF110 04 41 0C 0C 80\r18DAF117 04 41 0C 0E 10\r18DAF118 04 41 0C 0F A0\r>"
                 case "0105\r": reply = "18DAF110 03 41 05 7B\r18DAF117 03 41 05 7A\r18DAF118 03 41 05 79\r>"
+                case "0101\r": reply = "18DAF110 06 41 01 81 07 02 01\r>"
+                case "03\r": reply = "18DAF110 04 43 01 01 33\r18DAF117 02 43 00\r>"
+                case "07\r": reply = "18DAF110 10 08 47 03 01 33 03 00\r18DAF110 21 43 00 00 00 00 00 00\r>"
+                case "0A\r": reply = "NO DATA\r>"
+                case "020200\r": reply = "18DAF110 05 42 02 00 01 33\r>"
+                case "020C00\r": reply = "18DAF110 05 42 0C 00 0F A0\r>"
+                case "020500\r": reply = "18DAF110 04 42 05 00 7B\r>"
                 case "STVR\r": reply = "13.45\r>"
                 default: throw VehicleTransportError.failed("Unreviewed ordinary CAN29 request")
                 }

@@ -113,6 +113,15 @@ func run() error {
 		replies["0111\r"] = "7E8 03 41 11 33\r>"
 		replies["0123\r"] = "7E8 04 41 23 04 00\r>"
 	}
+	if *workload == obd.FaultScanWorkload {
+		replies["0101\r"] = "7E8 06 41 01 81 07 02 01\r>"
+		replies["03\r"] = "7E8 04 43 01 01 33\r7E9 02 43 00\r>"
+		replies["07\r"] = "7E8 10 08 47 03 01 33 03 00\r7E9 02 47 00\r7E8 21 43 00 00 00 00 00 00\r>"
+		replies["0A\r"] = "NO DATA\r>"
+		replies["020200\r"] = "7E8 05 42 02 00 01 33\r>"
+		replies["020C00\r"] = "7E8 05 42 0C 00 0F A0\r>"
+		replies["020500\r"] = "7E8 04 42 05 00 7B\r>"
+	}
 	supportAttempts := 0
 	if *scenario == "unsupported" {
 		replies["0100\r"] = "7E8 06 41 00 00 00 00 00\r>"
@@ -141,7 +150,7 @@ func run() error {
 			}
 			offline = false
 		}
-		if now == 80000000000 && *workload != obd.DiscoveryWorkload && *workload != "discovery_diagnostic" && *workload != "can29_diagnostic" && *workload != "adapter_handoff" {
+		if now == 80000000000 && *workload != obd.DiscoveryWorkload && *workload != obd.FaultScanWorkload && *workload != "discovery_diagnostic" && *workload != "can29_diagnostic" && *workload != "adapter_handoff" {
 			if _, e = l.Mark("Scripted manual evidence", base+now); e != nil {
 				return e
 			}

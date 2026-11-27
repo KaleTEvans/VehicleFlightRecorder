@@ -11,6 +11,8 @@ import (
 // to frame zero and return raw parameter bytes for that snapshot only.
 type FaultQuery string
 
+const FaultScanWorkload = "standard_fault_scan"
+
 const (
 	MonitorStatus  FaultQuery = "monitor_status"
 	ConfirmedCodes FaultQuery = "confirmed_codes"
@@ -20,6 +22,11 @@ const (
 	FreezeFrameRPM FaultQuery = "freeze_frame_rpm"
 	FreezeFrameECT FaultQuery = "freeze_frame_coolant"
 )
+
+// FaultScanQueries returns a fresh copy of the fixed scan order.
+func FaultScanQueries() []FaultQuery {
+	return []FaultQuery{MonitorStatus, ConfirmedCodes, PendingCodes, PermanentCodes, FreezeFrameDTC, FreezeFrameRPM, FreezeFrameECT}
+}
 
 type faultRequest struct {
 	command string
@@ -42,12 +49,12 @@ func (q FaultQuery) Command() (string, bool) {
 }
 
 type FaultResponse struct {
-	ECU       string
-	Outcome   string
-	Codes     []string
-	MIL       *bool
-	CodeCount *int
-	Data      []byte
+	ECU       string   `json:"ecu"`
+	Outcome   string   `json:"outcome"`
+	Codes     []string `json:"codes,omitempty"`
+	MIL       *bool    `json:"mil,omitempty"`
+	CodeCount *int     `json:"code_count,omitempty"`
+	Data      []byte   `json:"data_base64,omitempty"`
 }
 
 type FaultReply struct {

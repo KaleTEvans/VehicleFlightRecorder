@@ -391,3 +391,29 @@ def test_standard_diagnostic_recording_preserves_shortlist_cadence(live_exports,
         series = results[pid]["observed"]
         assert series and any(row["samples"] > 1 for row in series)
     assert all(tx["key"] not in {"support40", "oil_temperature", "fuel_rate"} for tx in report["transactions"])
+
+
+def test_standard_fault_scan_exports_code_status_and_freeze_frame(live_exports, tmp_path):
+    binary = live_exports["healthy"].parent.parent / "live-fixture"
+    run = subprocess.run([str(binary), "--output", str(tmp_path / "fault-scan"),
+                          "--workload", "standard_fault_scan", "--profile", "can29"],
+                         check=True, capture_output=True, text=True)
+    path = Path(run.stdout.strip())
+    assert load_session(path)["state"] == "complete"
+    report_path = path / "capability.json"
+    report = json.loads(report_path.read_text())
+    transactions = {tx["id"]: tx for tx in report["transactions"]}
+    replies = {transactions[row["transaction_id"]]["key"]: row["responders"]
+               for row in report["fault_results"]}
+    assert replies["pending_codes"][0]["codes"] == ["P0133", "P0300", "C0300"]
+    assert replies["confirmed_codes"][1]["outcome"] == "no_codes"
+    assert replies["monitor_status"][0]["mil"] is True
+    assert replies["freeze_frame_dtc"][0]["codes"] == ["P0133"]
+    assert any(tx["key"] == "permanent_codes" and tx["outcome"] == "no_data"
+               for tx in report["transactions"])
+    assert any(row.get("attributes", {}).get("reason") == "fault_scan_completed"
+               for row in map(json.loads, (path / "events.jsonl").read_text().splitlines()))
+    replies["confirmed_codes"][0]["codes"] = ["P0001"]
+    report_path.write_text(json.dumps(report))
+    with pytest.raises(ValidationError, match="results differ from raw evidence"):
+        load_session(path)

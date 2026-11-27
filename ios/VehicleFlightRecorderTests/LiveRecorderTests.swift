@@ -145,6 +145,19 @@ final class LiveRecorderTests: XCTestCase {
         try await service.close()
     }
 
+    func testNativeStandardFaultScanSavesCodesAndExport() async throws {
+        let result = try RegularCAN29Fixture.make(kind: "standard_fault_scan")
+        XCTAssertEqual(result.snapshot.endReason, "fault_scan_completed")
+        let scan = try XCTUnwrap(result.snapshot.faultScan)
+        XCTAssertEqual(scan.queries.count, 7)
+        XCTAssertEqual(scan.queries.first(where: { $0.key == "permanent_codes" })?.outcome, "no_data")
+        XCTAssertTrue(scan.results?.contains(where: { $0.responders.contains(where: { $0.codes?.contains("P0133") == true }) }) == true)
+        let service = try RecorderService(history: result.root)
+        let archive = try await service.archive(result.sessionID)
+        XCTAssertTrue(FileManager.default.fileExists(atPath: archive.path))
+        try await service.close()
+    }
+
     func testNativeRegularCAN29WorkloadsIncidentsAndRecoveryExports() async throws {
         for kind in ["reconnect", "partial", "rpm_only", "coolant_only", "voltage_only", "no_data"] {
             let result = try RegularCAN29Fixture.make(kind: kind)

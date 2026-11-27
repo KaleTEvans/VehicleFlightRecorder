@@ -65,6 +65,7 @@ struct LiveSnapshot: Decodable {
     let state: String
     let workload: String?
     let endReason: String?
+    let faultScan: LiveFaultScan?
     var isPIDDiscovery: Bool { workload == "standard_pid_discovery" }
     let protocolProfile: String?
     let generation: Int?
@@ -72,7 +73,7 @@ struct LiveSnapshot: Decodable {
     let discovery: LiveDiscovery?
     let adapterState: AdapterStateReadback?
     var isHandoff: Bool { workload == "adapter_handoff" }
-    var isDiagnostic: Bool { workload == "discovery_diagnostic" || workload == "can29_diagnostic" || isPIDDiscovery }
+    var isDiagnostic: Bool { workload == "discovery_diagnostic" || workload == "can29_diagnostic" || isPIDDiscovery || workload == "standard_fault_scan" }
     let elapsedMs: Int64
     let initialized: Bool
     let error: String
@@ -80,6 +81,61 @@ struct LiveSnapshot: Decodable {
     let capabilities: [LiveCapability]
     let incidents: [IncidentInfo]
     var active: Bool { state != "complete" && state != "failed" }
+}
+struct LiveFaultScan: Decodable {
+    let transactions: [Query]
+    let results: [Result]?
+    var queries: [Query] { transactions.filter { !$0.key.hasPrefix("init") } }
+
+    struct Query: Decodable, Identifiable {
+        let id: String
+        let key: String
+        let outcome: String
+        var title: String { key.replacingOccurrences(of: "_", with: " ").capitalized }
+        var description: String {
+            switch outcome {
+            case "pending": "Waiting for reply"
+            case "no_data", "timeout", "unavailable": "No usable reply"
+            case "partial": "Some replies were missing or unusable"
+            default: outcome.replacingOccurrences(of: "_", with: " ").capitalized
+            }
+        }
+    }
+    struct Result: Decodable {
+        let transactionId: String
+        let responders: [Responder]
+    }
+    struct Responder: Decodable, Identifiable {
+        let ecu: String
+        let outcome: String
+        let codes: [String]?
+        let mil: Bool?
+        let codeCount: Int?
+        let dataBase64: Data?
+        var id: String { ecu }
+        func description(for key: String) -> String {
+            if let mil, let codeCount {
+                return "Check-engine light \(mil ? "on" : "off") · \(codeCount) reported codes"
+            }
+            if let codes, !codes.isEmpty { return codes.joined(separator: ", ") }
+            if outcome == "reply", let dataBase64 {
+                let bytes = Array(dataBase64)
+                if key == "freeze_frame_rpm", bytes.count == 2 {
+                    let rpm = Double(Int(bytes[0]) * 256 + Int(bytes[1])) / 4
+                    return "\(rpm.formatted()) RPM"
+                }
+                if key == "freeze_frame_coolant", let temperature = bytes.first, bytes.count == 1 {
+                    return "\(Int(temperature) - 40) °C"
+                }
+            }
+            switch outcome {
+            case "reply": return "Raw response saved"
+            case "no_codes": return "No codes reported"
+            case "no_freeze_frame_dtc": return "No freeze-frame code reported"
+            default: return outcome.replacingOccurrences(of: "_", with: " ").capitalized
+            }
+        }
+    }
 }
 struct LiveReading: Decodable, Identifiable {
     let signalId: String

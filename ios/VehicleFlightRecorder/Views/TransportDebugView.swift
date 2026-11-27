@@ -11,7 +11,7 @@ struct TransportDebugView: View {
     @State private var workload = "combined"
     @State private var reference = ""
     @AppStorage("stationaryProtocolProfile") private var protocolProfile = StationaryProtocol.can29.rawValue
-    private var isRegularWorkload: Bool { ["combined", "rpm_only", "coolant_only", "voltage_only", "standard_expanded", "standard_pid_discovery", "standard_diagnostic_recording"].contains(workload) }
+    private var isRegularWorkload: Bool { ["combined", "rpm_only", "coolant_only", "voltage_only", "standard_expanded", "standard_pid_discovery", "standard_diagnostic_recording", "standard_fault_scan"].contains(workload) }
     var body: some View {
         NavigationStack {
             List {
@@ -90,6 +90,7 @@ struct TransportDebugView: View {
                         Text("Combined").tag("combined")
                         Text("Expanded standard OBD").tag("standard_expanded")
                         Text("Standard diagnostic recording").tag("standard_diagnostic_recording")
+                        Text("Standard fault scan").tag("standard_fault_scan")
                         Text("Standard PID discovery").tag("standard_pid_discovery")
                         Text("Discovery diagnostic").tag("discovery_diagnostic")
                         Text("CAN 29-bit diagnostic").tag("can29_diagnostic")
@@ -107,6 +108,9 @@ struct TransportDebugView: View {
                             .accessibilityIdentifier("stationary-protocol-picker")
                         Text("Select the vehicle's tested profile. CAN 29-bit / 500 kbps passed initial acquisition on this test car; no automatic protocol search is performed.").font(.caption)
                     }
+                    if workload == "standard_fault_scan" {
+                        Text("Keep VFR open and the vehicle parked. The scan reads emissions fault codes and available freeze-frame data once, then saves automatically.").font(.caption)
+                    }
                     if workload == "standard_pid_discovery" {
                         Text("Keep the car parked and VFR open. VFR checks which standard readings the car advertises, requests each once, and saves the raw replies.").font(.caption)
                     }
@@ -118,7 +122,7 @@ struct TransportDebugView: View {
                     if workload == "adapter_handoff" {
                         Text("Capture the adapter state after using OBDLink. Leave the scanner powered. This mode sends only three read-only settings queries and saves automatically, normally within a few seconds; its active owner-loop limit is 15 seconds. App reconnection may already change the prior state.").font(.caption)
                     } else { Text("Explicit Start enables documented adapter setup and read-only OBD requests. Keep parked; each session ends after 10 minutes of elapsed native time when the owner loop runs. Background continuity is unverified.").font(.caption) }
-                    Button(workload == "adapter_handoff" ? "Capture adapter settings" : "Start stationary recording") {
+                    Button(workload == "adapter_handoff" ? "Capture adapter settings" : workload == "standard_fault_scan" ? "Scan fault codes" : "Start stationary recording") {
                         Task { await model.startLive(operatingState: operatingState, workload: workload, reference: String(reference.prefix(256)), protocolProfile: isRegularWorkload ? protocolProfile : "") }
                     }.disabled(!parked || model.busy || model.live?.active == true)
                     if let live = model.live {
@@ -207,6 +211,21 @@ struct LiveDiscoveryStatusView: View {
                         .font(.caption).accessibilityIdentifier("handoff-caveat")
                     if !live.active && state.captured < 3 {
                         Text("Some settings were not received. The completed capture preserves the available raw evidence.").font(.caption)
+                    }
+                }
+            } else if let scan = live.faultScan {
+                if !live.active {
+                    Text(live.endReason == "fault_scan_completed" ? "Fault scan saved" : "Fault scan ended early. Available replies were saved.")
+                }
+                ForEach(scan.queries) { query in
+                    Text(query.title).font(.headline)
+                    if let rows = scan.results?.first(where: { $0.transactionId == query.id })?.responders {
+                        ForEach(rows) { row in
+                            Text("\(row.ecu) · \(row.description(for: query.key))").font(.caption)
+                        }
+                    }
+                    if query.outcome != "ok" {
+                        Text(query.description).font(.caption)
                     }
                 }
             } else if live.isPIDDiscovery {

@@ -42,6 +42,7 @@ struct LiveSessionInfo: Codable {
         switch workload {
         case "rpm_only": return "RPM only"
         case "standard_pid_discovery": return "Standard PID discovery"
+        case "standard_fault_scan": return "Standard fault scan"
         case "standard_diagnostic_recording": return "Standard diagnostic recording"
         case "standard_expanded": return "Expanded standard OBD"
         case "coolant_only": return "Coolant only"
@@ -57,6 +58,7 @@ struct LiveSessionInfo: Codable {
         switch workload {
         case "rpm_only": return "Engine RPM"
         case "standard_pid_discovery": return "One read per advertised standard PID"
+        case "standard_fault_scan": return "Emissions fault codes, monitor status and freeze-frame data"
         case "standard_diagnostic_recording": return "RPM, speed, coolant, load, intake pressure and temperature, throttle, fuel pressure and trims, adapter voltage"
         case "standard_expanded": return "Baseline readings, vehicle speed, fuel trims, oil temperature and fuel rate when supported"
         case "coolant_only": return "Coolant temperature"

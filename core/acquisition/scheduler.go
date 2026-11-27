@@ -87,7 +87,13 @@ type Connection struct {
 	StartNS    int64             `json:"start_ns"`
 	Metadata   map[string]string `json:"metadata"`
 }
+type FaultResult struct {
+	Transaction string              `json:"transaction_id"`
+	Responders  []obd.FaultResponse `json:"responders"`
+}
+
 type Report struct {
+	FaultResults  []FaultResult      `json:"fault_results,omitempty"`
 	Configuration *LiveConfiguration `json:"configuration,omitempty"`
 	Version       int                `json:"report_version"`
 	Kind          string             `json:"kind"`
@@ -120,6 +126,8 @@ type Work struct {
 	Bytes      []byte
 }
 type Scheduler struct {
+	faultQueries                                         []obd.FaultQuery
+	faultIndex                                           int
 	discovery                                            *obd.DiscoveryPass
 	discoveryRequest                                     *obd.DiscoveryRequest
 	discoveryDefinitions                                 map[string]obd.Definition
@@ -251,6 +259,13 @@ func (s *Scheduler) poll(now int64, rpmRecovery bool) (*Work, error) {
 	if s.settling || s.report.State != "ready" || now < s.nextSend {
 		return nil, nil
 	}
+	if s.faultQueries != nil && s.Initialized() {
+		if s.FaultScanComplete() {
+			return nil, nil
+		}
+		key := string(s.faultQueries[s.faultIndex])
+		return s.admitOneShot(now, key)
+	}
 	if s.discovery != nil && s.Initialized() {
 		if s.discoveryComplete {
 			return nil, nil
@@ -266,17 +281,7 @@ func (s *Scheduler) poll(now int64, rpmRecovery bool) (*Work, error) {
 			s.discoveryDefinitions = make(map[string]obd.Definition)
 		}
 		s.discoveryDefinitions[key] = obd.Definition{Key: key, Command: request.Command}
-		spec := Schedule{Key: key, IntervalNS: 60 * Second, TimeoutNS: 2 * Second}
-		s.entries = append(s.entries, entry{spec: spec, due: now})
-		s.report.Schedule = append(s.report.Schedule, spec)
-		transactionCount := len(s.report.Transactions)
-		work, err := s.admit(now, len(s.entries)-1)
-		if len(s.report.Transactions) == transactionCount {
-			s.entries = s.entries[:len(s.entries)-1]
-			s.report.Schedule = s.report.Schedule[:len(s.report.Schedule)-1]
-			delete(s.discoveryDefinitions, key)
-		}
-		return work, err
+		return s.admitOneShot(now, key)
 	}
 	selected := -1
 	for i, e := range s.entries {
@@ -294,6 +299,24 @@ func (s *Scheduler) poll(now int64, rpmRecovery bool) (*Work, error) {
 		return nil, nil
 	}
 	return s.admit(now, selected)
+}
+
+func (s *Scheduler) admitOneShot(now int64, key string) (*Work, error) {
+	spec := Schedule{Key: key, IntervalNS: 60 * Second, TimeoutNS: 2 * Second}
+	s.entries = append(s.entries, entry{spec: spec, due: now})
+	s.report.Schedule = append(s.report.Schedule, spec)
+	transactionCount := len(s.report.Transactions)
+	work, err := s.admit(now, len(s.entries)-1)
+	if len(s.report.Transactions) == transactionCount {
+		s.entries = s.entries[:len(s.entries)-1]
+		s.report.Schedule = s.report.Schedule[:len(s.report.Schedule)-1]
+		delete(s.discoveryDefinitions, key)
+	}
+	return work, err
+}
+
+func (s *Scheduler) FaultScanComplete() bool {
+	return s.faultQueries != nil && s.faultIndex == len(s.faultQueries) && s.report.State == "ready"
 }
 
 func (s *Scheduler) DiscoveryComplete() bool { return s.discoveryComplete }
@@ -417,6 +440,9 @@ func (s *Scheduler) finish(now int64, outcome string) {
 	if s.discoveryRequest != nil {
 		_, _ = s.discovery.Complete(*s.discoveryRequest, nil)
 		s.discoveryRequest = nil
+	}
+	if s.faultQueries != nil && s.faultIndex < len(s.faultQueries) && tx.Key == string(s.faultQueries[s.faultIndex]) {
+		s.faultIndex++
 	}
 	tx.Outcome = outcome
 	for i := range s.entries {
@@ -602,6 +628,18 @@ func (s *Scheduler) Receive(generation int, now int64, data []byte) error {
 		s.finish(now, "ok")
 		return nil
 	}
+	if s.faultQueries != nil {
+		reply, err := obd.ParseFaultReply(s.report.Profile, obd.FaultQuery(tx.Key), frames[0])
+		if err != nil {
+			s.finish(now, "protocol_error")
+			return err
+		}
+		if len(reply.Responders) > 0 {
+			s.report.FaultResults = append(s.report.FaultResults, FaultResult{tx.ID, reply.Responders})
+		}
+		s.finish(now, reply.Outcome)
+		return nil
+	}
 	if s.discoveryRequest != nil {
 		result, err := s.discovery.Complete(*s.discoveryRequest, frames[0])
 		s.discoveryRequest = nil
@@ -698,8 +736,8 @@ func (s *Scheduler) Receive(generation int, now int64, data []byte) error {
 // Reconnect is explicit. It cancels old work, discards framing and capability
 // cache, and never replays a partly sent command. Clock anchors remain unchanged.
 func (s *Scheduler) Reconnect(now int64) error {
-	if s.discovery != nil {
-		return fmt.Errorf("PID discovery requires one connection")
+	if s.discovery != nil || s.faultQueries != nil {
+		return fmt.Errorf("diagnostic pass requires one connection")
 	}
 	if err := s.clock(now); err != nil {
 		return err

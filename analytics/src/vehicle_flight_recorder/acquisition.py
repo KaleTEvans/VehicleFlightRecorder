@@ -2,8 +2,10 @@
 import base64
 from collections import Counter, defaultdict
 import math
+import json
 from pathlib import Path
 import re
+from .faults import FAULT_COMMANDS, fault_responses
 from .session import ValidationError, _decode, _integer
 
 COMMANDS = {"support": b"0100\r", "rpm": b"010C\r", "coolant": b"0105\r", "adapter_voltage": b"STVR\r"}
@@ -222,7 +224,7 @@ def _validate_acquisition(path, *, allow_incomplete=False):
     version = report.get('report_version') if isinstance(report, dict) else None
     require(type(version) is int and version in (1, 2), 'unsupported version')
     live = version == 2
-    fields(report, "report_version kind source protocol_profile catalog_version anchor_unix_ms duration_ns generation state vehicle_identity reference_comparison schedule raw transactions observations capabilities statistics issues" + (' configuration' if live else ''))
+    fields({key: value for key, value in report.items() if key != "fault_results"}, "report_version kind source protocol_profile catalog_version anchor_unix_ms duration_ns generation state vehicle_identity reference_comparison schedule raw transactions observations capabilities statistics issues" + (' configuration' if live else ''))
     commands = LIVE_COMMANDS if live else COMMANDS
     handoff = live and isinstance(report.get('configuration'),dict) and report['configuration'].get('workload')=='adapter_handoff'
     can29 = live and report['protocol_profile']=='can29-normal-fixed-single-frame-headers-pci'
@@ -236,9 +238,9 @@ def _validate_acquisition(path, *, allow_incomplete=False):
         config = report['configuration']
         fields({k:v for k,v in config.items() if k not in {'start_origin','policy_version','startup_sync_version'}}, 'app_version bridge_version reference_note sensor_refresh_rate enhanced_pack maximum_duration_ns minimum_admission_ns session_id origin operating_state workload native_anchor_ns initialization_version selected_protocol connections')
         require(isinstance(config['session_id'], str) and re.fullmatch(r'live-[0-9a-f]{32}', config['session_id']), 'live session identity')
-        require(config['origin'] in ('physical', 'native-fixture', 'scripted-fixture') and config['operating_state'] in ('unknown', 'ignition_on_engine_off', 'stationary_running') and config['workload'] in ('combined', 'rpm_only', 'coolant_only', 'voltage_only', 'standard_expanded', 'standard_pid_discovery', 'standard_diagnostic_recording', 'discovery_diagnostic', 'can29_diagnostic', 'adapter_handoff'), 'live configuration')
+        require(config['origin'] in ('physical', 'native-fixture', 'scripted-fixture') and config['operating_state'] in ('unknown', 'ignition_on_engine_off', 'stationary_running') and config['workload'] in ('combined', 'rpm_only', 'coolant_only', 'voltage_only', 'standard_expanded', 'standard_pid_discovery', 'standard_diagnostic_recording', 'standard_fault_scan', 'discovery_diagnostic', 'can29_diagnostic', 'adapter_handoff'), 'live configuration')
         diagnostic = config['workload'] in ('discovery_diagnostic','can29_diagnostic')
-        regular = config['workload'] in ('combined','rpm_only','coolant_only','voltage_only','standard_expanded','standard_pid_discovery','standard_diagnostic_recording')
+        regular = config['workload'] in ('combined','rpm_only','coolant_only','voltage_only','standard_expanded','standard_pid_discovery','standard_diagnostic_recording','standard_fault_scan')
         require((regular or (can29 == (config['workload']=='can29_diagnostic'))), 'workload/protocol mismatch')
         init_steps = HANDOFF_INITIALIZATION if handoff else CAN29_INITIALIZATION if can29 else DIAGNOSTIC_INITIALIZATION if diagnostic else INITIALIZATION
         require(config['initialization_version'] == (('obdlink-stp34-diagnostic-1' if diagnostic else 'obdlink-stp34-runtime-1') if can29 else 'obdlink-adapter-handoff-1' if handoff else 'obdlink-stp33-diagnostic-2' if diagnostic else 'obdlink-stp33-runtime-1') and config['selected_protocol'] == ('ISO15765-4-CAN29-500' if can29 else 'unmodified-adapter-state' if handoff else 'ISO15765-4-CAN11-500') and config['app_version'] == '0.1.0' and type(config['bridge_version']) is int and config['bridge_version'] == 1, 'configuration version/protocol')
@@ -267,6 +269,12 @@ def _validate_acquisition(path, *, allow_incomplete=False):
     expanded = live and config['workload'] == 'standard_expanded'
     diagnostic_recording = live and config['workload'] == 'standard_diagnostic_recording'
     discovery = live and config['workload'] == 'standard_pid_discovery'
+    fault_scan = live and config['workload'] == 'standard_fault_scan'
+    require(fault_scan or "fault_results" not in report, "unexpected fault scan evidence")
+    if fault_scan:
+        commands = commands | FAULT_COMMANDS
+        require(generation == 1 and len(config['connections']) <= 1, 'fault scan crosses connections')
+        require(not report['observations'] and not report['capabilities'] and not report['statistics'], 'fault scan cannot claim live measurements')
     if discovery:
         commands = commands | DISCOVERY_COMMANDS
         require(generation == 1 and len(config['connections']) <= 1, 'discovery pass crosses connections')
@@ -286,14 +294,15 @@ def _validate_acquisition(path, *, allow_incomplete=False):
     require(schedule, "empty schedule")
     if live:
         require(list(schedule)[:len(init_steps)] == list(init_steps), 'missing/reordered initialization configuration')
-        selected = set(schedule)-set(init_steps) if discovery else {'combined': {'support', 'rpm', 'coolant', 'adapter_voltage'}, 'standard_expanded': {'support','rpm','coolant','adapter_voltage'} | set(EXPANDED_SCHEDULE), 'standard_diagnostic_recording': {'support','rpm','coolant','adapter_voltage'} | set(DIAGNOSTIC_RECORDING_SCHEDULE), 'rpm_only': {'support', 'rpm'}, 'coolant_only': {'support', 'coolant'}, 'voltage_only': {'adapter_voltage'}, 'discovery_diagnostic': {'support', 'rpm', 'coolant', 'adapter_voltage', 'can_status'}, 'can29_diagnostic': {'support','rpm','coolant','adapter_voltage','can_status'}, 'adapter_handoff': set()}[config['workload']]
+        selected = set(schedule)-set(init_steps) if discovery or fault_scan else {'combined': {'support', 'rpm', 'coolant', 'adapter_voltage'}, 'standard_expanded': {'support','rpm','coolant','adapter_voltage'} | set(EXPANDED_SCHEDULE), 'standard_diagnostic_recording': {'support','rpm','coolant','adapter_voltage'} | set(DIAGNOSTIC_RECORDING_SCHEDULE), 'rpm_only': {'support', 'rpm'}, 'coolant_only': {'support', 'coolant'}, 'voltage_only': {'adapter_voltage'}, 'discovery_diagnostic': {'support', 'rpm', 'coolant', 'adapter_voltage', 'can_status'}, 'can29_diagnostic': {'support','rpm','coolant','adapter_voltage','can_status'}, 'adapter_handoff': set()}[config['workload']]
         require(set(schedule)-set(init_steps) == selected, 'workload/configuration mismatch')
         require(all(schedule[k] == dict(key=k, interval_ns=60*10**9, timeout_ns=2*10**9, priority=0) for k in init_steps), 'initialization schedule')
-        if discovery:
-            require(all(key in DISCOVERY_COMMANDS and schedule[key] == dict(
+        if discovery or fault_scan:
+            one_shot_commands = FAULT_COMMANDS if fault_scan else DISCOVERY_COMMANDS
+            require(all(key in one_shot_commands and schedule[key] == dict(
                 key=key, interval_ns=60*10**9, timeout_ns=2*10**9, priority=0
             ) for key in selected), 'unsupported discovery schedule')
-        for key in () if discovery else selected:
+        for key in () if discovery or fault_scan else selected:
             intervals = {'support': (15 if diagnostic else 60, 0), 'rpm': (2, 1),
                          'coolant': (5, 2), 'adapter_voltage': (5, 3), 'can_status': (15, 4)}
             seconds, priority = (intervals | (DIAGNOSTIC_RECORDING_SCHEDULE if diagnostic_recording else EXPANDED_SCHEDULE))[key]
@@ -362,7 +371,7 @@ def _validate_acquisition(path, *, allow_incomplete=False):
             accepted_rows = [row for row, _ in rows if row['kind'] == 'accepted']
             require(accepted == commands[tx['key']] and accepted_rows[-1]['monotonic_ns'] == tx['sent_ns'], "send time lacks full acceptance evidence")
         received_rows = [(row, data) for row, data in rows if row['kind'] == 'received']
-        expected_values[id] = {} if tx['key'] in DISCOVERY_COMMANDS else replay_values(tx['key'], b''.join(data for _, data in received_rows), can29)
+        expected_values[id] = {} if tx['key'] in DISCOVERY_COMMANDS or tx['key'] in FAULT_COMMANDS else replay_values(tx['key'], b''.join(data for _, data in received_rows), can29)
         if tx['outcome'] in {'ok', 'partial'}:
             require(tx['sent_ns'] is not None and received_rows, "success lacks response provenance")
             require(max(row['sequence'] for row, _ in rows if row['kind'] == 'accepted') < received_rows[0][0]['sequence'], "response predates completed write")
@@ -418,6 +427,9 @@ def _validate_acquisition(path, *, allow_incomplete=False):
             else:
                 require(positions[gen] == len(init_steps), 'measurement requested before setup verification')
                 key = tx['key']
+                if fault_scan:
+                    discovery_keys.append(key)
+                    continue
                 if discovery:
                     discovery_keys.append(key)
                     pid = int(key.removeprefix('mode01_'), 16)
@@ -444,6 +456,21 @@ def _validate_acquisition(path, *, allow_incomplete=False):
                     frame = b''.join(data for row, data in raw_by_tx[tx['id']] if row['kind'] == 'received')
                     block = SUPPORT_BLOCKS[key]
                     support_by_generation[gen].update({(block, ecu): mask for ecu, mask in support_bits(frame, can29, block).items()})
+        if fault_scan:
+            require(discovery_keys == list(FAULT_COMMANDS)[:len(discovery_keys)] and
+                    discovery_keys == list(schedule)[len(init_steps):], 'fault scan queries differ from allowlisted sequence')
+            results = []
+            for tx in report['transactions']:
+                if tx['key'] not in FAULT_COMMANDS or tx['outcome'] not in {'ok','partial','negative_response','unavailable'}:
+                    continue
+                frame = b''.join(data for row, data in raw_by_tx[tx['id']] if row['kind'] == 'received')
+                responders = fault_responses(tx['key'], frame, can29)
+                if tx['outcome'] != 'unavailable':
+                    require(responders and tx['sent_ns'] is not None, 'fault scan result lacks raw response')
+                if responders:
+                    require(tx['sent_ns'] is not None, 'fault scan reply precedes command acceptance')
+                    results.append({"transaction_id": tx['id'], "responders": responders})
+            require(json.dumps(report.get('fault_results', []), sort_keys=True) == json.dumps(results, sort_keys=True), 'fault scan results differ from raw evidence')
         if discovery:
             require(discovery_keys == list(schedule)[len(init_steps):], 'discovery schedule differs from captured requests')
     if handoff:

@@ -5,6 +5,8 @@ import (
 	"vehicleflightrecorder.local/core/obd"
 )
 
+const DiagnosticPollingPolicy = "prioritize-rpm-speed-1"
+
 // NewLive retains the offline engine's ordered admission/failure invariants but
 // uses an explicit live schema, setup gate and separately bounded test budget.
 func NewLive(anchorMS int64, specs []Schedule, config LiveConfiguration) (*Scheduler, error) {
@@ -15,6 +17,9 @@ func NewLive(anchorMS int64, specs []Schedule, config LiveConfiguration) (*Sched
 	}
 	if config.StartupSyncVersion != "" && (config.StartupSyncVersion != StartupSyncVersion || config.PolicyVersion != "rpm-activity-1") {
 		return nil, fmt.Errorf("unknown startup synchronization policy")
+	}
+	if config.PollingPolicy != "" && (config.PollingPolicy != DiagnosticPollingPolicy || config.Workload != obd.DiagnosticRecordingWorkload) {
+		return nil, fmt.Errorf("invalid polling policy")
 	}
 	handoff := config.Workload == obd.HandoffWorkload
 	if !handoff && config.Workload != obd.DiscoveryWorkload && config.Workload != obd.FaultScanWorkload && len(specs) == 0 {

@@ -417,3 +417,26 @@ def test_standard_fault_scan_exports_code_status_and_freeze_frame(live_exports, 
     report_path.write_text(json.dumps(report))
     with pytest.raises(ValidationError, match="results differ from raw evidence"):
         load_session(path)
+
+
+def test_diagnostic_cadence_prioritizes_speed_and_rpm_at_observed_link_timing(live_exports, tmp_path):
+    from statistics import median
+
+    binary = live_exports["healthy"].parent.parent / "live-fixture"
+    run = subprocess.run([str(binary), "--output", str(tmp_path / "cadence"),
+                          "--workload", "standard_diagnostic_recording", "--profile", "can29",
+                          "--scenario", "physical_cadence"], check=True, capture_output=True, text=True)
+    path = Path(run.stdout.strip())
+    result = load_session(path)
+    report = json.loads((path / "capability.json").read_text())
+    assert report["configuration"]["polling_policy"] == "prioritize-rpm-speed-1"
+    assert len(result["signal_coverage"]) == 13
+    for signal in ("powertrain.engine.rpm", "powertrain.vehicle.speed"):
+        times = [row["receive_ns"] / 10**9 for row in report["observations"]
+                 if row["signal_id"] == signal and row["ecu"] == "18DAF110"]
+        gaps = [after - before for before, after in zip(times, times[1:])]
+        assert len(times) >= 50
+        assert median(gaps) < 3.5
+        assert max(gaps) < 4.1
+    for signal in result["signal_coverage"]:
+        assert sum(row["signal_id"] == signal for row in report["observations"]) >= 4

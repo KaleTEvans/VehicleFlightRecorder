@@ -236,9 +236,12 @@ def _validate_acquisition(path, *, allow_incomplete=False):
     if not live: require(len(data) <= 8 * 1024 * 1024, '8 MiB offline report limit')
     if live:
         config = report['configuration']
-        fields({k:v for k,v in config.items() if k not in {'start_origin','policy_version','startup_sync_version'}}, 'app_version bridge_version reference_note sensor_refresh_rate enhanced_pack maximum_duration_ns minimum_admission_ns session_id origin operating_state workload native_anchor_ns initialization_version selected_protocol connections')
+        fields({k:v for k,v in config.items() if k not in {'start_origin','policy_version','startup_sync_version','polling_policy'}}, 'app_version bridge_version reference_note sensor_refresh_rate enhanced_pack maximum_duration_ns minimum_admission_ns session_id origin operating_state workload native_anchor_ns initialization_version selected_protocol connections')
         require(isinstance(config['session_id'], str) and re.fullmatch(r'live-[0-9a-f]{32}', config['session_id']), 'live session identity')
         require(config['origin'] in ('physical', 'native-fixture', 'scripted-fixture') and config['operating_state'] in ('unknown', 'ignition_on_engine_off', 'stationary_running') and config['workload'] in ('combined', 'rpm_only', 'coolant_only', 'voltage_only', 'standard_expanded', 'standard_pid_discovery', 'standard_diagnostic_recording', 'standard_fault_scan', 'discovery_diagnostic', 'can29_diagnostic', 'adapter_handoff'), 'live configuration')
+        if 'polling_policy' in config:
+            require(config['workload'] == 'standard_diagnostic_recording' and
+                    config['polling_policy'] == 'prioritize-rpm-speed-1', 'unsupported polling policy')
         diagnostic = config['workload'] in ('discovery_diagnostic','can29_diagnostic')
         regular = config['workload'] in ('combined','rpm_only','coolant_only','voltage_only','standard_expanded','standard_pid_discovery','standard_diagnostic_recording','standard_fault_scan')
         require((regular or (can29 == (config['workload']=='can29_diagnostic'))), 'workload/protocol mismatch')

@@ -117,14 +117,23 @@ struct LiveFaultScan: Decodable {
             if let mil, let codeCount {
                 return "Check-engine light \(mil ? "on" : "off") · \(codeCount) reported codes"
             }
-            if let codes, !codes.isEmpty { return codes.joined(separator: ", ") }
+            if let codes, !codes.isEmpty {
+                let counts = Dictionary(grouping: codes, by: { $0 }).mapValues { $0.count }
+                var displayed = Set<String>()
+                return codes.filter { displayed.insert($0).inserted }.map { code in
+                    let count = counts[code, default: 1]
+                    return count > 1 ? "\(code) ×\(count)" : code
+                }.joined(separator: ", ")
+            }
             if outcome == "reply", let dataBase64 {
                 let bytes = Array(dataBase64)
                 if key == "freeze_frame_rpm", bytes.count == 2 {
+                    if bytes == [0xff, 0xff] { return "Suspect RPM · raw FF FF" }
                     let rpm = Double(Int(bytes[0]) * 256 + Int(bytes[1])) / 4
                     return "\(rpm.formatted()) RPM"
                 }
                 if key == "freeze_frame_coolant", let temperature = bytes.first, bytes.count == 1 {
+                    if temperature == 0xff { return "Suspect coolant temperature · raw FF" }
                     return "\(Int(temperature) - 40) °C"
                 }
             }

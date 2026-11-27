@@ -63,6 +63,7 @@ type Statistics struct {
 	LatencyP95NS int64   `json:"latency_p95_ns"`
 }
 type LiveConfiguration struct {
+	PollingPolicy      string       `json:"polling_policy,omitempty"`
 	StartupSyncVersion string       `json:"startup_sync_version,omitempty"`
 	AppVersion         string       `json:"app_version"`
 	BridgeVersion      int64        `json:"bridge_version"`
@@ -126,6 +127,7 @@ type Work struct {
 	Bytes      []byte
 }
 type Scheduler struct {
+	fastStreak                                           int
 	faultQueries                                         []obd.FaultQuery
 	faultIndex                                           int
 	discovery                                            *obd.DiscoveryPass
@@ -283,7 +285,8 @@ func (s *Scheduler) poll(now int64, rpmRecovery bool) (*Work, error) {
 		s.discoveryDefinitions[key] = obd.Definition{Key: key, Command: request.Command}
 		return s.admitOneShot(now, key)
 	}
-	selected := -1
+	selected, fast := -1, -1
+	prioritizeFast := !rpmRecovery && s.live && s.report.Configuration.PollingPolicy == DiagnosticPollingPolicy
 	for i, e := range s.entries {
 		if rpmRecovery && e.spec.Key != "rpm" && (e.spec.Key != "support" || s.hasRecoveryDiscovery()) && !obd.IsInitialization(e.spec.Key) {
 			continue
@@ -291,14 +294,44 @@ func (s *Scheduler) poll(now int64, rpmRecovery bool) (*Work, error) {
 		if e.due > now || !s.eligible(e.spec.Key) {
 			continue
 		}
-		if selected < 0 || e.due < s.entries[selected].due || (e.due == s.entries[selected].due && (e.spec.Priority < s.entries[selected].spec.Priority || (e.spec.Priority == s.entries[selected].spec.Priority && e.spec.Key < s.entries[selected].spec.Key))) {
-			selected = i
+		best := &selected
+		if prioritizeFast && isFastDiagnosticSignal(e.spec.Key) {
+			best = &fast
 		}
+		if *best < 0 || dueBefore(e, s.entries[*best]) {
+			*best = i
+		}
+	}
+	// Reserve up to two consecutive eligible slots for changing signals, then
+	// serve the oldest due background request. Never queue catch-up traffic.
+	useFast := fast >= 0 && (s.fastStreak < 2 || selected < 0)
+	if useFast {
+		selected = fast
 	}
 	if selected < 0 {
 		return nil, nil
 	}
-	return s.admit(now, selected)
+	work, err := s.admit(now, selected)
+	if work != nil && prioritizeFast {
+		if useFast {
+			s.fastStreak = min(s.fastStreak+1, 2)
+		} else {
+			s.fastStreak = 0
+		}
+	}
+	return work, err
+}
+
+func isFastDiagnosticSignal(key string) bool { return key == "rpm" || key == "speed" }
+
+func dueBefore(a, b entry) bool {
+	if a.due != b.due {
+		return a.due < b.due
+	}
+	if a.spec.Priority != b.spec.Priority {
+		return a.spec.Priority < b.spec.Priority
+	}
+	return a.spec.Key < b.spec.Key
 }
 
 func (s *Scheduler) admitOneShot(now int64, key string) (*Work, error) {
@@ -471,6 +504,10 @@ func (s *Scheduler) finish(now int64, outcome string) {
 			delay = cap
 		}
 		e.due = now + delay
+		if (outcome == "ok" || outcome == "partial") && s.live &&
+			s.report.Configuration.PollingPolicy == DiagnosticPollingPolicy && isFastDiagnosticSignal(tx.Key) {
+			e.due = tx.StartNS + delay
+		}
 	}
 	s.active = -1
 	s.nextSend = now + Second/10
@@ -745,6 +782,7 @@ func (s *Scheduler) Reconnect(now int64) error {
 	s.finish(now, "cancelled")
 	s.report.Generation++
 	s.initIndex = 0
+	s.fastStreak = 0
 	s.settling = false
 	s.stoppedRetries = 0
 	s.report.State = "ready"

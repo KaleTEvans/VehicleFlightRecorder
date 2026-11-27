@@ -145,6 +145,19 @@ final class LiveRecorderTests: XCTestCase {
         try await service.close()
     }
 
+    func testFaultScanPresentationGroupsCodesAndFlagsAllOnes() throws {
+        let repeated = LiveFaultScan.Responder(ecu: "18DAF110", outcome: "reply",
+            codes: ["U0101", "U0101", "U0002", "U0001", "U0002"], mil: nil, codeCount: nil, dataBase64: nil)
+        XCTAssertEqual(repeated.description(for: "confirmed_codes"), "U0101 ×2, U0002 ×2, U0001")
+        XCTAssertEqual(repeated.codes?.count, 5)
+        let rpm = LiveFaultScan.Responder(ecu: "18DAF118", outcome: "reply",
+            codes: nil, mil: nil, codeCount: nil, dataBase64: Data([0xff, 0xff]))
+        XCTAssertEqual(rpm.description(for: "freeze_frame_rpm"), "Suspect RPM · raw FF FF")
+        let coolant = LiveFaultScan.Responder(ecu: "18DAF118", outcome: "reply",
+            codes: nil, mil: nil, codeCount: nil, dataBase64: Data([0xff]))
+        XCTAssertEqual(coolant.description(for: "freeze_frame_coolant"), "Suspect coolant temperature · raw FF")
+    }
+
     func testNativeStandardFaultScanSavesCodesAndExport() async throws {
         let result = try RegularCAN29Fixture.make(kind: "standard_fault_scan")
         XCTAssertEqual(result.snapshot.endReason, "fault_scan_completed")

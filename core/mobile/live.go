@@ -176,7 +176,11 @@ func NewLiveRecorder(root, options string, wallMS, nativeNS int64) (result *Live
 		specs = nil
 		initialization = obd.HandoffInitializationVersion
 	}
-	engine, err := acquisition.NewLive(wallMS, specs, acquisition.LiveConfiguration{SessionID: id, Origin: config.Origin, OperatingState: config.OperatingState, Workload: config.Workload, NativeAnchorNS: nativeNS, Initialization: initialization, Protocol: selectedProtocol, AppVersion: "0.1.0", BridgeVersion: BridgeVersion(), ReferenceNote: config.ReferenceNote, SensorRefresh: "unknown", EnhancedPack: "none", MaximumDurationNS: limit, MinimumAdmissionNS: acquisition.Second / 2, StartupSyncVersion: func() string {
+	pollingPolicy := ""
+	if config.Workload == obd.DiagnosticRecordingWorkload {
+		pollingPolicy = acquisition.DiagnosticPollingPolicy
+	}
+	engine, err := acquisition.NewLive(wallMS, specs, acquisition.LiveConfiguration{SessionID: id, Origin: config.Origin, OperatingState: config.OperatingState, Workload: config.Workload, PollingPolicy: pollingPolicy, NativeAnchorNS: nativeNS, Initialization: initialization, Protocol: selectedProtocol, AppVersion: "0.1.0", BridgeVersion: BridgeVersion(), ReferenceNote: config.ReferenceNote, SensorRefresh: "unknown", EnhancedPack: "none", MaximumDurationNS: limit, MinimumAdmissionNS: acquisition.Second / 2, StartupSyncVersion: func() string {
 		if config.StartOrigin != "manual" {
 			return acquisition.StartupSyncVersion
 		}

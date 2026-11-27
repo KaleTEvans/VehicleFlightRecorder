@@ -32,7 +32,7 @@ func run() error {
 	if e != nil {
 		return e
 	}
-	valid := map[string]bool{"healthy": true, "reconnect": true, "malformed": true, "unsupported": true, "timeout": true, "no_data": true, "recovery": true, "handoff_retained": true, "handoff_unknown": true, "handoff_timeout": true}
+	valid := map[string]bool{"healthy": true, "reconnect": true, "malformed": true, "unsupported": true, "timeout": true, "no_data": true, "recovery": true, "handoff_retained": true, "handoff_unknown": true, "handoff_timeout": true, "physical_cadence": true}
 	if !valid[*scenario] {
 		return fmt.Errorf("unknown scripted scenario")
 	}
@@ -133,7 +133,11 @@ func run() error {
 	late := []byte(nil)
 	timedOut := false
 	offline := false
+	var nextFixtureTick int64
 	for now := int64(0); now <= 210000000000; now += 100000000 {
+		if now < nextFixtureTick {
+			continue
+		}
 		if *scenario == "reconnect" && now == 100000000000 {
 			if e = l.Disconnected(gen, base+now, "scripted physical loss"); e != nil {
 				return e
@@ -196,11 +200,19 @@ func run() error {
 			late = []byte(response)
 			continue
 		}
+		replyDelay := int64(0)
+		if *scenario == "physical_cadence" {
+			replyDelay = 580_000_000
+			if string(command) == "STVR\r" {
+				replyDelay = 82_000_000
+			}
+			nextFixtureTick = now + replyDelay + 4000
+		}
 		half := len(response) / 2
-		if e = l.Receive(gen, base+now+3000, []byte(response[:half])); e != nil {
+		if e = l.Receive(gen, base+now+replyDelay+3000, []byte(response[:half])); e != nil {
 			return e
 		}
-		if e = l.Receive(gen, base+now+4000, []byte(response[half:])); e != nil {
+		if e = l.Receive(gen, base+now+replyDelay+4000, []byte(response[half:])); e != nil {
 			return e
 		}
 	}
